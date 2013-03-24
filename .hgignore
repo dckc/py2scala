@@ -1,0 +1,5 @@
+syntax: glob
+.cache
+*.class
+*~
+*.pyc
