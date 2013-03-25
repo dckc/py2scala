@@ -87,42 +87,54 @@ genschem = compile(s)
 
 """
 
-	  /*
+
+
+	  	val token = """(?x)(?:\s*)
 # A Token consists of 
 #
+	  	  (
 #Either:
 #    1. a sequence of digits
+	  	  \d+|
 #OR
 #    2. One of the following punctuation marks:
 #         .  <  >  ;  /  :  [  ]  (  +  )  =  -  * ,
+	  	  [\.<>;/:\[\]\(\+\)=\-\*\,]|
 #OR
 #    3. One of these slashed TeX symbols:
 #         \{  \}  \.   \_  \&  \%  \# \, \> \; \!
+	  	  \\[\{\._\}\&\%\,<;\!]|
 #OR
 #    4. Either:
 #            a.  A single letter
+	  	  ([A-Za-z]|
 #OR 
 #            b.  A pair of braces { } enclosing non-brace characters
+	  	  \{[^\{]*\}|
 #OR
 #            c.  An alphabetic control sequence, a backslash followed by letters
+	  	  \\[A-Za-z]+)
 #
 #       optionally followed by
 #            d.  A prime sequence, a backslash followed by a sequence of p's not
 #                followed by a letter
+	  	  (?:\\p+(?![A-Za-z]))?
 #
 #       optionally followed by any number of sequences consisting of:
 #            e.  A TeX superscript ^ or subscript _
+	  	  (?:[\^_]
 #      
 #            followed by
 #            Either
 #                i) a pair of braces { } enclosing non-brace characters
+	  	  (?:\{[^\{]*\}|
 #            OR 
 #                ii) an alphabetic control sequence, a backslash followed by letters
+	  	  \\[A-Za-z]+|
 #            OR
 #                iii) any single non-slash character
-*/
-
-	  	val token = """(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)""".r
+	  	  [^\\]))*)
+	  	  (?:\s*)""".r
 
 //# token = pattern.token.match.group(2) 
 //# variable stripped of decoration = pattern.token.match.group(3)
@@ -172,14 +184,16 @@ alphacontrolseq_or_skip = compile(s)
 			var repeat = "yes"
 			while (repeat.length > 0) {
 				repeat = raw_input("Enter possible token string: ")
-				/*@@
-				s = token.match(repeat)
-				if s {
-					print s.group(2)
-					print s.groups()
+				token.findFirstIn(repeat) match {
+				  case Some(token(x, y)) => {
+					println(x)
+					println((x, y))
+				  }
+				  case Some(oops) => {
+				    println("oops!" + oops)
+				  }
+				  case None => ()
 				}
-				* 
-				*/
 			}
 	}
 
