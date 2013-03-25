@@ -9,77 +9,77 @@
 
 package com.madmode.pfmorris
 
+import scala.collection.mutable.{Map, ArrayBuffer}
+
 object synt {
 
-  /**
-   * Each parse begins with a header.  Each header begins with a 
-   * tag which is one of the following numbers.
-   */
-  object Tag extends Enumeration {
-    type Tag = Value
-   /* Tags which appear only at the top level of a complete parse: */
-    val Term_Definor,
-    Formula_Definor,
-    Connector,
-    _four,
-    Unrecognized_constant,
-    Right_Parenthesis,
-    Other_known_constant,
-    Term_Seeking_Notarian,
-    Formula_Seeking_Notarian, 
+	/**
+	 * Each parse begins with a header.  Each header begins with a 
+	 * tag which is one of the following numbers.
+	 */
+	object Tag extends Enumeration {
+		type Tag = Value
+				/* Tags which appear only at the top level of a complete parse: */
+				val Term_Definor,
+				Formula_Definor,
+				Connector,
+				_four,
+				Unrecognized_constant,
+				Right_Parenthesis,
+				Other_known_constant,
+				Term_Seeking_Notarian,
+				Formula_Seeking_Notarian, 
 
-    Variable,
-    Sentence_variable, // 0-ary schemator
-    Function_symbol,   //n-ary schemator n > 0
-    Predicate_symbol,  // n-ary schemator n > 0
-    Noun,              // (Length 1 constant term) 
-    Boolean_Constant,   // (Length 1 constant formula)
+				Variable,
+				Sentence_variable, // 0-ary schemator
+				Function_symbol,   //n-ary schemator n > 0
+				Predicate_symbol,  // n-ary schemator n > 0
+				Noun,              // (Length 1 constant term) 
+				Boolean_Constant,   // (Length 1 constant formula)
 
-    Left_Parenthesis,
-    Introductor,      
-    Decimal_Numeration,
-    Left_Scope_Bracket,
-    Right_Scope_Bracket,
-    Colon, 
-    Semi_colon,
-    Ignore_Token,  // (Not parsed)
+				Left_Parenthesis,
+				Introductor,      
+				Decimal_Numeration,
+				Left_Scope_Bracket,
+				Right_Scope_Bracket,
+				Colon, 
+				Semi_colon,
+				Ignore_Token,  // (Not parsed)
 
-    /* Tags which may appear at any level of a complete parse: */
-    Term,          // (Not length 1) 
-    Formula,       // (Not length 1) 
-    Schematic_Term,        
-    Schematic_Formula, // (Not zero-ary) 
-    Parade_Term,
-    Parade_Formula,
-    Newly_Defined_Form,
-    Scope, 
-    Undefined_Expression_2, // (2nd level only)  
-    Undefined_Parade,     // (3rd level only)  
-    New_Definition,
+				/* Tags which may appear at any level of a complete parse: */
+				Term,          // (Not length 1) 
+				Formula,       // (Not length 1) 
+				Schematic_Term,        
+				Schematic_Formula, // (Not zero-ary) 
+				Parade_Term,
+				Parade_Formula,
+				Newly_Defined_Form,
+				Scope, 
+				Undefined_Expression_2, // (2nd level only)  
+				Undefined_Parade,     // (3rd level only)  
+				New_Definition,
 
-    /* Tags which may appear only at the beginning of an incomplete parse: */
-    Non_Parenthetical_Expression, // -1
-    Parenthetical_Expression,
-    Undefined_Expression,
-    Schematic_Term_neg,
-    Schematic_Formula_neg,
-    Term_Quantifying_Form,
-    Formula_Quantifying_Form,
-    Scope_neg,
-    Parade,
-    _neg_ten,
-    New_Definition_neg,
-    Undefined_Parade_neg = Value;
-  }
-  import Tag._
+				/* Tags which may appear only at the beginning of an incomplete parse: */
+				Non_Parenthetical_Expression, // -1
+				Parenthetical_Expression,
+				Undefined_Expression,
+				Schematic_Term_neg,
+				Schematic_Formula_neg,
+				Term_Quantifying_Form,
+				Formula_Quantifying_Form,
+				Scope_neg,
+				Parade,
+				_neg_ten,
+				New_Definition_neg,
+				Undefined_Parade_neg = Value;
+	}
+	import Tag._
   
-  /**
-   *  This database is loaded from the dfs file.  It is modified by parse and mathparse
-   *  but not by check.  It is initialized by resetdefs and resetprops.  
-   */
+	/**
+	 *  This database is loaded from the dfs file.  It is modified by parse and mathparse
+	 *  but not by check.  It is initialized by resetdefs and resetprops.  
+   	*/
 	var mathdb: MathDB = null;
-
-  	import scala.collection.mutable.{Map, ArrayBuffer}
   	
   	type Defienda = String
   	type Theorem = String
@@ -100,8 +100,8 @@ object synt {
 		var MD_RSFLG: Boolean,                //  Boolean reset definitions flag
 		var MD_PFILE: String,                 //  Name of properties file
 		var MD_RFILE: String                  //  Name of rules of inference file
-		//var MD_LEN: Int                       //  Length of mathdb
-			)
+		//var MD_LEN: Int                     //  Length of mathdb
+		)
 
 	/**
 	 * The following fast moving variable keeps track of which numbers have been
@@ -118,250 +118,251 @@ object synt {
 	  "+", "-", "\\char124", ":", "|")
 
 	def makemathdb() = {
-	  val td = Map(
-			  "\\dft" -> Term_Definor,
-			  "\\dff" -> Formula_Definor,
-			  ")" -> Right_Parenthesis,
-			  "(" -> Left_Parenthesis,
-			  "\\ls" -> Left_Scope_Bracket,
-			  "\\rs" -> Right_Scope_Bracket,
-			  ":" -> Colon,
-			  ";" -> Semi_colon,
-			  "\\}" -> Other_known_constant,
-			  "\\false" -> Boolean_Constant,
-			  "\\true" -> Boolean_Constant,
-			  "\\Nul" -> Noun,
-			  "0" -> Noun,
-			  "1" -> Noun,
-			  "2" -> Noun,
-			  "3" -> Noun,
-			  "4" -> Noun,
-			  "5" -> Noun,
-			  "6" -> Noun,
-			  "7" -> Noun,
-			  "8" -> Noun,
-			  "9" -> Noun,
-			  "\\ten" -> Noun
-	      )
+  		val td = Map(
+  				"\\dft" -> Term_Definor,
+  				"\\dff" -> Formula_Definor,
+  				")" -> Right_Parenthesis,
+  				"(" -> Left_Parenthesis,
+  				"\\ls" -> Left_Scope_Bracket,
+  				"\\rs" -> Right_Scope_Bracket,
+  				":" -> Colon,
+  				";" -> Semi_colon,
+  				"\\}" -> Other_known_constant,
+  				"\\false" -> Boolean_Constant,
+  				"\\true" -> Boolean_Constant,
+  				"\\Nul" -> Noun,
+  				"0" -> Noun,
+  				"1" -> Noun,
+  				"2" -> Noun,
+  				"3" -> Noun,
+  				"4" -> Noun,
+  				"5" -> Noun,
+  				"6" -> Noun,
+  				"7" -> Noun,
+  				"8" -> Noun,
+  				"9" -> Noun,
+  				"\\ten" -> Noun
+  				);
 
-/*
-###############################
-#  
-#   Connector Symbols
-#
-############################### 
-#
-#  The number introducing each connector list is the
-#  precedence value.  
-#
-###############################
-*/
-	val connectors = List(
-	(1, List("\\case")),
-	(2, List("\\c")),
-	(3, List("\\cond", "\\els")),
-	(4, List("\\Iff")),
-	(5, List("\\And", "\\Or")),
-	(6, List("=", "\\ne", "\\le", "\\ge", "\\notin", "\\noti", "\\ident", "\\in", "<", ">",
-	    "\\i", "\\j", "\\subset", ",")),
-	(9, List("+", "-")),
-	(13, List("\\cdot", "/")))
+  		/*###############################
+		#  
+		#   Connector Symbols
+		#
+		############################### 
+		#
+		#  The number introducing each connector list is the
+		#  precedence value.  
+		#
+		###############################*/
+  		val connectors = List(
+  				(1, List("\\case")),
+  				(2, List("\\c")),
+  				(3, List("\\cond", "\\els")),
+  				(4, List("\\Iff")),
+  				(5, List("\\And", "\\Or")),
+  				(6, List("=", "\\ne", "\\le", "\\ge", "\\notin", "\\noti",
+  						"\\ident", "\\in", "<", ">",
+  						"\\i", "\\j", "\\subset", ",")),
+  						(9, List("+", "-")),
+  						(13, List("\\cdot", "/")));
 	
-	val precedence = Map() ++ (for((prec, plist) <- connectors;
-						  		    sym <- plist) yield (sym -> prec))
-	val defs = Map()
-	val arity = Map()
+  		val precedence = Map() ++ (for((prec, plist) <- connectors;
+  				sym <- plist) yield (sym -> prec));
+  		val defs = Map();
+  		val arity = Map();
 
-	for((prec, plist) <- connectors;
-		 sym <- plist) {
-	  td(sym) = Connector
+  		for((prec, plist) <- connectors;
+  				sym <- plist) {
+  			td(sym) = Connector
+  		}
+	
+  		td("\\ident") = Term_Definor
+  		td("\\Iff") = Formula_Definor
+  		precedence("\\dff") = 4
+  		precedence("\\dft") = 6
+	
+  		/*#######################################################
+		#
+		#  Initialize Transitive Properties
+		#
+		#######################################################*/
+  		val transitive_ops = List("\\ident", "=", "\\Iff")
+
+  		val trans_mult = Map()
+
+  		/*#######################################################
+		#
+		#  Initialize Commutative Associative Properties
+		#
+		#######################################################
+  		*/
+  		val commutative_associative_ops = List()
+
+  		val theorems = List()
+
+  		val reference_dictionary = Map[String, String]()
+  		reference_dictionary("0") = "common.tex"
+
+  		val user_dictionary = Map()
+
+  		val reset_flag = true
+
+  		val properties_file = "properties.tex"
+
+  		val rules_file = "rules.tex"
+
+  		new MathDB(td, precedence, Map(), Map(), transitive_ops, Map(),
+  				   commutative_associative_ops, theorems, reference_dictionary, 
+  				   Map(), reset_flag, properties_file, rules_file)
 	}
-	
-	td("\\ident") = Term_Definor
-	td("\\Iff") = Formula_Definor
-	precedence("\\dff") = 4
-	precedence("\\dft") = 6
-	
+
+
+  	def dbmerge(mathdb: MathDB, db: MathDB) = {
+  		mathdb.MD_SYMTYPE ++= db.MD_SYMTYPE
+  		mathdb.MD_PRECED ++= db.MD_PRECED
+  		mathdb.MD_DEFS ++= db.MD_DEFS
+  		mathdb.MD_ARITY ++= db.MD_ARITY
+  		if (db.MD_REFD != null) {
+  			mathdb.MD_REFD ++= db.MD_REFD
+  		} else {
+  			println("Warning: format does not match.")
+  		}
+  		if (db.MD_MACR != null) {
+  			mathdb.MD_MACR ++= db.MD_MACR
+  		} else {	
+  			println("Warning: format does not match.")
+  		}
+  	}
+
+  	def symtype(token: String): Tag = {
+  		val td = mathdb.MD_SYMTYPE
+  		val arity = mathdb.MD_ARITY
+  		assert(token != null)
+
+  		def save(t: Tag): Tag = { td(token) = t; t } 
+
+  		td.get(token) match {
+  			case Some(retval) => retval
+  			case _ => token match {
+  				case pattern.ignore_token() => save(Ignore_Token)
+  				case pattern.TeX_leftdelimiter() => Right_Parenthesis
+  				case pattern.TeX_rightdelimiter() => Left_Parenthesis
+  				case _ => {
+  					validschemator(token) match {
+  					  case Some((t, a)) => {
+  						  arity(token) = a
+  						  save(t)
+  					  }
+  					  case _ => {
+  						  if (validvar(token)) save(Variable)
+  						  else if(validnum(token)) save(Decimal_Numeration)
+  						  else save(Unrecognized_constant)
+  					  }
+  					}
+  				}
+  			}
+  		}
+  	}
+
+  	def validschemator(token: String): Option[(Tag, Int)] = {
+  		token match {
+  			case pattern.newschem(numeral) => {
+  				val arity = numeral.toInt
+  				val tag = (token(1), arity) match {
+  					case ('w', _) => Function_symbol
+  					case (_, 0) => Sentence_variable
+  					case _ => Predicate_symbol
+  				}
+  				Some((tag, arity))
+  			}
+  			case pattern.genschem(sym, numeral) => {
+  				val arity = numeral.toInt
+  				val tag = sym(0) match {
+  					case 'p' | 'q' | 'r' => Predicate_symbol
+  					case _ => Function_symbol
+  				}
+  				Some((tag, arity))
+  			}
+  			case pattern.gensent => Some((Sentence_variable, 0))
+  			case _ if (token.length() < 5 || token(0) != '\\'
+  						|| ! "opqrstuvw".contains(token(1))) => None
+  			case _ if token.length() == 6 && token(5) != 'p' => {
+  				if (token.substring(3, 6) != "var"
+  					|| ! "pqrst".contains(token(1))
+  					|| ! "pqrst".contains(token(2)) ) { None }
+  				else { Some((Sentence_variable, 0)) }
+  			}
+  			case _ if token.substring(3, 5) != "ar" => None
+  			case _ if token(2) == 'v' => {
+  				if (token.length() == 5 && "opqrst".contains(token(1)))
+  				{ Some((Sentence_variable, 0)) }
+  				else { None }
+  			}
+  			case _ if token(2) != 'b' => None
+  			case _ if ! "pqruvw".contains(token(1)) => None
+  			case _ => {
+  				val tail = token.substring(5)
+  				val lt = tail.length()
+  				if (tail.count(_ == 'p') == lt) {
+  					val tag = if ("pqr".contains(token(1)))
+  								{ Predicate_symbol } else { Function_symbol }
+  					Some((tag, 1 + lt))
+  				} else { None }
+  			}
+  		}
+  	}
+ 
+  	def validvar(token: String): Boolean = {
+  		val ch0 = token(0)
+
+  		/* ode to python */
+  		def isalpha1(c: Character) = Character.isLetter(c) || Character.isDigit(c)
+  		def isalpha(s: String) = s.forall(isalpha1(_))
+
+  		if (isalpha1(ch0)) {
+  			true
+  		} else if (ch0 == '{') {
+  			val x = token.substring(1, token.length() - 1).trim()
+  			if (isalpha(x)) {
+  				return true
+  			} else if (x(0) == '\\') {
+  				val y = x.indexOf(' ')
+  				if (y == -1) {
+  					return false
+  				} else if (x.substring(1, y) == "cal"
+  				&& isalpha(x.substring(y).trim())) {
+  					return true
+  				} else {
+  					return false
+  				}
+  			} else {
+  				return false
+  			}
+  		} else {
+  			token match {
+  			case pattern.token(s, t, v) if allowed_variables.contains(v) => true
+  			case _ => false
+  			}
+  		}
+  	}
+
+  	val allowed_variables = List("\\alpha","\\beta","\\gamma","\\delta","\\epsilon",
+  			"\\varepsilon","\\zeta","\\eta","\\theta","\\vartheta","\\iota","\\kappa",
+  			"\\lambda","\\mu","\\nu","\\xi","\\pi","\\varpi","\\rho","\\varrho","\\sigma",
+  			"\\varsigma","\\tau","\\upsilon","\\phi","\\varphi","\\chi","\\psi",
+  			"\\Gamma","\\Delta","\\Theta","\\Lambda","\\Xi","\\Pi","\\Sigma","\\Upsilon","\\Phi",
+  			"\\Psi","\\imath","\\jmath","\\ell")
+
+  	def validnum(token: String) = {
+  		try {
+  			token.toInt
+  			true
+  		} catch {
+  			case _: Exception => false
+  		}
+  	}
+
 	/*
-#######################################################
-#
-#  Initialize Transitive Properties
-#
-#######################################################
-*/
-	val transitive_ops = List("\\ident", "=", "\\Iff")
-
-	val trans_mult = Map()
-
-	/*
-#######################################################
-#
-#  Initialize Commutative Associative Properties
-#
-#######################################################
-*/
-	val commutative_associative_ops = List()
-
-	val theorems = List()
-
-	val reference_dictionary = Map[String, String]()
-	reference_dictionary("0") = "common.tex"
-
-	val user_dictionary = Map()
-
-	val reset_flag = true
-
-	val properties_file = "properties.tex"
-
-	val rules_file = "rules.tex"
-
-	new MathDB(td, precedence, Map(), Map(), transitive_ops, Map(),
-			   commutative_associative_ops, theorems, reference_dictionary, 
-			   Map(), reset_flag, properties_file, rules_file)
-	}
-
-
-def dbmerge(mathdb: MathDB, db: MathDB) = {
-	mathdb.MD_SYMTYPE ++= db.MD_SYMTYPE
-	mathdb.MD_PRECED ++= db.MD_PRECED
-	mathdb.MD_DEFS ++= db.MD_DEFS
-	mathdb.MD_ARITY ++= db.MD_ARITY
-	if (db.MD_REFD != null) {
-		mathdb.MD_REFD ++= db.MD_REFD
-	} else {
-		println("Warning: format does not match.")
-	}
-	if (db.MD_MACR != null) {
-		mathdb.MD_MACR ++= db.MD_MACR
-	} else {	
-		println("Warning: format does not match.")
-	}
-}
-
-/*
-
-def symtype(token):
-	td = mathdb[MD_SYMTYPE]
-	arity = mathdb[MD_ARITY]
-	assert type(token) is str
-	retval = td.get(token, 0)
-	if retval:
-		return retval
-	else:
-		if pattern.ignore_token.match(token):
-			td[token] = 23
-			return 23
-		if pattern.TeX_leftdelimiter.match(token):
-			return 6
-		if pattern.TeX_rightdelimiter.match(token):
-			return 16
-		b = validschemator(token)
-		if b:
-			td[token] = b[0]
-			arity[token] = b[1]
-			retval = b[0]
-		elif validvar(token):
-			td[token] = 10
-			retval = 10
-		elif validnum(token):
-			td[token] = 18
-			retval = 18
-		else:
-			td[token] = 5
-			retval = 5
-		return retval 
-	
-def validschemator(token):
-	schemm = pattern.newschem.match(token)
-	if schemm:
-		arity = int(schemm.group(1))
-		if token[1] == 'w':
-			return (12, arity)
-		elif arity == 0:
-			return (11, arity)
-		else:
-			return (13, arity)
- 	genschemm = pattern.genschem.match(token)
-	if genschemm:
-		arity = len(genschemm.group(2)) + 1
-		sym2 = genschemm.group(1)[0]
-		if sym2 in ['p','q','r']:
-			return ( 13, arity)
- 		else:
-			return ( 12, arity)
- 	gensentm = pattern.gensent.match(token)
-	if gensentm:
-		return (11, 0)
-	if len(token) < 5:
-		return 0
-	if token[0] != '\\':
-		return 0
-	if token[1] not in ['o','p','q','r','s','t','u','v','w']:
-		return 0
-	if len(token) == 6 and token[5] != 'p':
-		if token[3:6] != 'var':
-			return 0
-		if token[1] not in ['p','q','r','s','t']:
-			return 0
-		if token[2] not in ['p','q','r','s','t']:
-			return 0
-		return (11,0)
-	if token[3:5] != 'ar' :
-		return 0
-	if token[2] == 'v':
-		if token[1] in ['o','p','q','r','s','t']and len(token) == 5:
-			return (11,0)
-		else:
-			return 0
-	elif token[2] != 'b':
-		return 0
-	if token[1] not in ['p','q','r','u','v','w']:
-		return 0
-	tail = token[5:]
-	lt = len(tail)
-	if tail.count('p') == lt:
-		if token[1] in ['p','q','r']:
-			return(13, 1+lt)
-		else:
-			return (12, 1+lt)
-	else:
-		return 0
-
-def validvar(token):
-	if token[0].isalpha() :
-		return True
-	elif token[0] == '{':
-		x = token[1:-1]
-		x = x.strip()
-		if x.isalpha():
-			return True
-		elif x[0] == '\\':
-			y = x.find(' ')
-			if y == -1:
-				return False
-			elif x[1:y] == 'cal' and x[y:].strip().isalpha():
-				return True
-			else:
-				return False
-		else:
-			return False
-	else:
-		tokenm = pattern.token.match(token)
-		if tokenm.group(3) in allowed_variables:
-			return True
-		return False
-
-allowed_variables = ['\\alpha','\\beta','\\gamma','\\delta','\\epsilon',
-'\\varepsilon','\\zeta','\\eta','\\theta','\\vartheta','\\iota','\\kappa',
-'\\lambda','\\mu','\\nu','\\xi','\\pi','\\varpi','\\rho','\\varrho','\\sigma',
-'\\varsigma','\\tau','\\upsilon','\\phi','\\varphi','\\chi','\\psi',
-'\\Gamma','\\Delta','\\Theta','\\Lambda','\\Xi','\\Pi','\\Sigma','\\Upsilon','\\Phi',
-'\\Psi','\\imath','\\jmath','\\ell']
-
-def validnum(token):
-	return token.isdigit()
-
-	
 def tokenparse(token):
 #
 	precedence = mathdb[MD_PRECED]

@@ -75,21 +75,15 @@ noparse = compile(s)
 
 s = 'z_\{(\d+)\}'
 bvar = compile(s)
-
-s = '\A\\\[qw]\^\{(\d+)\}_\{(\d+)\}'
-newschem = compile(s)
-
-s = '\A\\\([pqr]+)var'
-gensent = compile(s)
-
-s = '\A\\\([pqr]+|[uvw]+)bar(p*)'
-genschem = compile(s)
-
 """
 
+	val newschem = """\A\\\[qw]\^\{(\d+)\}_\{(\d+)\}""".r
 
+	val gensent = """\A\\\([pqr]+)var""".r
 
-	  	val token = """(?x)(?:\s*)
+	val genschem = """\A\\\([pqr]+|[uvw]+)bar(p*)""".r
+
+	val token = """(?x)(\s*)
 # A Token consists of 
 #
 	  	  (
@@ -144,16 +138,13 @@ genschem = compile(s)
 	val inference_rule = """\A\s*((\$[^\$]+\$\s*)|([HU\;\:\(\)\+\-\,]+\s*))*\\C\s*(\$[^\$]+\$)\s*\Z""".r
 
 
-/*
-#These are not accepted as tokens yet so they do not work:
-s = r"(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)"
-TeX_leftdelimiter = compile(s) 
-s = r"(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)"
-TeX_rightdelimiter = compile(s)
-*/
+	/* These are not accepted as tokens yet so they do not work: */
+	val TeX_leftdelimiter = """(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)""".r
+	val TeX_rightdelimiter = """(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)""".r
+
+	val ignore_token = """\A\\,|\\>|\\;|\\!\Z""".r
 
 	val SKIP2 = """
-ignore_token = compile(r"\A\\,|\\>|\\;|\\!\Z")
 
 s = "\A([^\d\s\.\$]*)(.*)"
 puncts = compile(s)
@@ -185,7 +176,7 @@ alphacontrolseq_or_skip = compile(s)
 			while (repeat.length > 0) {
 				repeat = raw_input("Enter possible token string: ")
 				token.findFirstIn(repeat) match {
-				  case Some(token(x, y)) => {
+				  case Some(token(s, x, y)) => {
 					println(x)
 					println((x, y))
 				  }
