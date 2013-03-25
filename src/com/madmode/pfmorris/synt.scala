@@ -221,20 +221,24 @@ object synt {
 	}
 
 
-/******************
-def dbmerge(mathdb,db):
-	mathdb[MD_SYMTYPE].update(db[MD_SYMTYPE])
-	mathdb[MD_PRECED].update(db[MD_PRECED])
-	mathdb[MD_DEFS].update(db[MD_DEFS])
-	mathdb[MD_ARITY].update(db[MD_ARITY])
-	if len(db)> MD_REFD:
-		mathdb[MD_REFD].update(db[MD_REFD])
-	else:
-		print "Warning: format does not match."
-	if len(db)> MD_MACR:
-		mathdb[MD_MACR].update(db[MD_MACR])
-	else:	
-		print "Warning: format does not match."
+def dbmerge(mathdb: MathDB, db: MathDB) = {
+	mathdb.MD_SYMTYPE ++= db.MD_SYMTYPE
+	mathdb.MD_PRECED ++= db.MD_PRECED
+	mathdb.MD_DEFS ++= db.MD_DEFS
+	mathdb.MD_ARITY ++= db.MD_ARITY
+	if (db.MD_REFD != null) {
+		mathdb.MD_REFD ++= db.MD_REFD
+	} else {
+		println("Warning: format does not match.")
+	}
+	if (db.MD_MACR != null) {
+		mathdb.MD_MACR ++= db.MD_MACR
+	} else {	
+		println("Warning: format does not match.")
+	}
+}
+
+/*
 
 def symtype(token):
 	td = mathdb[MD_SYMTYPE]
