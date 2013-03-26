@@ -79,6 +79,7 @@ class PyToScala(ast.NodeVisitor):
         for stmt in node.body:
             self.visit(stmt)
         wr('}')
+        self.newline()
 
     def visit_Return(self, node):
         # Return(expr? value)
@@ -301,7 +302,7 @@ class PyToScala(ast.NodeVisitor):
                 self.visit(node.left)
                 wr(')')
             else:
-                sym = {ast.Eq: '=',
+                sym = {ast.Eq: '==',
                        ast.NotEq: '!=',
                        ast.Lt: '<',
                        ast.LtE: '<=',
@@ -383,6 +384,7 @@ class PyToScala(ast.NodeVisitor):
             if slice.upper:
                 wr(', ')
                 self.visit(slice.upper)
+            wr(')')
 
     def visit_Name(self, node):
         # hmm... ctx
