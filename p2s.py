@@ -31,26 +31,26 @@ class PyToScala(ast.NodeVisitor):
             self.visit(stmt)
         wr('}\n')
 
-    def visit_Import(self, node):
+    def visit_FunctionDef(self, node):
+        if node.decorator_list:
+            raise NotImplementedError(
+                'decorator_list: %s' % node.decorator_list)
         wr = self._out.write
-        for name in node.names:
-            wr('import ')
-            self.visit(name)
-            wr('\n')
+        wr('\n\ndef %s(' % node.name)
+        self.visit(node.args)
+        wr('): Any = {\n')
+        for stmt in node.body:
+            self.visit(stmt)
+        wr('}')
 
-    def visit_alias(self, node):
+    def visit_Return(self, node):
+        # Return(expr? value)
         wr = self._out.write
-        wr(node.name)
-        if node.asname:
-            wr(' as ')
-            wr(node.asname)
-
-    def visit_Name(self, node):
-        # hmm... ctx
-        wr = self._out.write
-        if isinstance(node.ctx, ast.Store):
-            wr('val ')
-        wr(node.id)
+        wr('return')
+        if node.value:
+            wr(' ')
+            self.visit(node.value)
+        wr('\n')
 
     def visit_Assign(self, node):
         wr = self._out.write
@@ -66,13 +66,31 @@ class PyToScala(ast.NodeVisitor):
         self.visit(node.value)
         wr('\n')
 
-    def visit_List(self, node):
+    def visit_For(self, node):
+        # For(expr target, expr iter, stmt* body, stmt* orelse)
+        if node.orelse:
+            raise NotImplementedError
         wr = self._out.write
-        wr('List(')
-        for expr in node.elts:
-            self.visit(expr)
-            wr(', ')
-        wr(')')
+        wr('for (')
+        self.visit(node.target)
+        wr(' <- ')
+        self.visit(node.iter)
+        wr(') {\n')
+        for stmt in node.body:
+            self.visit(stmt)
+        wr('}\n')
+
+    def visit_Import(self, node):
+        wr = self._out.write
+        for name in node.names:
+            wr('import ')
+            self.visit(name)
+            wr('\n')
+
+    def visit_Expr(self, node):
+        wr = self._out.write
+        self.visit(node.value)
+        wr('\n')
 
     def visit_Dict(self, node):
         wr = self._out.write
@@ -82,6 +100,29 @@ class PyToScala(ast.NodeVisitor):
             wr(' -> ')
             self.visit(v)
         wr(')')
+
+    def visit_List(self, node):
+        wr = self._out.write
+        wr('List(')
+        for expr in node.elts:
+            self.visit(expr)
+            wr(', ')
+        wr(')')
+
+    def visit_Call(self, node):
+        # Call(expr func, expr* args, keyword* keywords,
+	#		 expr? starargs, expr? kwargs)
+        wr = self._out.write
+        self.visit(node.func)
+        wr('(')
+        sep = ''
+        for expr in node.args:
+            wr(sep)
+            self.visit(expr)
+            sep = ', '
+        wr(')')
+        if node.keywords or node.starargs or node.kwargs:
+            raise NotImplementedError
 
     def visit_Num(self, node):
         wr = self._out.write
@@ -99,6 +140,13 @@ class PyToScala(ast.NodeVisitor):
             wr('"""' + esc + '"""')
         else:
             wr('"' + esc + '"')
+
+    def visit_Attribute(self, node):
+        # Attribute(expr value, identifier attr, expr_context ctx)
+        wr = self._out.write
+        self.visit(node.value)
+        wr('.')
+        wr(node.attr)
 
     def visit_Subscript(self, node):
         # Subscript(expr value, slice slice, expr_context ctx)
@@ -120,6 +168,13 @@ class PyToScala(ast.NodeVisitor):
         else:
                 raise NotImplemented('slice not Index nor Slice')
 
+    def visit_Name(self, node):
+        # hmm... ctx
+        wr = self._out.write
+        if isinstance(node.ctx, ast.Store):
+            wr('val ')
+        wr(node.id)
+
     def visit_arguments(self, node):
         wr = self._out.write
         if node.vararg or node.kwarg or node.defaults:
@@ -132,17 +187,12 @@ class PyToScala(ast.NodeVisitor):
             wr(': Any')
             sep = ', '
 
-    def visit_FunctionDef(self, node):
+    def visit_alias(self, node):
         wr = self._out.write
-        wr('def %s(' % node.name)
-        self.visit(node.args)
-        wr('): Any = {\n')
-        for stmt in node.body:
-            self.visit(stmt)
-
-        if node.decorator_list:
-            raise NotImplementedError(
-                'decorator_list: %s' % node.decorator_list)
+        wr(node.name)
+        if node.asname:
+            wr(' as ')
+            wr(node.asname)
 
     def generic_visit(self, node):
         raise NotImplementedError('need visitor for: %s %s' %
