@@ -1,4 +1,13 @@
 '''p2s -- convert python lexical syntax to scala
+
+ideas:
+ - len(s) -- implicit conversion of s to pyobj
+   - use JSON object for pyobj?
+ - special case for elif
+ - more general handling of x[y:z]
+ - idomatic indentation
+ - special case for docstrings
+
 '''
 
 import StringIO
