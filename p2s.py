@@ -188,10 +188,14 @@ class PyToScala(ast.NodeVisitor):
             for stmt in node.body:
                 self.visit(stmt)
         if node.orelse:
+            suite = node.orelse
             wr(' else ')
-            with self._block():
-                for stmt in node.orelse:
-                    self.visit(stmt)
+            if len(suite) == 1 and isinstance(suite[0], ast.If):
+                self.visit(suite[0])
+            else:
+                with self._block():
+                    for stmt in suite:
+                        self.visit(stmt)
 
     def visit_Raise(self, node):
         # Raise(expr? type, expr? inst, expr? tback)
@@ -371,6 +375,7 @@ class PyToScala(ast.NodeVisitor):
         wr = self._sync(node)
         s = node.s
         limitation('"""' not in s)
+        #@@limitation('\\u' not in s)
 
         if '\\' in s or '"' in s and not s.endswith('"'):
             wr('"""' + s + '"""')
