@@ -1,4 +1,9 @@
+package com.madmode.pfmorris
+
 object synt {
+  import __builtin__._
+  import batteries._
+
   //###############################################################
   //
   //           Code for various parsing applications including
@@ -52,41 +57,49 @@ object synt {
   //
   //###############################################################
   //
-  import sys
-  import pattern
-  import re
+  type Tag = Int
+
+  //@@import sys
+  //@@import re
+
+  //@@ import pattern
+
   //
   //
   //  This database is loaded from the dfs file.  It is modified by parse and mathparse
   //  but not by check.  It is initialized by resetdefs and resetprops.  
-  val mathdb = List()
-  //  Dictionary storing the type of each symbol
-  val MD_SYMTYPE = 0
-  //  Dictionary storing the precedence of each connector
-  val MD_PRECED = 1
-  //  Dictionary storing a list of definienda for each introductor
-  val MD_DEFS = 2
-  //  Dictionary storing the arity of each schemator 
-  val MD_ARITY = 3
-  //  List of Transitive operators
-  val MD_TROPS = 4
-  //  Dictionary mapping 2-tuples of transitive ops to a transitive op
-  val MD_TRMUL = 5
-  //  List of commutative associative ops
-  val MD_CAOPS = 6
-  //  List of all theorems from some properties file
-  val MD_THMS = 7
-  //  Dictionary of external file reference definitions 
-  val MD_REFD = 8
-  //  Dictionary of user macro definitions
-  val MD_MACR = 9
-  //  Boolean reset definitions flag
-  val MD_RSFLG = 10
-  //  Name of properties file
-  val MD_PFILE = 11
-  //  Name of rules of inference file
-  val MD_RFILE = 12
-  //  Length of mathdb
+  val mathdb: MD = null
+  case class MD(MD_SYMTYPE: SYMTYPE, MD_PRECED: PRECED, MD_DEFS: DEFS,
+      MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
+      MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
+      MD_PFILE: PFILE, MD_RFILE: RFILE)
+  /** Dictionary storing the type of each symbol */
+  type SYMTYPE = Dict[String, Tag]
+  /** Dictionary storing the precedence of each connector */
+  type PRECED = Dict[String, Int]
+  /** Dictionary storing a list of definienda for each introductor */
+  type DEFS = Dict[String, String]
+  /** Dictionary storing the arity of each schemator  */
+  type ARITY = Dict[String, Int]
+  /** List of Transitive operators */
+  type TROPS = List[String]
+  /** Dictionary mapping 2-tuples of transitive ops to a transitive op */
+  type TRMUL = Dict[(String, String), String]
+  /** List of commutative associative ops */
+  type CAOPS = List[String]
+  /** List of all theorems from some properties file */
+  type THMS = List[String]
+  /** Dictionary of external file reference definitions  */
+  type REFD = Dict[String, String]
+  /** Dictionary of user macro definitions */
+  type MACR = Dict[String, String]
+  /** Boolean reset definitions flag */
+  type RSFLG = Boolean
+  /** Name of properties file */
+  type PFILE = String
+  /** Name of rules of inference file */
+  type RFILE = String
+  /** Length of mathdb */
   val MD_LEN = 13
   //
   // The following fast moving variable keeps track of which numbers have been
@@ -97,11 +110,11 @@ object synt {
   val ignore_tokens = List("""\,""", """\>""", """\;""", """\!""")
   val reference_punctuator_list = List(",", ";", "<=", """\C""", "G", "H", "!", "D", "P", "A", "S", "U", ")", "(", "),", ",(", ";(", "+", "-", """\char124""", ":", "|")
   
-  def makemathdb(): Any = {
-    val td = Map()
-    val precedence = Map()
-    val defs = Map()
-    val arity = Map()
+  def makemathdb(): MD = {
+    val td: SYMTYPE = new Dict()
+    val precedence: PRECED = new Dict()
+    val defs: DEFS = new Dict()
+    val arity: ARITY = new Dict()
     td("""\dft""") = 1
     td("""\dff""") = 2
     td(")") = 6
@@ -135,11 +148,21 @@ object synt {
     //  precedence value.  
     //
     //##############################
-    val connectors = List(List(1, List("""\case""")), List(2, List("""\c""")), List(3, List("""\cond""", """\els""")), List(4, List("""\Iff""")), List(5, List("""\And""", """\Or""")), List(6, List("=", """\ne""", """\le""", """\ge""", """\notin""", """\noti""", """\ident""", """\in""", "<", ">", """\i""", """\j""", """\subset""", ",")), List(9, List("+", "-")), List(13, List("""\cdot""", "/")))
-    for (val x <- connectors) {
-      val prec = x(0)
-      val plist = x(1)
-      for (val s <- plist) {
+    val connectors = List(
+        (1, List("""\case""")),
+        (2, List("""\c""")),
+        (3, List("""\cond""", """\els""")),
+        (4, List("""\Iff""")),
+        (5, List("""\And""", """\Or""")),
+        (6, List("=", """\ne""", """\le""", """\ge""", """\notin""",
+            """\noti""", """\ident""", """\in""", "<", ">",
+            """\i""", """\j""", """\subset""", ",")),
+        (9, List("+", "-")),
+        (13, List("""\cdot""", "/")))
+    for (x <- connectors) {
+      val prec = x._1
+      val plist = x._2
+      for (s <- plist) {
         precedence(s) = prec
         td(s) = 3
         }
@@ -154,7 +177,7 @@ object synt {
     //
     //######################################################
     val transitive_ops = List("""\ident""", "=", """\Iff""")
-    val trans_mult = Map()
+    val trans_mult: TRMUL = new Dict()
     //######################################################
     //
     //  Initialize Commutative Associative Properties
@@ -162,51 +185,53 @@ object synt {
     //######################################################
     val commutative_associative_ops = List()
     val theorems = List()
-    val reference_dictionary = Map()
+    val reference_dictionary: REFD = new Dict()
     reference_dictionary("0") = "common.tex"
-    val user_dictionary = Map()
+    val user_dictionary: MACR = new Dict()
     val reset_flag = True
     val properties_file = "properties.tex"
     val rules_file = "rules.tex"
-    return List(td, precedence, defs, arity, transitive_ops, trans_mult, commutative_associative_ops, theorems, reference_dictionary, user_dictionary, reset_flag, properties_file, rules_file)
+    return MD(td, precedence, defs, arity, transitive_ops, trans_mult,
+        commutative_associative_ops, theorems, reference_dictionary,
+        user_dictionary, reset_flag, properties_file, rules_file)
     }
   
-  def dbmerge(mathdb: Any, db: Any): Any = {
-    mathdb(MD_SYMTYPE).update(db(MD_SYMTYPE))
-    mathdb(MD_PRECED).update(db(MD_PRECED))
-    mathdb(MD_DEFS).update(db(MD_DEFS))
-    mathdb(MD_ARITY).update(db(MD_ARITY))
-    if (len(db) > MD_REFD) {
-      mathdb(MD_REFD).update(db(MD_REFD))
+  def dbmerge(mathdb: MD, db: MD): Any = {
+    mathdb.MD_SYMTYPE.update(db.MD_SYMTYPE)
+    mathdb.MD_PRECED.update(db.MD_PRECED)
+    mathdb.MD_DEFS.update(db.MD_DEFS)
+    mathdb.MD_ARITY.update(db.MD_ARITY)
+    if (db.MD_REFD != null) {
+      mathdb.MD_REFD.update(db.MD_REFD)
       }
      else {
       println("Warning: format does not match.")
       }
-    if (len(db) > MD_MACR) {
-      mathdb(MD_MACR).update(db(MD_MACR))
+    if (db.MD_MACR != null) {
+      mathdb.MD_MACR.update(db.MD_MACR)
       }
      else {
       println("Warning: format does not match.")
       }
     }
   
-  def symtype(token: Any): Any = {
-    val td = mathdb(MD_SYMTYPE)
-    val arity = mathdb(MD_ARITY)
-    assert(type(token) == str)
+  def symtype(token: String): Tag = {
+    val td = mathdb.MD_SYMTYPE
+    val arity = mathdb.MD_ARITY
+    assert(token != null)
     val retval = td.get(token, 0)
     if (retval) {
       return retval
       }
      else {
-      if (pattern.ignore_token.match(token)) {
+      if (pattern.ignore_token.match_(token)) {
         td(token) = 23
         return 23
         }
-      if (pattern.TeX_leftdelimiter.match(token)) {
+      if (pattern.TeX_leftdelimiter.match_(token)) {
         return 6
         }
-      if (pattern.TeX_rightdelimiter.match(token)) {
+      if (pattern.TeX_rightdelimiter.match_(token)) {
         return 16
         }
       val b = validschemator(token)
@@ -235,8 +260,10 @@ object synt {
       }
     }
   
-  def validschemator(token: Any): Any = {
-    val schemm = pattern.newschem.match(token)
+  def validschemator(token: String): Either[Int, (Tag, Int)] = {
+    implicit def win(tag_arity: (Tag, Int)) = new Right(tag_arity)
+    implicit def lose(x: Int) = Left(x)
+    val schemm = pattern.newschem.match_(token)
     if (schemm) {
       val arity = int(schemm.group(1))
       if (token(1) == "w") {
@@ -251,7 +278,7 @@ object synt {
           }
         }
       }
-    val genschemm = pattern.genschem.match(token)
+    val genschemm = pattern.genschem.match_(token)
     if (genschemm) {
       val arity = (len(genschemm.group(2)) + 1)
       val sym2 = genschemm.group(1)(0)
@@ -262,7 +289,7 @@ object synt {
         return (12, arity)
         }
       }
-    val gensentm = pattern.gensent.match(token)
+    val gensentm = pattern.gensent.match_(token)
     if (gensentm) {
       return (11, 0)
       }
@@ -308,8 +335,8 @@ object synt {
       }
     val tail = token.substring(5)
     val lt = len(tail)
-    if (tail.count("p") == lt) {
-      if (List("p", "q", "r").contains(token(1))) {
+    if (tail.count(_ == 'p') == lt) {
+      if (List('p', 'q', 'r').contains(token(1))) {
         return (13, (1 + lt))
         }
        else {
@@ -353,7 +380,7 @@ object synt {
           }
         }
        else {
-        val tokenm = pattern.token.match(token)
+        val tokenm = pattern.token.match_(token)
         if (allowed_variables.contains(tokenm.group(3))) {
           return True
           }
@@ -2109,7 +2136,7 @@ object synt {
     }
   
   def process_directive(comment_line: Any, hereditary_only: Any = True): Any = {
-    val directivem = pattern.directive.match(comment_line)
+    val directivem = pattern.directive.match_(comment_line)
     if (! directivem) {
       return 0
       }
@@ -2261,8 +2288,8 @@ object synt {
       linetail(0) = newlinetail
       }
     if (linetail(0)) {
-      val TeXdollarm = pattern.TeXdollar.match(linetail(0))
-      if (pattern.TeXcomment.match(linetail(0))) {
+      val TeXdollarm = pattern.TeXdollar.match_(linetail(0))
+      if (pattern.TeXcomment.match_(linetail(0))) {
         if (type(outfragments) == list) {
           outfragments.append(linetail(0))
           }
@@ -2278,14 +2305,14 @@ object synt {
           mode(0) = 2
           }
          else {
-          val notem = pattern.note.match(linetail(0))
+          val notem = pattern.note.match_(linetail(0))
           if (notem) {
             println("Error: Previous note unfinished.")
             mode(0) = 4
             return
             }
            else {
-            val linem = pattern.line.match(linetail(0))
+            val linem = pattern.line.match_(linetail(0))
             if (linem) {
               val nn = (linem.start(2) - 1)
               if (type(outfragments) == list) {
@@ -2316,8 +2343,8 @@ object synt {
     if (! linetail(0)) {
       return
       }
-    val TeXcommentm = pattern.TeXcomment.match(linetail(0))
-    val TeXdollarm = pattern.TeXdollar.match(linetail(0))
+    val TeXcommentm = pattern.TeXcomment.match_(linetail(0))
+    val TeXdollarm = pattern.TeXdollar.match_(linetail(0))
     if (TeXcommentm) {
       linetail(0) = ""
       return
@@ -2329,13 +2356,13 @@ object synt {
         return
         }
       }
-    val linem = pattern.line.match(linetail(0))
+    val linem = pattern.line.match_(linetail(0))
     if (linem) {
       linetail(0) = linem.group(2)
       mode(0) = 2
       return
       }
-    val bym = pattern.by.match(linetail(0))
+    val bym = pattern.by.match_(linetail(0))
     if (bym) {
       val rp = refparse(bym.group(1))
       if (rp == 0) {
@@ -2348,8 +2375,8 @@ object synt {
       return
       }
     val newlinetail = linetail(0).lstrip()
-    val TeXdollarm = pattern.TeXdollar.match(newlinetail)
-    val TeXcommentm = pattern.TeXcomment.match(newlinetail)
+    val TeXdollarm = pattern.TeXdollar.match_(newlinetail)
+    val TeXcommentm = pattern.TeXcomment.match_(newlinetail)
     if (! newlinetail) {
       linetail(0) = ""
       }
@@ -2393,7 +2420,7 @@ object synt {
       }
     val currentline = linetail(0)
     val lenline = len(currentline)
-    val blanklinem = pattern.blankline.match(currentline, currentpos)
+    val blanklinem = pattern.blankline.match_(currentline, currentpos)
     if (blanklinem) {
       // If the parse is done
       if (tree(0)(0)(0) > 0) {
@@ -2411,7 +2438,7 @@ object synt {
       linetail(0) = currentline.substring(currentpos)
       return
       }
-    val tokenm = pattern.token.match(currentline, currentpos)
+    val tokenm = pattern.token.match_(currentline, currentpos)
     if (! tokenm) {
       println("Error: Line empty following TeX dollar sign")
       mode(0) = 4
@@ -2424,7 +2451,7 @@ object synt {
       val currentpos = tokenm.end(1)
       }
     while (currentpos < lenline) {
-      val TeXdollarm = pattern.TeXdollar.match(currentline, currentpos)
+      val TeXdollarm = pattern.TeXdollar.match_(currentline, currentpos)
       if (TeXdollarm) {
         // If the parse is done
         if (tree(0)(0)(0) > 0) {
@@ -2449,7 +2476,7 @@ object synt {
         linetail(0) = currentline.substring(currentpos)
         return
         }
-      val tokenm = pattern.token.match(currentline, currentpos)
+      val tokenm = pattern.token.match_(currentline, currentpos)
       if (! tokenm) {
         mode(0) = 4
         return
@@ -2525,7 +2552,7 @@ object synt {
         return 0
         }
       if (t(0) == "." || t(0).isdigit()) {
-        val refmatch = pattern.ref.match(t)
+        val refmatch = pattern.ref.match_(t)
         if (! refmatch) {
           return 0
           }
@@ -2545,9 +2572,9 @@ object synt {
         continue
         }
       val reflast = False
-      val punctsmatch = pattern.puncts.match(t)
+      val punctsmatch = pattern.puncts.match_(t)
       val puncts = punctsmatch.group(1)
-      val findsinglematch = pattern.findsingle.match(puncts)
+      val findsinglematch = pattern.findsingle.match_(puncts)
       if (findsinglematch) {
         if (findsinglematch.start(1) == 0) {
           reflist.append(puncts(0))
@@ -2567,7 +2594,7 @@ object synt {
        else {
         val u = punctsmatch.group(2)
         if (len(puncts) > 4 && puncts.substring(-5) == """\char""") {
-          val nummatch = pattern.nums.match(u)
+          val nummatch = pattern.nums.match_(u)
           if (nummatch) {
             reflist.append((puncts + nummatch.group(1)))
             val t = nummatch.group(2)
@@ -2603,7 +2630,7 @@ object synt {
         break
         }
       if (t(0) == "$") {
-        val TeXmatch = pattern.TeXmath.match(t)
+        val TeXmatch = pattern.TeXmath.match_(t)
         if (! TeXmatch) {
           println("Error: Unmatched Tex dollar sign")
           return 0
@@ -2623,9 +2650,9 @@ object synt {
           }
         continue
         }
-      val punctsmatch = pattern.puncts.match(t)
+      val punctsmatch = pattern.puncts.match_(t)
       val puncts = punctsmatch.group(1)
-      val findsinglematch = pattern.findsingle.match(puncts)
+      val findsinglematch = pattern.findsingle.match_(puncts)
       if (findsinglematch) {
         if (findsinglematch.start(1) == 0) {
           rule.append(puncts(0))
@@ -2647,7 +2674,7 @@ object synt {
        else {
         val u = punctsmatch.group(2)
         if (len(puncts) > 4 && puncts.substring(-5) == """\char""") {
-          val nummatch = pattern.nums.match(u)
+          val nummatch = pattern.nums.match_(u)
           if (nummatch) {
             rule.append((puncts + nummatch.group(1)))
             rulesignature.append((puncts + nummatch.group(1)))
@@ -3772,7 +3799,7 @@ object synt {
         return List()
         }
       if (List(10, 11, 12, 13).contains(symtype(form))) {
-        if (pattern.bvar.match(form)) {
+        if (pattern.bvar.match_(form)) {
           return List()
           }
         return List(form)
@@ -3967,7 +3994,7 @@ object synt {
       val TeXdollars = pattern.TeXdollar.search(linecopy)
       val dollar_spot = linecopy.find("$")
       val by_spot = linecopy.find("""\By""")
-      val tokenm = pattern.token.match(linecopy)
+      val tokenm = pattern.token.match_(linecopy)
       if (mode(0) == 1) {
         if (by_spot != -1) {
           val thisref = linecopy.substring((by_spot + 3)).strip()
@@ -4002,7 +4029,7 @@ object synt {
           }
          else {
           if (mode(0) == 2) {
-            //			tokenm = pattern.token.match(linecopy)
+            //			tokenm = pattern.token.match_(linecopy)
             val newtag = optag(linecopy, parsetree)
             val token = tokenm.group(2)
             val nexttokenlen = len(token)
@@ -4095,7 +4122,7 @@ object synt {
   def optag(line: Any, node: Any): Any = {
     val precedence = mathdb(MD_PRECED)
     val original_len = len(line)
-    val tokenm = pattern.token.match(line)
+    val tokenm = pattern.token.match_(line)
     val token = tokenm.group(2)
     val tokens = List()
     val precedence_list = List()
@@ -4108,7 +4135,7 @@ object synt {
       val nexttokenlen = len(token)
       val line = line.substring(nexttokenlen)
       val line = line.lstrip()
-      val tokenm = pattern.token.match(line)
+      val tokenm = pattern.token.match_(line)
       if (tokenm) {
         val token = tokenm.group(2)
         }
@@ -4591,7 +4618,7 @@ object synt {
     val line_list = f.readlines()
     f.close()
     val transitive_ops = List()
-    val trans_mult = Map()
+    val trans_mult = Dict()
     val commutative_associative_ops = List()
     val commutative_ops = List()
     val associative_ops = List()
@@ -4599,7 +4626,7 @@ object synt {
     val linetail = List(line_list(0), 0, 1, line_list)
     val r = linetail(0)
     while (r) {
-      val dollarm = pattern.dollar.match(r)
+      val dollarm = pattern.dollar.match_(r)
       if (dollarm) {
         val dollar_spot = dollarm.start(1)
         linetail(0) = dollarm.group(1)
@@ -4640,7 +4667,7 @@ object synt {
       }
     val commutative_ops = List()
     val transitive_ops = List("""\ident""", """\Iff""", "=")
-    val transitive_mult = Map()
+    val transitive_mult = Dict()
     for (val trip <- chain_triplets) {
       if (trip(0) == trip(1) && trip(1) == trip(2)) {
         if (! transitive_ops.contains(trip(0))) {
