@@ -1,191 +1,125 @@
-/**
-########################################
-# pattern.py
-#
-*/
-
-package com.madmode.pfmorris
-
-import scala.util.matching.Regex
-
 object pattern {
-
-	//#s = '\A\s*\\\\(chapter|(sub)*section)\W.*'
-	//#latex_major_unit = compile(s)
-
-	val chardef = """\\mathchardef\\([A-Z,a-z]*)="([A-F,\d]*)""".r
-
-	val chapthead = """\A\s*\\chap\W+(\d+)\..*""".r
-
-	val latex_section = """\A\s*\\section\W.*""".r
-
-	val SKIP = """
-latex_unit_prefix = '\A\s*\\\\'
-latex_unit_suffix = '\W.*'
-
-# The alternate spellings of 'prop' have been removed
-s = '\A\\\\(prop)\W+(\d+)\.(\d+)\s*\$(.*)'
-thmnum = compile(s)
-
-inputfile = compile('\s*\\\\input\s+((.+)\.([lt]df))')
-
-#directive = compile('\s*%([:_A-Za-z]+)\s+((\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*)')
-directive = compile('\s*%([:_A-Za-z]+)\s+((\S*)\s*(.*?))\s*\Z')
-
-s = '\A\s*\\\\line([a-z])\s*\$(.*)'
-line = compile(s)
-
-s ='\A[^\$\%]*\\\\By(\W.*)'
-by = compile(s)
-
-s ='\A[^\$\%]*\\\\Bye(\W.*)'
-bye = compile(s)
-
-# Thanks to Karl Berry for enabling this:
-s = '\A[^\%]*\\\\note\W+(\d+)\s+([^\$]*\$)(.*)'
-note = compile(s)
-
-s = '(?<!\\\\)(?P<TeXcomment>%)|(\\\\noparse)'
-Noparse = compile(s)
-
-s = '(?<!\\\\)(%)'
-TeXcomment = compile(s)
-
-s = '(?<!\\\\)(\$+)'
-TeXdollar = compile(s)
-s = r'(?<!\\)(\$+)'
-TeXdollar = compile(s)
-
-blankline = compile(r'(\s*)(\$+)')
-
-ref=compile('\A((\d*)(\.\d+)+)([a-z]*)(.*)')
-
-outfileref = compile('\A((\d+)(\.\d+)+)([a-z]+)(.*)')
-
-propref = compile("(\A|\D)((\d+)((\.\d+)+))(\Z|[^\.a-z0-9])")
-
-s = '(\A|.*\D)\.(\d+)(.*)'
-noteref = compile(s)
-
-s = '\A\$([^\$]*)\$(.*)'
-TeXmath = compile(s)
-
-s = '\A[^\$]*\\\\noparse.*'
-noparse = compile(s)
-
-s = 'z_\{(\d+)\}'
-bvar = compile(s)
-"""
-
-	val newschem = """\A\\\[qw]\^\{(\d+)\}_\{(\d+)\}""".r
-
-	val gensent = """\A\\\([pqr]+)var""".r
-
-	val genschem = """\A\\\([pqr]+|[uvw]+)bar(p*)""".r
-
-	val token = """(?x)(\s*)
-# A Token consists of 
-#
-	  	  (
-#Either:
-#    1. a sequence of digits
-	  	  \d+|
-#OR
-#    2. One of the following punctuation marks:
-#         .  <  >  ;  /  :  [  ]  (  +  )  =  -  * ,
-	  	  [\.<>;/:\[\]\(\+\)=\-\*\,]|
-#OR
-#    3. One of these slashed TeX symbols:
-#         \{  \}  \.   \_  \&  \%  \# \, \> \; \!
-	  	  \\[\{\._\}\&\%\,<;\!]|
-#OR
-#    4. Either:
-#            a.  A single letter
-	  	  ([A-Za-z]|
-#OR 
-#            b.  A pair of braces { } enclosing non-brace characters
-	  	  \{[^\{]*\}|
-#OR
-#            c.  An alphabetic control sequence, a backslash followed by letters
-	  	  \\[A-Za-z]+)
-#
-#       optionally followed by
-#            d.  A prime sequence, a backslash followed by a sequence of p's not
-#                followed by a letter
-	  	  (?:\\p+(?![A-Za-z]))?
-#
-#       optionally followed by any number of sequences consisting of:
-#            e.  A TeX superscript ^ or subscript _
-	  	  (?:[\^_]
-#      
-#            followed by
-#            Either
-#                i) a pair of braces { } enclosing non-brace characters
-	  	  (?:\{[^\{]*\}|
-#            OR 
-#                ii) an alphabetic control sequence, a backslash followed by letters
-	  	  \\[A-Za-z]+|
-#            OR
-#                iii) any single non-slash character
-	  	  [^\\]))*)
-	  	  (?:\s*)""".r
-
-//# token = pattern.token.match.group(2) 
-//# variable stripped of decoration = pattern.token.match.group(3)
-
-//s = r"\A\s*(\$[^\$]?\$\s*[;:\(\)\+\-]*\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"
-//s = r"\A\s*(\$[^\$]+\$\s*,?\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"
-	val inference_rule = """\A\s*((\$[^\$]+\$\s*)|([HU\;\:\(\)\+\-\,]+\s*))*\\C\s*(\$[^\$]+\$)\s*\Z""".r
-
-
-	/* These are not accepted as tokens yet so they do not work: */
-	val TeX_leftdelimiter = """(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)""".r
-	val TeX_rightdelimiter = """(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)""".r
-
-	val ignore_token = """\A\\,|\\>|\\;|\\!\Z""".r
-
-	val SKIP2 = """
-
-s = "\A([^\d\s\.\$]*)(.*)"
-puncts = compile(s)
-
-s = "\A(\d+)(.*)"
-nums = compile(s)
-
-s = "\A[^\$]*\$(.*)"
-dollar = compile(s)
-
-s = "\A([^,\)\(]*)([,\)\(]+.*)"
-findsingle = compile(s)
-
-skipstring = "mskip 5mu plus 5mu"
-
-s = '(?<!\\\\)\\\\((mskip 5mu plus 5mu)|([A-Za-z]+))'
-alphacontrolseq_or_skip = compile(s)
-""".r
-
-	def raw_input(prompt: String): String = {
-	  import java.io.{BufferedReader, InputStreamReader}
-	  val b = new BufferedReader(new InputStreamReader(System.in))
-	  System.out.print(prompt)
-	  return b.readLine()
-	}
-	
-	def main(args: Array[String]): Unit = {
-			var repeat = "yes"
-			while (repeat.length > 0) {
-				repeat = raw_input("Enter possible token string: ")
-				token.findFirstIn(repeat) match {
-				  case Some(token(s, x, y)) => {
-					println(x)
-					println((x, y))
-				  }
-				  case Some(oops) => {
-				    println("oops!" + oops)
-				  }
-				  case None => ()
-				}
-			}
-	}
-
-}
+  //#######################################
+  // pattern.py
+  //
+  import re.{compile}
+  //s = '\A\s*\\\\(chapter|(sub)*section)\W.*'
+  //latex_major_unit = compile(s)
+  val s = """\\mathchardef\\([A-Z,a-z]*)="([A-F,\d]*)"""
+  val chardef = compile(s)
+  val s = """\A\s*\\chap\W+(\d+)\..*"""
+  val chapthead = compile(s)
+  val s = """\A\s*\\section\W.*"""
+  val latex_section = compile(s)
+  val latex_unit_prefix = """\A\s*\\"""
+  val latex_unit_suffix = """\W.*"""
+  // The alternate spellings of 'prop' have been removed
+  val s = """\A\\(prop)\W+(\d+)\.(\d+)\s*\$(.*)"""
+  val thmnum = compile(s)
+  val inputfile = compile("""\s*\\input\s+((.+)\.([lt]df))""")
+  //directive = compile('\s*%([:_A-Za-z]+)\s+((\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*)')
+  val directive = compile("""\s*%([:_A-Za-z]+)\s+((\S*)\s*(.*?))\s*\Z""")
+  val s = """\A\s*\\line([a-z])\s*\$(.*)"""
+  val line = compile(s)
+  val s = """\A[^\$\%]*\\By(\W.*)"""
+  val by = compile(s)
+  val s = """\A[^\$\%]*\\Bye(\W.*)"""
+  val bye = compile(s)
+  // Thanks to Karl Berry for enabling this:
+  val s = """\A[^\%]*\\note\W+(\d+)\s+([^\$]*\$)(.*)"""
+  val note = compile(s)
+  val s = """(?<!\\)(?P<TeXcomment>%)|(\\noparse)"""
+  val Noparse = compile(s)
+  val s = """(?<!\\)(%)"""
+  val TeXcomment = compile(s)
+  val s = """(?<!\\)(\$+)"""
+  val TeXdollar = compile(s)
+  val s = """(?<!\\)(\$+)"""
+  val TeXdollar = compile(s)
+  val blankline = compile("""(\s*)(\$+)""")
+  val ref = compile("""\A((\d*)(\.\d+)+)([a-z]*)(.*)""")
+  val outfileref = compile("""\A((\d+)(\.\d+)+)([a-z]+)(.*)""")
+  val propref = compile("""(\A|\D)((\d+)((\.\d+)+))(\Z|[^\.a-z0-9])""")
+  val s = """(\A|.*\D)\.(\d+)(.*)"""
+  val noteref = compile(s)
+  val s = """\A\$([^\$]*)\$(.*)"""
+  val TeXmath = compile(s)
+  val s = """\A[^\$]*\\noparse.*"""
+  val noparse = compile(s)
+  val s = """z_\{(\d+)\}"""
+  val bvar = compile(s)
+  val s = """\A\\[qw]\^\{(\d+)\}_\{(\d+)\}"""
+  val newschem = compile(s)
+  val s = """\A\\([pqr]+)var"""
+  val gensent = compile(s)
+  val s = """\A\\([pqr]+|[uvw]+)bar(p*)"""
+  val genschem = compile(s)
+  // A Token consists of 
+  //
+  //Either:
+  //    1. a sequence of digits
+  //OR
+  //    2. One of the following punctuation marks:
+  //         .  <  >  ;  /  :  [  ]  (  +  )  =  -  * ,
+  //OR
+  //    3. One of these slashed TeX symbols:
+  //         \{  \}  \.   \_  \&  \%  \# \, \> \; \!
+  //OR
+  //    4. Either:
+  //            a.  A single letter
+  //OR 
+  //            b.  A pair of braces { } enclosing non-brace characters
+  //OR
+  //            c.  An alphabetic control sequence, a backslash followed by letters
+  //
+  //       optionally followed by
+  //            d.  A prime sequence, a backslash followed by a sequence of p's not
+  //                followed by a letter
+  //
+  //       optionally followed by any number of sequences consisting of:
+  //            e.  A TeX superscript ^ or subscript _
+  //      
+  //            followed by
+  //            Either
+  //                i) a pair of braces { } enclosing non-brace characters
+  //            OR 
+  //                ii) an alphabetic control sequence, a backslash followed by letters
+  //            OR
+  //                iii) any single non-slash character
+  val s = """(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)"""
+  val token = compile(s)
+  // token = pattern.token.match.group(2) 
+  // variable stripped of decoration = pattern.token.match.group(3)
+  val s = """\A\s*(\$[^\$]?\$\s*[;:\(\)\+\-]*\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  val s = """\A\s*(\$[^\$]+\$\s*,?\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  val s = """\A\s*((\$[^\$]+\$\s*)|([HU\;\:\(\)\+\-\,]+\s*))*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  val inference_rule = compile(s)
+  //These are not accepted as tokens yet so they do not work:
+  val s = """(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)"""
+  val TeX_leftdelimiter = compile(s)
+  val s = """(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)"""
+  val TeX_rightdelimiter = compile(s)
+  val ignore_token = compile("""\A\\,|\\>|\\;|\\!\Z""")
+  val s = """\A([^\d\s\.\$]*)(.*)"""
+  val puncts = compile(s)
+  val s = """\A(\d+)(.*)"""
+  val nums = compile(s)
+  val s = """\A[^\$]*\$(.*)"""
+  val dollar = compile(s)
+  val s = """\A([^,\)\(]*)([,\)\(]+.*)"""
+  val findsingle = compile(s)
+  val skipstring = "mskip 5mu plus 5mu"
+  val s = """(?<!\\)\\((mskip 5mu plus 5mu)|([A-Za-z]+))"""
+  val alphacontrolseq_or_skip = compile(s)
+  if (__name__ == "__main__") {
+    val repeat = "yes"
+    while (repeat) {
+      val repeat = raw_input("Enter possible token string: ")
+      val s = token.match(repeat)
+      if (s) {
+        println(s.group(2))
+        println(s.groups())
+        }
+      }
+    }
+  }
