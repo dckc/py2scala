@@ -10,14 +10,26 @@ object __builtin__ {
   val True = true
   val False = false
 
-  implicit def test_string(s: String): Boolean = !s.isEmpty
   implicit def test_int(i: Int): Boolean = i != 0
+
+  implicit def test_string(s: String): Boolean = !s.isEmpty
   
   def int(s: String) = s.toInt
   def len(s: String) = s.length()
 
-  /** not sure about this one... */
-  implicit def test_option[T](o: Option[T]): Boolean = !o.isEmpty
+  implicit def as_py_char(c: Char): PyChar = new PyChar(c)
+  class PyChar(c: Char) {
+    def isalpha() = Character.isLetter(c) || Character.isDigit(c)  
+    def isdigit() = Character.isDigit(c)  
+  }
+  
+  implicit def as_py_string(s: String): PyString = new PyString(s)
+  class PyString(s: String) {
+    def isalpha(): Boolean = s.forall(_.isalpha())
+    def isdigit(): Boolean = s.forall(_.isdigit())
+    def strip(): String = s.trim()
+    def find(needle: String) = s.indexOf(needle)
+  }
 
   class Dict[K, V] extends Map[K, V]{
     def update(x: Dict[K, V]): Unit = { this ++= x }
