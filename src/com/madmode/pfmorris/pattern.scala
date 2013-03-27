@@ -1,58 +1,66 @@
+package com.madmode.pfmorris
+
+/**
+ * ########################################
+ * # pattern.py
+ * #
+ */
 object pattern {
-  //#######################################
-  // pattern.py
-  //
+  import __builtin__._
+  import batteries._
+
   import re.{compile}
+
   //s = '\A\s*\\\\(chapter|(sub)*section)\W.*'
   //latex_major_unit = compile(s)
-  val s = """\\mathchardef\\([A-Z,a-z]*)="([A-F,\d]*)"""
+  var s = """\\mathchardef\\([A-Z,a-z]*)="([A-F,\d]*)"""
   val chardef = compile(s)
-  val s = """\A\s*\\chap\W+(\d+)\..*"""
+  s = """\A\s*\\chap\W+(\d+)\..*"""
   val chapthead = compile(s)
-  val s = """\A\s*\\section\W.*"""
+  s = """\A\s*\\section\W.*"""
   val latex_section = compile(s)
   val latex_unit_prefix = """\A\s*\\"""
   val latex_unit_suffix = """\W.*"""
   // The alternate spellings of 'prop' have been removed
-  val s = """\A\\(prop)\W+(\d+)\.(\d+)\s*\$(.*)"""
+  s = """\A\\(prop)\W+(\d+)\.(\d+)\s*\$(.*)"""
   val thmnum = compile(s)
   val inputfile = compile("""\s*\\input\s+((.+)\.([lt]df))""")
   //directive = compile('\s*%([:_A-Za-z]+)\s+((\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*(\S*)\s*)')
   val directive = compile("""\s*%([:_A-Za-z]+)\s+((\S*)\s*(.*?))\s*\Z""")
-  val s = """\A\s*\\line([a-z])\s*\$(.*)"""
+  s = """\A\s*\\line([a-z])\s*\$(.*)"""
   val line = compile(s)
-  val s = """\A[^\$\%]*\\By(\W.*)"""
+  s = """\A[^\$\%]*\\By(\W.*)"""
   val by = compile(s)
-  val s = """\A[^\$\%]*\\Bye(\W.*)"""
+  s = """\A[^\$\%]*\\Bye(\W.*)"""
   val bye = compile(s)
   // Thanks to Karl Berry for enabling this:
-  val s = """\A[^\%]*\\note\W+(\d+)\s+([^\$]*\$)(.*)"""
+  s = """\A[^\%]*\\note\W+(\d+)\s+([^\$]*\$)(.*)"""
   val note = compile(s)
-  val s = """(?<!\\)(?P<TeXcomment>%)|(\\noparse)"""
+  s = """(?<!\\)(%)|(\\noparse)""" // @@?P<TeXcomment>
   val Noparse = compile(s)
-  val s = """(?<!\\)(%)"""
+  s = """(?<!\\)(%)"""
   val TeXcomment = compile(s)
-  val s = """(?<!\\)(\$+)"""
-  val TeXdollar = compile(s)
-  val s = """(?<!\\)(\$+)"""
-  val TeXdollar = compile(s)
+  s = """(?<!\\)(\$+)"""
+  var TeXdollar = compile(s)
+  s = """(?<!\\)(\$+)"""
+  TeXdollar = compile(s)
   val blankline = compile("""(\s*)(\$+)""")
   val ref = compile("""\A((\d*)(\.\d+)+)([a-z]*)(.*)""")
   val outfileref = compile("""\A((\d+)(\.\d+)+)([a-z]+)(.*)""")
   val propref = compile("""(\A|\D)((\d+)((\.\d+)+))(\Z|[^\.a-z0-9])""")
-  val s = """(\A|.*\D)\.(\d+)(.*)"""
+  s = """(\A|.*\D)\.(\d+)(.*)"""
   val noteref = compile(s)
-  val s = """\A\$([^\$]*)\$(.*)"""
+  s = """\A\$([^\$]*)\$(.*)"""
   val TeXmath = compile(s)
-  val s = """\A[^\$]*\\noparse.*"""
+  s = """\A[^\$]*\\noparse.*"""
   val noparse = compile(s)
-  val s = """z_\{(\d+)\}"""
+  s = """z_\{(\d+)\}"""
   val bvar = compile(s)
-  val s = """\A\\[qw]\^\{(\d+)\}_\{(\d+)\}"""
+  s = """\A\\[qw]\^\{(\d+)\}_\{(\d+)\}"""
   val newschem = compile(s)
-  val s = """\A\\([pqr]+)var"""
+  s = """\A\\([pqr]+)var"""
   val gensent = compile(s)
-  val s = """\A\\([pqr]+|[uvw]+)bar(p*)"""
+  s = """\A\\([pqr]+|[uvw]+)bar(p*)"""
   val genschem = compile(s)
   // A Token consists of 
   //
@@ -86,40 +94,105 @@ object pattern {
   //                ii) an alphabetic control sequence, a backslash followed by letters
   //            OR
   //                iii) any single non-slash character
-  val s = """(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)"""
+  s = """(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)"""
   val token = compile(s)
   // token = pattern.token.match.group(2) 
   // variable stripped of decoration = pattern.token.match.group(3)
-  val s = """\A\s*(\$[^\$]?\$\s*[;:\(\)\+\-]*\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
-  val s = """\A\s*(\$[^\$]+\$\s*,?\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
-  val s = """\A\s*((\$[^\$]+\$\s*)|([HU\;\:\(\)\+\-\,]+\s*))*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  s = """\A\s*(\$[^\$]?\$\s*[;:\(\)\+\-]*\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  s = """\A\s*(\$[^\$]+\$\s*,?\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
+  s = """\A\s*((\$[^\$]+\$\s*)|([HU\;\:\(\)\+\-\,]+\s*))*\\C\s*(\$[^\$]+\$)\s*\Z"""
   val inference_rule = compile(s)
   //These are not accepted as tokens yet so they do not work:
-  val s = """(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)"""
+  s = """(\\(bigl|Bigl|biggl|Biggl|left))?(\(|\[|\\lfoor|\\lceil|\\langle)"""
   val TeX_leftdelimiter = compile(s)
-  val s = """(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)"""
+  s = """(\\(bigr|Bigr|biggr|Biggr|right))?(\(|\[|\\rfoor|\\rceil|\\rangle)"""
   val TeX_rightdelimiter = compile(s)
   val ignore_token = compile("""\A\\,|\\>|\\;|\\!\Z""")
-  val s = """\A([^\d\s\.\$]*)(.*)"""
+  s = """\A([^\d\s\.\$]*)(.*)"""
   val puncts = compile(s)
-  val s = """\A(\d+)(.*)"""
+  s = """\A(\d+)(.*)"""
   val nums = compile(s)
-  val s = """\A[^\$]*\$(.*)"""
+  s = """\A[^\$]*\$(.*)"""
   val dollar = compile(s)
-  val s = """\A([^,\)\(]*)([,\)\(]+.*)"""
+  s = """\A([^,\)\(]*)([,\)\(]+.*)"""
   val findsingle = compile(s)
   val skipstring = "mskip 5mu plus 5mu"
-  val s = """(?<!\\)\\((mskip 5mu plus 5mu)|([A-Za-z]+))"""
+  s = """(?<!\\)\\((mskip 5mu plus 5mu)|([A-Za-z]+))"""
   val alphacontrolseq_or_skip = compile(s)
-  if (__name__ == "__main__") {
-    val repeat = "yes"
+
+  def main(args: Array[String]): Unit = {
+    import __builtin__._
+    var repeat = "yes"
     while (repeat) {
-      val repeat = raw_input("Enter possible token string: ")
-      val s = token.match(repeat)
+      repeat = raw_input("Enter possible token string: ")
+      val s = token.match_(repeat)
       if (s) {
         println(s.group(2))
         println(s.groups())
-        }
       }
     }
   }
+
+  def main_x(args: Array[String]): Unit = {
+
+    var repeat = "yes"
+    while (repeat.length > 0) {
+      repeat = raw_input("Enter possible token string: ")
+      token.findFirstIn(repeat) match {
+        case Some(token(s, x, y)) => {
+          println(x)
+          println((x, y))
+        }
+        case Some(oops) => {
+          println("oops!" + oops)
+        }
+        case None => ()
+      }
+    }
+  }
+
+}
+
+/**
+ * python runtime: builtin functions
+ */
+object __builtin__ {
+  def raw_input(prompt: String): String = {
+    import java.io.{ BufferedReader, InputStreamReader }
+    val b = new BufferedReader(new InputStreamReader(System.in))
+    System.out.print(prompt)
+    return b.readLine()
+  }
+
+  implicit def test_string(s: String): Boolean = !s.isEmpty
+}
+
+/**
+ * batteries -- python standard library
+ */
+object batteries {
+  object re {
+    import scala.util.matching.Regex
+    import java.util.regex.Matcher
+
+    def compile(s: String): RegexObject = {
+      new RegexObject(s)
+    }
+
+    class RegexObject(regex: String) extends Regex(regex) {
+      def match_(s: String): Match = {
+        val m = this.pattern matcher s
+        runMatcher(m)
+        new Match(m)
+      }
+    }
+
+    class Match(impl: Matcher) {
+      def test() = impl.matches()
+      def group(i: Int) = impl.group(i)
+      def groups() = 1 to impl.groupCount map impl.group
+    }
+    implicit def test_matcher(m: Match): Boolean = m.test()
+
+  }
+}
