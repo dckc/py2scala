@@ -219,7 +219,7 @@ object synt {
     val td = mathdb.MD_SYMTYPE
     val arity = mathdb.MD_ARITY
     assert(token != null)
-    val retval = td.get(token, 0)
+    var retval = td.get(token, 0)
     if (retval) {
       return retval
       }
@@ -235,12 +235,12 @@ object synt {
         return 16
         }
       val b = validschemator(token)
-      if (b) {
-        td(token) = b(0)
-        arity(token) = b(1)
-        val retval = b(0)
+      b match { case Right(b) => {
+        td(token) = b._1
+        arity(token) = b._2
+        retval = b._1
         }
-       else {
+      case _ => {
         if (validvar(token)) {
           td(token) = 10
           val retval = 10
@@ -255,11 +255,14 @@ object synt {
             val retval = 5
             }
           }
-        }
+      }
+     }
       return retval
       }
     }
   
+  implicit def test_either[Lose, Win](x: Either[Lose, Win]): Boolean = x.isRight
+
   def validschemator(token: String): Either[Int, (Tag, Int)] = {
     implicit def win(tag_arity: (Tag, Int)) = new Right(tag_arity)
     implicit def lose(x: Int) = Left(x)
@@ -348,14 +351,14 @@ object synt {
       }
     }
   
-  def validvar(token: Any): Any = {
+  def validvar(token: String): Boolean = {
     if (token(0).isalpha()) {
       return True
       }
      else {
       if (token(0) == "{") {
-        val x = token.substring(1, -1)
-        val x = x.strip()
+        val x = token.substring(1, -1).strip()
+
         if (x.isalpha()) {
           return True
           }
@@ -388,63 +391,62 @@ object synt {
         }
       }
     }
-  val allowed_variables = List("""\alpha""", """\beta""", """\gamma""", """\delta""", """\epsilon""", """\varepsilon""", """\zeta""", """\eta""", """\theta""", """\vartheta""", """\iota""", """\kappa""", """\lambda""", """\mu""", """\nu""", """\xi""", """\pi""", """\varpi""", """\rho""", """\varrho""", """\sigma""", """\varsigma""", """\tau""", """\upsilon""", """\phi""", """\varphi""", """\chi""", """\psi""", """\Gamma""", """\Delta""", """\Theta""", """\Lambda""", """\Xi""", """\Pi""", """\Sigma""", """\Upsilon""", """\Phi""", """\Psi""", """\imath""", """\jmath""", """\ell""")
+  val allowed_variables = List("""\alpha""", """\beta""", """\gamma""",
+      """\delta""", """\epsilon""", """\varepsilon""",
+      """\zeta""", """\eta""", """\theta""", """\vartheta""",
+      """\iota""", """\kappa""", """\lambda""", """\mu""", """\nu""",
+      """\xi""", """\pi""", """\varpi""", """\rho""", """\varrho""",
+      """\sigma""", """\varsigma""", """\tau""", "\\upsilon",
+      """\phi""", """\varphi""", """\chi""", """\psi""",
+      """\Gamma""", """\Delta""", """\Theta""", """\Lambda""",
+      """\Xi""", """\Pi""", """\Sigma""", """\Upsilon""",
+      """\Phi""", """\Psi""", """\imath""", """\jmath""", """\ell""")
   
-  def validnum(token: Any): Any = {
+  def validnum(token: String): Boolean = {
     return token.isdigit()
     }
   
-  def tokenparse(token: Any): Any = {
+  type Tok = List[Any]
+  def tokenparse(token: String): Tok = {
     //
-    val precedence = mathdb(MD_PRECED)
-    val defs = mathdb(MD_DEFS)
-    val arity = mathdb(MD_ARITY)
+    val precedence = mathdb.MD_PRECED
+    val defs = mathdb.MD_DEFS
+    val arity = mathdb.MD_ARITY
     val n = symtype(token)
-    if (n == 18) {
-      val x = decimalparse(token)
+    var x: Tok = null
+    n match {
+      case 18 => {
+      //@@x = decimalparse(token)
       }
-     else {
-      if (n == 12) {
-        val x = List(List(-4, arity(token)), List(List(n), token))
-        }
-       else {
-        if (n == 13) {
-          val x = List(List(-5, arity(token)), List(List(n), token))
-          }
-         else {
-          if (n == 16) {
-            val x = List(List(-2, List()), List(List(n), token))
-            }
-           else {
-            if (n == 17) {
-              val x = List(List(-1, defs(token)), List(List(n), token))
-              }
-             else {
-              if (n == 8) {
-                val x = List(List(-6, defs(token)), List(List(n), token))
-                }
-               else {
-                if (n == 9) {
-                  val x = List(List(-7, defs(token)), List(List(n), token))
-                  }
-                 else {
-                  if (List(1, 2, 3).contains(n)) {
-                    val x = List(List(n), token, precedence(token))
-                    }
-                   else {
-                    // Even unknown constants are passed on as complete 
-                    val x = List(List(n), token)
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
+      case  12 => {
+        x = List(List(-4, arity(token)), (List(n), token))
       }
-    return x
+      case 13 => {
+        x = List(List(-5, arity(token)), List(List(n), token))
+      }
+      case 16 => {
+        x = List(List(-2, List()), List(List(n), token))
+      }
+      case 17 => {
+        x = List(List(-1, defs(token)), List(List(n), token))
+      }
+      case 8 => {
+        x = List(List(-6, defs(token)), List(List(n), token))
+      }
+      case 9 => {
+        x = List(List(-7, defs(token)), List(List(n), token))
+      }
+      case _ if (List(1, 2, 3).contains(n)) => {
+        x = List(List(n), token, precedence(token))
+      }
+      case _ => {
+        // Even unknown constants are passed on as complete 
+        x = List(List(n), token)
+      }
     }
-  
+    return x
+  }
+  /*@@@@@@@@@@@@
   def decimalparse(token: Any): Any = {
     val precedence = mathdb(MD_PRECED)
     val n = len(token)
@@ -499,40 +501,34 @@ object synt {
           return 0
           }
         }
-       else {
-        if (len(tree) == 3) {
-          if (List(-1, -3).contains(tree(2)(0)(0))) {
-            // Neither an introductor nor a connector. 
-            /* pass */
-            }
-           else {
-            // if tree[2][0][0] == -1: 
-            // tree[2][0][0] = -3 will be done in nodecheck() 
-            return 0
-            }
+       else if (len(tree) == 3) {
+        if (List(-1, -3).contains(tree(2)(0)(0))) {
+          // Neither an introductor nor a connector. 
+          /* pass */
           }
          else {
-          if (len(tree) == 4 && len(tree(1)) == 1) {
-            // This must be a new connector.
-            if (tree(2)(0)(0) == -2 && tree(3)(0)(0) == -12) {
-              /* pass */
-              }
-             else {
-              if (tree(2)(0)(0) == -2 && tree(3)(0)(0) == -9) {
-                //				print "new connector"
-                tree(3)(0)(0) = -12
-                item(0)(0) = 3
-                item.append(-2)
-                }
-               else {
-                return 0
-                }
-              }
-            }
-           else {
-            return 0
-            }
+          // if tree[2][0][0] == -1: 
+          // tree[2][0][0] = -3 will be done in nodecheck() 
+          return 0
           }
+        }
+       else if (len(tree) == 4 && len(tree(1)) == 1) {
+        // This must be a new connector.
+        if (tree(2)(0)(0) == -2 && tree(3)(0)(0) == -12) {
+          /* pass */
+          }
+         else if (tree(2)(0)(0) == -2 && tree(3)(0)(0) == -9) {
+          //				print "new connector"
+          tree(3)(0)(0) = -12
+          item(0)(0) = 3
+          item.append(-2)
+          }
+         else {
+          return 0
+          }
+        }
+       else {
+        return 0
         }
       }
     // Recognize the end of a parade or a definition
@@ -563,21 +559,17 @@ object synt {
           tree.append(current)
           }
         }
-       else {
-        //Undefined parade 
-        if (tree(-1)(0)(0) == -12) {
-          // 			print "Undefined parade", tree[-1]
-          val current = tree.pop()
-          promote(current, 50)
-          tree(-1).append(current)
-          }
-         else {
-          // New or old definition
-          if (List(-11, -10).contains(tree(-1)(0)(0))) {
-            println("Should not reach this point")
-            throw new SystemExit()
-            }
-          }
+       else //Undefined parade 
+      if (tree(-1)(0)(0) == -12) {
+        // 			print "Undefined parade", tree[-1]
+        val current = tree.pop()
+        promote(current, 50)
+        tree(-1).append(current)
+        }
+       else // New or old definition
+      if (List(-11, -10).contains(tree(-1)(0)(0))) {
+        println("Should not reach this point")
+        throw new SystemExit()
         }
       }
     if (List(1, 2).contains(syntype)) {
@@ -618,10 +610,8 @@ object synt {
             // E xiA ; px qx
             lasthead.append(5)
             }
-           else {
-            if (lasthead(2) != 7) {
-              return 0
-              }
+           else if (lasthead(2) != 7) {
+            return 0
             }
           val current = tree.pop()
           promote(current, 48)
@@ -631,85 +621,73 @@ object synt {
           return 0
           }
         }
-       else {
-        // Colon
-        if (syntype == 21) {
-          if (scopecheck(tree(-1))) {
-            if (len(lasthead) > 2) {
-              return 0
-              }
-             else {
-              // E xiA : px
-              lasthead.append(4)
-              }
-            val current = tree.pop()
-            promote(current, 48)
-            tree(-1).append(current)
+       else // Colon
+      if (syntype == 21) {
+        if (scopecheck(tree(-1))) {
+          if (len(lasthead) > 2) {
+            return 0
+            }
+           else {
+            // E xiA : px
+            lasthead.append(4)
+            }
+          val current = tree.pop()
+          promote(current, 48)
+          tree(-1).append(current)
+          }
+         else {
+          return 0
+          }
+        }
+       else // Left Scope Bracket
+      if (syntype == 19) {
+        if (len(tree(-1)) == 2 && List(10, 14, 40, 42).contains(tree(-1)(-1)(0)(0))) {
+          // E ux < xiA ; px >
+          lasthead.append(7)
+          val current = tree.pop()
+          // Not a scope after all.
+          val current = current.pop()
+          tree(-1).append(current)
+          }
+         else {
+          return 0
+          }
+        }
+       else //Right Scope Bracket
+      if (syntype == 20) {
+        if (len(lasthead) <= 2 || lasthead(2) != 7) {
+          return 0
+          }
+         else if (scopecheck(tree(-1))) {
+          if (len(tree(-2)) == 4 && tree(-2)(-1)(0)(0) == 19) {
+            // E ux < xiA >  , No px after all.
+            lasthead(2) = 6
             }
            else {
             return 0
             }
+          val current = tree.pop()
+          promote(current, 48)
+          tree(-1).append(current)
           }
          else {
-          // Left Scope Bracket
-          if (syntype == 19) {
-            if (len(tree(-1)) == 2 && List(10, 14, 40, 42).contains(tree(-1)(-1)(0)(0))) {
-              // E ux < xiA ; px >
-              lasthead.append(7)
-              val current = tree.pop()
-              // Not a scope after all.
-              val current = current.pop()
-              tree(-1).append(current)
-              }
-             else {
-              return 0
-              }
-            }
-           else {
-            //Right Scope Bracket
-            if (syntype == 20) {
-              if (len(lasthead) <= 2 || lasthead(2) != 7) {
-                return 0
-                }
-               else {
-                if (scopecheck(tree(-1))) {
-                  if (len(tree(-2)) == 4 && tree(-2)(-1)(0)(0) == 19) {
-                    // E ux < xiA >  , No px after all.
-                    lasthead(2) = 6
-                    }
-                   else {
-                    return 0
-                    }
-                  val current = tree.pop()
-                  promote(current, 48)
-                  tree(-1).append(current)
-                  }
-                 else {
-                  return 0
-                  }
-                }
-              }
-             else {
-              if (! List(3).contains(tree(-1)(-1)(0)(0)) || List(3).contains(syntype)) {
-                if (len(lasthead) != 2) {
-                  /* pass */
-                  }
-                 else {
-                  if (scopecheck(tree(-1))) {
-                    val okval = 2
-                    // E xiA qx
-                    lasthead.append(3)
-                    val current = tree.pop()
-                    promote(current, 48)
-                    tree(-1).append(current)
-                    }
-                   else {
-                    return 0
-                    }
-                  }
-                }
-              }
-            }
+          return 0
+          }
+        }
+       else if (! List(3).contains(tree(-1)(-1)(0)(0)) || List(3).contains(syntype)) {
+        if (len(lasthead) != 2) {
+          /* pass */
+          }
+         else if (scopecheck(tree(-1))) {
+          val okval = 2
+          // E xiA qx
+          lasthead.append(3)
+          val current = tree.pop()
+          promote(current, 48)
+          tree(-1).append(current)
+          }
+         else {
+          return 0
           }
         }
       }
@@ -735,39 +713,37 @@ object synt {
         }
       return okval
       }
-     else {
-      // When a complete node arrives it is added to the last incomplete
-      if (tree) {
-        // node, possibly completing it.  Recursion follows. 
-        for (val i <- range(len(tree))) {
-          // Since known introductors can introduce unknown forms
-          // it catches errors sooner to check for unknown forms here.
-          if (tree(i)(0)(0) == -3) {
-            if (i != 2) {
-              return 0
-              }
-            if (tree(0)(0)(0) != -2) {
-              return 0
-              }
+     else // When a complete node arrives it is added to the last incomplete
+    if (tree) {
+      // node, possibly completing it.  Recursion follows. 
+      for (val i <- range(len(tree))) {
+        // Since known introductors can introduce unknown forms
+        // it catches errors sooner to check for unknown forms here.
+        if (tree(i)(0)(0) == -3) {
+          if (i != 2) {
+            return 0
+            }
+          if (tree(0)(0)(0) != -2) {
+            return 0
             }
           }
-        val current = tree.pop()
-        current.append(item)
-        val ndc = nodecheck(current)
-        if (ndc == 0) {
-          return 0
-          }
-        val adn = addnode(tree, current)
-        if (adn == 0) {
-          return 0
-          }
-        return max(adn, ndc)
         }
-       else {
-        // If no incomplete nodes are left we are done.
-        tree.append(item)
-        return okval
+      val current = tree.pop()
+      current.append(item)
+      val ndc = nodecheck(current)
+      if (ndc == 0) {
+        return 0
         }
+      val adn = addnode(tree, current)
+      if (adn == 0) {
+        return 0
+        }
+      return max(adn, ndc)
+      }
+     else {
+      // If no incomplete nodes are left we are done.
+      tree.append(item)
+      return okval
       }
     }
   // Change incomplete node to complete
@@ -806,13 +782,11 @@ object synt {
           if (d(0)(0) == 40) {
             promote(item, 40)
             }
+           else if (d(0)(0) == 41) {
+            promote(item, 41)
+            }
            else {
-            if (d(0)(0) == 41) {
-              promote(item, 41)
-              }
-             else {
-              throw new SystemExit()
-              }
+            throw new SystemExit()
             }
           //				item[0].remove(item[0][1])
           val defs = mathdb(MD_DEFS)
@@ -825,335 +799,263 @@ object synt {
       //				item[0][1] = [defs[item[1]].index(item[0][1][0])]
       return 1
       }
-     else {
-      //Parenthetical expression
-      if (syntype == -2) {
-        if (item(-1)(0)(0) == 45) {
-          return 1
-          }
-         else {
-          if (item(-1)(0)(0) == 44) {
-            return 1
-            }
-           else {
-            if (item(-1)(0)(0) == 47) {
-              return 1
-              }
-             else {
-              if (item(-1)(0)(0) != 6) {
-                return 0
-                }
-              }
-            }
-          }
-        //		Checks already done.
-        if (item(-2)(0)(0) == 44) {
-          promote(item, 40)
-          }
-         else {
-          if (item(-2)(0)(0) == 45) {
-            promote(item, 41)
-            }
-           else {
-            if (item(-2)(0)(0) == 47) {
-              promote(item, 51)
-              }
-             else {
-              if (item(-2)(0)(0) == 50) {
-                promote(item, 49)
-                }
-               else {
-                // This location is reached if x_ instead of x\_ is used"
-                return 0
-                }
-              }
-            }
+     else //Parenthetical expression
+    if (syntype == -2) {
+      if (item(-1)(0)(0) == 45) {
+        return 1
+        }
+       else if (item(-1)(0)(0) == 44) {
+        return 1
+        }
+       else if (item(-1)(0)(0) == 47) {
+        return 1
+        }
+       else if (item(-1)(0)(0) != 6) {
+        return 0
+        }
+      //		Checks already done.
+      if (item(-2)(0)(0) == 44) {
+        promote(item, 40)
+        }
+       else if (item(-2)(0)(0) == 45) {
+        promote(item, 41)
+        }
+       else if (item(-2)(0)(0) == 47) {
+        promote(item, 51)
+        }
+       else if (item(-2)(0)(0) == 50) {
+        promote(item, 49)
+        }
+       else {
+        // This location is reached if x_ instead of x\_ is used"
+        return 0
+        }
+      return 1
+      }
+     else // Undefined Expression
+    if (syntype == -3) {
+      if (! List(1, 2, 6, 14, 15).contains(thisheader(0))) {
+        return 1
+        }
+      }
+     else // Schematic Expressions 
+    if (List(-4, -5).contains(syntype)) {
+      // A term 
+      if (List(10, 14, 40, 42).contains(thisheader(0))) {
+        if (len(item) == (header(1) + 2)) {
+          // Get values: 42 term, 43 formula 
+          promote(item, (38 - syntype))
           }
         return 1
         }
-       else {
-        // Undefined Expression
-        if (syntype == -3) {
-          if (! List(1, 2, 6, 14, 15).contains(thisheader(0))) {
+      }
+     else // A New Definition
+    if (syntype == -11) {
+      val lastheader = item(-2)(0)
+      if (item(1)(0)(0) != 49) {
+        println("Mistake")
+        throw new SystemExit()
+        }
+      if (len(item) > 4) {
+        return 0
+        }
+       else if (len(item) == 3) {
+        return List(1, 2).contains(thisheader(0))
+        }
+       else if (len(item) == 4) {
+        if (definitioncheck(item)) {
+          promote(item, 47)
+          return 1
+          }
+         else {
+          println("Error: Failed definition check")
+          return 0
+          }
+        }
+      }
+     else // Undefined Parade
+    if (syntype == -12) {
+      if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
+        if (len(item) < 3) {
+          return 1
+          }
+        if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(item(-2)(0)(0))) {
+          println("Error: Connector missing.")
+          return 0
+          }
+         else {
+          return 1
+          }
+        }
+       else if (List(3, 5, 7).contains(thisheader(0))) {
+        return 1
+        }
+      }
+     else // A Parade
+    if (syntype == -9) {
+      if (thisheader(0) == 49) {
+        if (len(item) == 2) {
+          item(0)(0) = -11
+          return 1
+          }
+        }
+       else if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
+        if (len(item) < 3) {
+          return 1
+          }
+        if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(item(-2)(0)(0))) {
+          // Precedence of the empty connector
+          header(1) = 1000
+          println("Error: Connector missing.")
+          }
+        return 1
+        }
+       else if (List(5, 7, 44, 45).contains(thisheader(0))) {
+        return 1
+        }
+       else if (List(1, 2, 3).contains(thisheader(0))) {
+        if (len(item) == 3 && List(1, 2).contains(thisheader(0)) && item(1)(0)(0) == 49) {
+          item(0)(0) = -11
+          return 1
+          }
+        // compare with parade's max
+        if (item(-1)(2) >= header(1)) {
+          header(1) = item(-1)(2)
+          return 1
+          }
+        val savelast = item.pop()
+        if (! paradecrop(item, savelast(2))) {
+          return 0
+          }
+        item.append(savelast)
+        item(0)(1) = savelast(2)
+        return 1
+        }
+      }
+     else // A scope 
+    if (syntype == -8) {
+      if (List(3, 5, 7, 10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
+        return 1
+        }
+      }
+     else // A notarian expression 
+    if (List(-6, -7).contains(syntype)) {
+      val lasthead = header(2)
+      // x = raw_input("Definition check")  #Find the dft dff access values
+      val term_or_formula = header(1)(0)(0)
+      // Scope rescue section does the checking
+      if (len(item) < 4) {
+        return 1
+        }
+       else if (len(item) == 4) {
+        if (lasthead == 7) {
+          // Left scope bracket
+          return thisheader(0) == 19
+          }
+         else if (lasthead == 6) {
+          // Left scope bracket
+          return thisheader(0) == 19
+          }
+         else if (lasthead == 5) {
+          // Semi-colon
+          return thisheader(0) == 22
+          }
+         else if (lasthead == 4) {
+          // Colon
+          return thisheader(0) == 21
+          }
+         else if (lasthead == 3) {
+          if (syntype == -6 && List(10, 14, 40, 42).contains(thisheader(0))) {
+            /* pass */
+            }
+           else if (syntype == -7 && List(11, 15, 41, 43).contains(thisheader(0))) {
+            /* pass */
+            }
+           else {
+            return 0
+            }
+          // Remove definition list
+          item(0).remove(item(0)(1))
+          promote(item, term_or_formula)
+          item(0)(0) = item(0)(0)(0)
+          //				print "item inside nc after len 4 = ", item
+          return 1
+          }
+        }
+       else if (len(item) == 5) {
+        if (lasthead == 7) {
+          return thisheader(0) == 48
+          }
+         else if (lasthead == 6) {
+          return thisheader(0) == 48
+          }
+         else if (lasthead == 5) {
+          if (List(11, 15, 41, 43).contains(thisheader(0))) {
+            return 3
+            }
+           else {
+            return 0
+            }
+          }
+         else if (lasthead == 4) {
+          if (List(11, 15, 41, 43).contains(thisheader(0))) {
+            // Remove definition list
+            item(0).remove(item(0)(1))
+            promote(item, term_or_formula)
+            //					item[0][:1] = item[0][0]  # Testing??
+            item(0)(0) = item(0)(0)(0)
             return 1
             }
           }
-         else {
-          // Schematic Expressions 
-          if (List(-4, -5).contains(syntype)) {
-            // A term 
-            if (List(10, 14, 40, 42).contains(thisheader(0))) {
-              if (len(item) == (header(1) + 2)) {
-                // Get values: 42 term, 43 formula 
-                promote(item, (38 - syntype))
-                }
-              return 1
-              }
+        }
+       else if (len(item) == 6) {
+        if (lasthead == 7) {
+          // Semi-colon
+          return thisheader(0) == 22
+          }
+         else if (lasthead == 6) {
+          // Right scope bracket
+          if (thisheader(0) == 20) {
+            // Remove definition list
+            item(0).remove(item(0)(1))
+            promote(item, term_or_formula)
+            //					item[0][:1] = item[0][0]  # Testing??
+            item(0)(0) = item(0)(0)(0)
+            return 1
+            }
+          }
+         else if (lasthead == 5) {
+          if (syntype == -6 && List(10, 14, 40, 42).contains(thisheader(0))) {
+            /* pass */
+            }
+           else if (syntype == -7 && List(11, 15, 41, 43).contains(thisheader(0))) {
+            /* pass */
             }
            else {
-            // A New Definition
-            if (syntype == -11) {
-              val lastheader = item(-2)(0)
-              if (item(1)(0)(0) != 49) {
-                println("Mistake")
-                throw new SystemExit()
-                }
-              if (len(item) > 4) {
-                return 0
-                }
-               else {
-                if (len(item) == 3) {
-                  return List(1, 2).contains(thisheader(0))
-                  }
-                 else {
-                  if (len(item) == 4) {
-                    if (definitioncheck(item)) {
-                      promote(item, 47)
-                      return 1
-                      }
-                     else {
-                      println("Error: Failed definition check")
-                      return 0
-                      }
-                    }
-                  }
-                }
-              }
-             else {
-              // Undefined Parade
-              if (syntype == -12) {
-                if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
-                  if (len(item) < 3) {
-                    return 1
-                    }
-                  if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(item(-2)(0)(0))) {
-                    println("Error: Connector missing.")
-                    return 0
-                    }
-                   else {
-                    return 1
-                    }
-                  }
-                 else {
-                  if (List(3, 5, 7).contains(thisheader(0))) {
-                    return 1
-                    }
-                  }
-                }
-               else {
-                // A Parade
-                if (syntype == -9) {
-                  if (thisheader(0) == 49) {
-                    if (len(item) == 2) {
-                      item(0)(0) = -11
-                      return 1
-                      }
-                    }
-                   else {
-                    if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
-                      if (len(item) < 3) {
-                        return 1
-                        }
-                      if (List(10, 11, 14, 15, 40, 41, 42, 43).contains(item(-2)(0)(0))) {
-                        // Precedence of the empty connector
-                        header(1) = 1000
-                        println("Error: Connector missing.")
-                        }
-                      return 1
-                      }
-                     else {
-                      if (List(5, 7, 44, 45).contains(thisheader(0))) {
-                        return 1
-                        }
-                       else {
-                        if (List(1, 2, 3).contains(thisheader(0))) {
-                          if (len(item) == 3 && List(1, 2).contains(thisheader(0)) && item(1)(0)(0) == 49) {
-                            item(0)(0) = -11
-                            return 1
-                            }
-                          // compare with parade's max
-                          if (item(-1)(2) >= header(1)) {
-                            header(1) = item(-1)(2)
-                            return 1
-                            }
-                          val savelast = item.pop()
-                          if (! paradecrop(item, savelast(2))) {
-                            return 0
-                            }
-                          item.append(savelast)
-                          item(0)(1) = savelast(2)
-                          return 1
-                          }
-                        }
-                      }
-                    }
-                  }
-                 else {
-                  // A scope 
-                  if (syntype == -8) {
-                    if (List(3, 5, 7, 10, 11, 14, 15, 40, 41, 42, 43).contains(thisheader(0))) {
-                      return 1
-                      }
-                    }
-                   else {
-                    // A notarian expression 
-                    if (List(-6, -7).contains(syntype)) {
-                      val lasthead = header(2)
-                      // x = raw_input("Definition check")  #Find the dft dff access values
-                      val term_or_formula = header(1)(0)(0)
-                      // Scope rescue section does the checking
-                      if (len(item) < 4) {
-                        return 1
-                        }
-                       else {
-                        if (len(item) == 4) {
-                          if (lasthead == 7) {
-                            // Left scope bracket
-                            return thisheader(0) == 19
-                            }
-                           else {
-                            if (lasthead == 6) {
-                              // Left scope bracket
-                              return thisheader(0) == 19
-                              }
-                             else {
-                              if (lasthead == 5) {
-                                // Semi-colon
-                                return thisheader(0) == 22
-                                }
-                               else {
-                                if (lasthead == 4) {
-                                  // Colon
-                                  return thisheader(0) == 21
-                                  }
-                                 else {
-                                  if (lasthead == 3) {
-                                    if (syntype == -6 && List(10, 14, 40, 42).contains(thisheader(0))) {
-                                      /* pass */
-                                      }
-                                     else {
-                                      if (syntype == -7 && List(11, 15, 41, 43).contains(thisheader(0))) {
-                                        /* pass */
-                                        }
-                                       else {
-                                        return 0
-                                        }
-                                      }
-                                    // Remove definition list
-                                    item(0).remove(item(0)(1))
-                                    promote(item, term_or_formula)
-                                    item(0)(0) = item(0)(0)(0)
-                                    //				print "item inside nc after len 4 = ", item
-                                    return 1
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                         else {
-                          if (len(item) == 5) {
-                            if (lasthead == 7) {
-                              return thisheader(0) == 48
-                              }
-                             else {
-                              if (lasthead == 6) {
-                                return thisheader(0) == 48
-                                }
-                               else {
-                                if (lasthead == 5) {
-                                  if (List(11, 15, 41, 43).contains(thisheader(0))) {
-                                    return 3
-                                    }
-                                   else {
-                                    return 0
-                                    }
-                                  }
-                                 else {
-                                  if (lasthead == 4) {
-                                    if (List(11, 15, 41, 43).contains(thisheader(0))) {
-                                      // Remove definition list
-                                      item(0).remove(item(0)(1))
-                                      promote(item, term_or_formula)
-                                      //					item[0][:1] = item[0][0]  # Testing??
-                                      item(0)(0) = item(0)(0)(0)
-                                      return 1
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                           else {
-                            if (len(item) == 6) {
-                              if (lasthead == 7) {
-                                // Semi-colon
-                                return thisheader(0) == 22
-                                }
-                               else {
-                                if (lasthead == 6) {
-                                  // Right scope bracket
-                                  if (thisheader(0) == 20) {
-                                    // Remove definition list
-                                    item(0).remove(item(0)(1))
-                                    promote(item, term_or_formula)
-                                    //					item[0][:1] = item[0][0]  # Testing??
-                                    item(0)(0) = item(0)(0)(0)
-                                    return 1
-                                    }
-                                  }
-                                 else {
-                                  if (lasthead == 5) {
-                                    if (syntype == -6 && List(10, 14, 40, 42).contains(thisheader(0))) {
-                                      /* pass */
-                                      }
-                                     else {
-                                      if (syntype == -7 && List(11, 15, 41, 43).contains(thisheader(0))) {
-                                        /* pass */
-                                        }
-                                       else {
-                                        return 0
-                                        }
-                                      }
-                                    // Remove definition list
-                                    item(0).remove(item(0)(1))
-                                    promote(item, term_or_formula)
-                                    //				item[0][:1] = item[0][0]  # Testing??
-                                    item(0)(0) = item(0)(0)(0)
-                                    return 1
-                                    }
-                                  }
-                                }
-                              }
-                             else {
-                              if (len(item) == 7) {
-                                if (List(11, 15, 41, 43).contains(thisheader(0))) {
-                                  return 1
-                                  }
-                                }
-                               else {
-                                if (len(item) == 8) {
-                                  // Right scope bracket
-                                  if (thisheader(0) == 20) {
-                                    // Remove definition list
-                                    item(0).remove(item(0)(1))
-                                    promote(item, term_or_formula)
-                                    //				item[0][:1] = item[0][0]  # Testing??
-                                    item(0)(0) = item(0)(0)(0)
-                                    return 1
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
+            return 0
             }
+          // Remove definition list
+          item(0).remove(item(0)(1))
+          promote(item, term_or_formula)
+          //				item[0][:1] = item[0][0]  # Testing??
+          item(0)(0) = item(0)(0)(0)
+          return 1
+          }
+        }
+       else if (len(item) == 7) {
+        if (List(11, 15, 41, 43).contains(thisheader(0))) {
+          return 1
+          }
+        }
+       else if (len(item) == 8) {
+        // Right scope bracket
+        if (thisheader(0) == 20) {
+          // Remove definition list
+          item(0).remove(item(0)(1))
+          promote(item, term_or_formula)
+          //				item[0][:1] = item[0][0]  # Testing??
+          item(0)(0) = item(0)(0)(0)
+          return 1
           }
         }
       }
@@ -1173,10 +1075,8 @@ object synt {
           a.append(definiendum)
           }
         }
-       else {
-        if (syntmatch(definiendum(n), item(-1))) {
-          a.append(definiendum)
-          }
+       else if (syntmatch(definiendum(n), item(-1))) {
+        a.append(definiendum)
         }
       }
     item(0)(1) = a
@@ -1195,13 +1095,11 @@ object synt {
         return 0
         }
       }
-     else {
-      if (definor(0)(0) == 2) {
-        // A formula 
-        if (! List(11, 15, 41, 43).contains(definiens(0)(0))) {
-          println("Error: Type mismatch, formula expected")
-          return 0
-          }
+     else if (definor(0)(0) == 2) {
+      // A formula 
+      if (! List(11, 15, 41, 43).contains(definiens(0)(0))) {
+        println("Error: Type mismatch, formula expected")
+        return 0
         }
       }
     return register_definiendum(definiendum, definor(0)(0))
@@ -1305,77 +1203,57 @@ object synt {
     if (prec < 0) {
       return 1
       }
-     else {
-      if (prec == 1) {
+     else if (prec == 1) {
+      if (n_arycheck(item)) {
+        return 44
+        }
+      }
+     else if (prec == 2) {
+      if (n_arycheck(item, 1)) {
+        return 45
+        }
+      }
+     else if (prec == 3) {
+      if (condelscheck(item, 2)) {
+        return 44
+        }
+      }
+     else if (prec == 4) {
+      if (n_arycheck(item, 1)) {
+        return 45
+        }
+      }
+     else if (prec == 5) {
+      if (n_arycheck(item, 1)) {
+        return 45
+        }
+      }
+     else if (prec == 6) {
+      if (lastsix == ",") {
         if (n_arycheck(item)) {
           return 44
           }
         }
-       else {
-        if (prec == 2) {
-          if (n_arycheck(item, 1)) {
-            return 45
-            }
-          }
-         else {
-          if (prec == 3) {
-            if (condelscheck(item, 2)) {
-              return 44
-              }
-            }
-           else {
-            if (prec == 4) {
-              if (n_arycheck(item, 1)) {
-                return 45
-                }
-              }
-             else {
-              if (prec == 5) {
-                if (n_arycheck(item, 1)) {
-                  return 45
-                  }
-                }
-               else {
-                if (prec == 6) {
-                  if (lastsix == ",") {
-                    if (n_arycheck(item)) {
-                      return 44
-                      }
-                    }
-                   else {
-                    if (binverbcheck(item)) {
-                      return 45
-                      }
-                    }
-                  }
-                 else {
-                  if (List(9, 13).contains(prec)) {
-                    if (mixcheck(item)) {
-                      return 44
-                      }
-                    }
-                   else {
-                    if (List(7, 11, 15, 17, 19, 25).contains(prec)) {
-                      if (n_arycheck(item)) {
-                        return 44
-                        }
-                      }
-                     else {
-                      if (prec == 1000) {
-                        println("Error: Adjacent writing undefined")
-                        return 0
-                        }
-                       else {
-                        return deflistcheck(item, prec)
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+       else if (binverbcheck(item)) {
+        return 45
         }
+      }
+     else if (List(9, 13).contains(prec)) {
+      if (mixcheck(item)) {
+        return 44
+        }
+      }
+     else if (List(7, 11, 15, 17, 19, 25).contains(prec)) {
+      if (n_arycheck(item)) {
+        return 44
+        }
+      }
+     else if (prec == 1000) {
+      println("Error: Adjacent writing undefined")
+      return 0
+      }
+     else {
+      return deflistcheck(item, prec)
       }
     return 0
     }
@@ -1398,67 +1276,53 @@ object synt {
             println("Error: Start with a term.")
             return 0
             }
-           else {
-            if (x(1) != ",") {
-              if (x(2) != 6) {
-                throw new "Non verb!"()
-                }
-              val state = 1
+           else if (x(1) != ",") {
+            if (x(2) != 6) {
+              throw new "Non verb!"()
               }
-             else {
-              if ((j % 2) == 1) {
-                println("Error: Term needed.")
-                return 0
-                }
-              }
+            val state = 1
             }
-          }
-         else {
-          //				else x[1] == ',' and j % 2 == 0 which is ok.
-          if (List(10, 14, 40, 42, 44).contains(y)) {
-            if ((j % 2) == 0) {
-              println("Rescue code should catch this")
-              throw new SystemExit()
-              }
-            }
-           else {
-            //				else: This is the indicial variable case
+           else if ((j % 2) == 1) {
             println("Error: Term needed.")
             return 0
             }
           }
-        }
-       else {
-        if (state == 1) {
-          if (List(10, 14, 40, 42, 44).contains(y)) {
-            val state = 2
-            }
-           else {
-            if (y != 3) {
-              println("Error: Bad Nexus.")
-              return 0
-              }
+         else //				else x[1] == ',' and j % 2 == 0 which is ok.
+        if (List(10, 14, 40, 42, 44).contains(y)) {
+          if ((j % 2) == 0) {
+            println("Rescue code should catch this")
+            throw new SystemExit()
             }
           }
          else {
-          if (state == 2) {
-            if (y == 3 || y == 1) {
-              if (x(1) == ",") {
-                val state = 0
-                val j = 0
-                }
-              }
-             else {
-              if (! List(10, 14, 40, 42, 44).contains(y)) {
-                println("Error: object needed")
-                return 0
-                }
-              }
-            }
-           else {
-            throw new "Programming error"()
+          //				else: This is the indicial variable case
+          println("Error: Term needed.")
+          return 0
+          }
+        }
+       else if (state == 1) {
+        if (List(10, 14, 40, 42, 44).contains(y)) {
+          val state = 2
+          }
+         else if (y != 3) {
+          println("Error: Bad Nexus.")
+          return 0
+          }
+        }
+       else if (state == 2) {
+        if (y == 3 || y == 1) {
+          if (x(1) == ",") {
+            val state = 0
+            val j = 0
             }
           }
+         else if (! List(10, 14, 40, 42, 44).contains(y)) {
+          println("Error: object needed")
+          return 0
+          }
+        }
+       else {
+        throw new "Programming error"()
         }
       }
     if (state == 2) {
@@ -1492,67 +1356,53 @@ object synt {
             println("Error: Indicial variable needed.")
             return 0
             }
-           else {
-            if (x(1) != ",") {
-              if (x(2) < 6) {
-                println((("Error: " + x(1)) + " not allowed in scope"))
-                return 0
-                }
-              val state = 1
+           else if (x(1) != ",") {
+            if (x(2) < 6) {
+              println((("Error: " + x(1)) + " not allowed in scope"))
+              return 0
               }
-             else {
-              if ((j % 2) == 1) {
-                println("Error: Indicial variable or verb needed.")
-                return 0
-                }
-              }
+            val state = 1
             }
-          }
-         else {
-          //				else x[1] == ',' and j % 2 == 0 which is ok.
-          if (y == 10) {
-            if ((j % 2) == 0) {
-              throw new "Rescue code should catch this"()
-              }
-            }
-           else {
-            //				else: This is the indicial variable case
-            println("Error: Indicial variable needed.")
+           else if ((j % 2) == 1) {
+            println("Error: Indicial variable or verb needed.")
             return 0
             }
           }
-        }
-       else {
-        if (state == 1) {
-          if (List(10, 14, 40, 42, 44).contains(y)) {
-            val state = 2
-            }
-           else {
-            if (y != 3) {
-              println("Error: Bad nexus.")
-              return 0
-              }
+         else //				else x[1] == ',' and j % 2 == 0 which is ok.
+        if (y == 10) {
+          if ((j % 2) == 0) {
+            throw new "Rescue code should catch this"()
             }
           }
          else {
-          if (state == 2) {
-            if (y == 3) {
-              if (x(1) == ",") {
-                val state = 0
-                val j = 0
-                }
-              }
-             else {
-              if (! List(10, 14, 40, 42, 44).contains(y)) {
-                println("Error: object needed")
-                return 0
-                }
-              }
-            }
-           else {
-            throw new "Programming error"()
+          //				else: This is the indicial variable case
+          println("Error: Indicial variable needed.")
+          return 0
+          }
+        }
+       else if (state == 1) {
+        if (List(10, 14, 40, 42, 44).contains(y)) {
+          val state = 2
+          }
+         else if (y != 3) {
+          println("Error: Bad nexus.")
+          return 0
+          }
+        }
+       else if (state == 2) {
+        if (y == 3) {
+          if (x(1) == ",") {
+            val state = 0
+            val j = 0
             }
           }
+         else if (! List(10, 14, 40, 42, 44).contains(y)) {
+          println("Error: object needed")
+          return 0
+          }
+        }
+       else {
+        throw new "Programming error"()
         }
       }
     return 1
@@ -1576,18 +1426,14 @@ object synt {
             return 0
             }
           }
-         else {
-          if (! List(11, 15, 41, 43, 45).contains(item(i)(0)(0))) {
-            println("Error: " + item(i) + "is not a formula")
-            return 0
-            }
-          }
-        }
-       else {
-        if (item(i) != item(2)) {
-          println("Error: " + item(i) + "!=" + item(2))
+         else if (! List(11, 15, 41, 43, 45).contains(item(i)(0)(0))) {
+          println("Error: " + item(i) + "is not a formula")
           return 0
           }
+        }
+       else if (item(i) != item(2)) {
+        println("Error: " + item(i) + "!=" + item(2))
+        return 0
         }
       }
     return 1
@@ -1612,10 +1458,8 @@ object synt {
           return 0
           }
         }
-       else {
-        if (item(i)(0)(0) != 3) {
-          return 0
-          }
+       else if (item(i)(0)(0) != 3) {
+        return 0
         }
       }
     return 1
@@ -1638,26 +1482,22 @@ object synt {
         return 0
         }
       }
-     else {
-      // both formulas
-      if (tf_flag == 1) {
-        if (! List(11, 15, 41, 43, 45).contains(item(1)(0)(0))) {
-          return 0
-          }
-        if (! List(11, 15, 41, 43, 45).contains(item(3)(0)(0))) {
-          return 0
-          }
+     else // both formulas
+    if (tf_flag == 1) {
+      if (! List(11, 15, 41, 43, 45).contains(item(1)(0)(0))) {
+        return 0
         }
-       else {
-        // formula term
-        if (tf_flag == 2) {
-          if (! List(11, 15, 41, 43, 45).contains(item(1)(0)(0))) {
-            return 0
-            }
-          if (! List(10, 14, 40, 42, 44).contains(item(3)(0)(0))) {
-            return 0
-            }
-          }
+      if (! List(11, 15, 41, 43, 45).contains(item(3)(0)(0))) {
+        return 0
+        }
+      }
+     else // formula term
+    if (tf_flag == 2) {
+      if (! List(11, 15, 41, 43, 45).contains(item(1)(0)(0))) {
+        return 0
+        }
+      if (! List(10, 14, 40, 42, 44).contains(item(3)(0)(0))) {
+        return 0
         }
       }
     return 1
@@ -1673,13 +1513,11 @@ object synt {
       if (List(10, 14, 40, 42, 44).contains(item(k)(0)(0))) {
         /* pass */
         }
+       else if (List(11, 15, 41, 43, 45).contains(item(k)(0)(0))) {
+        /* pass */
+        }
        else {
-        if (List(11, 15, 41, 43, 45).contains(item(k)(0)(0))) {
-          /* pass */
-          }
-         else {
-          return 0
-          }
+        return 0
         }
       }
     return 1
@@ -1771,11 +1609,9 @@ object synt {
             if (precedence_from_context == -1) {
               val precedence_from_context = precedence(x)
               }
-             else {
-              if (precedence_from_context != precedence(x)) {
-                println("Error: Mixed precedence values in definiendum!")
-                return 0
-                }
+             else if (precedence_from_context != precedence(x)) {
+              println("Error: Mixed precedence values in definiendum!")
+              return 0
               }
             }
           }
@@ -1787,22 +1623,18 @@ object synt {
             if (precedence_from_context > -1) {
               precedence(x) = precedence_from_context
               }
+             else if (precedence.contains(x)) {
+              /* pass */
+              }
              else {
-              if (precedence.contains(x)) {
-                /* pass */
-                }
-               else {
-                println("Error: Precedence not set for " + x)
-                return 0
-                }
+              println("Error: Precedence not set for " + x)
+              return 0
               }
             td(x) = 3
             val p = precedence(x)
             }
-           else {
-            if (List(1, 2, 3).contains(symtype(x))) {
-              val p = precedence(x)
-              }
+           else if (List(1, 2, 3).contains(symtype(x))) {
+            val p = precedence(x)
             }
           }
         }
@@ -1817,14 +1649,12 @@ object synt {
           defs(p) = List(definiendum)
           }
         }
+       else if (len(definiendum) == 4) {
+        /* pass */
+        }
        else {
-        if (len(definiendum) == 4) {
-          /* pass */
-          }
-         else {
-          println("Error: Non-binary connector with programmed precedence!")
-          return 0
-          }
+        println("Error: Non-binary connector with programmed precedence!")
+        return 0
         }
       }
      else {
@@ -1847,67 +1677,59 @@ object synt {
           if (symtype(x) == 5) {
             td(x) = 7
             }
+           else if (List(10, 11).contains(symtype(x))) {
+            if (varlist.contains(x)) {
+              println("Error: Repeated occurrence of " + x)
+              return 0
+              }
+             else {
+              varlist.append(x)
+              }
+            }
+          }
+         else if (List(42, 43).contains(x(0)(0))) {
+          if (schematorlist.contains(x(1))) {
+            println("Error: " + x(1) + "repeated schemator in definiendum")
+            return 0
+            }
            else {
-            if (List(10, 11).contains(symtype(x))) {
-              if (varlist.contains(x)) {
-                println("Error: Repeated occurrence of " + x)
-                return 0
-                }
-               else {
-                varlist.append(x)
-                }
+            schematorlist.append(x(1))
+            }
+          if (x(0)(0) == 42) {
+            val term_schemexp = x
+            }
+           else {
+            val formula_schemexp = x
+            }
+          for (val y <- x.substring(2)) {
+            if (type(y) != str || symtype(y) != 10) {
+              println("Error: Non-variable " + y + "not allowed")
+              return 0
+              }
+             else if (! bvlist.contains(y)) {
+              bvlist.append(y)
               }
             }
           }
          else {
-          if (List(42, 43).contains(x(0)(0))) {
-            if (schematorlist.contains(x(1))) {
-              println("Error: " + x(1) + "repeated schemator in definiendum")
-              return 0
-              }
-             else {
-              schematorlist.append(x(1))
-              }
-            if (x(0)(0) == 42) {
-              val term_schemexp = x
-              }
-             else {
-              val formula_schemexp = x
-              }
-            for (val y <- x.substring(2)) {
-              if (type(y) != str || symtype(y) != 10) {
-                println("Error: Non-variable " + y + "not allowed")
+          //print "Bound variables", bvlist 
+          val y = norepeat_varlist(x)
+          if (y == 0) {
+            println("Error: Repeated variable")
+            return 0
+            }
+           else {
+            for (val z <- y) {
+              if (varlist.contains(z)) {
+                println("Error: Repeated occurrence of " + z)
+                return 0
+                }
+               else if (List(12, 13).contains(symtype(z))) {
+                println("Error: Imbedded schemator" + y)
                 return 0
                 }
                else {
-                if (! bvlist.contains(y)) {
-                  bvlist.append(y)
-                  }
-                }
-              }
-            }
-           else {
-            //print "Bound variables", bvlist 
-            val y = norepeat_varlist(x)
-            if (y == 0) {
-              println("Error: Repeated variable")
-              return 0
-              }
-             else {
-              for (val z <- y) {
-                if (varlist.contains(z)) {
-                  println("Error: Repeated occurrence of " + z)
-                  return 0
-                  }
-                 else {
-                  if (List(12, 13).contains(symtype(z))) {
-                    println("Error: Imbedded schemator" + y)
-                    return 0
-                    }
-                   else {
-                    varlist.append(z)
-                    }
-                  }
+                varlist.append(z)
                 }
               }
             }
@@ -1937,50 +1759,46 @@ object synt {
           return 0
           }
         }
-       else {
-        if (formula_schemexp && formula_schemexp.substring(2) == bvlist && definiendum.substring(1) == ((List(introductor) + bvlist) + List(formula_schemexp))) {
-          if (symtype(introductor) == 5) {
-            td(introductor) = 9
-            // Needed to determine T or F status
-            defs(introductor) = List(definiendum)
-            }
-           else {
-            //				print "Error: Formula Seeking Notarian", introductor, definiendum 
-            println("Error: Defining a known constant as a notarian not allowed.")
-            return 0
-            }
+       else if (formula_schemexp && formula_schemexp.substring(2) == bvlist && definiendum.substring(1) == ((List(introductor) + bvlist) + List(formula_schemexp))) {
+        if (symtype(introductor) == 5) {
+          td(introductor) = 9
+          // Needed to determine T or F status
+          defs(introductor) = List(definiendum)
           }
          else {
-          val ibvlist = List()
-          for (val k <- range(len(definiendum))) {
-            if (bvlist.contains(definiendum(k))) {
-              ibvlist.append(k)
-              }
+          //				print "Error: Formula Seeking Notarian", introductor, definiendum 
+          println("Error: Defining a known constant as a notarian not allowed.")
+          return 0
+          }
+        }
+       else {
+        val ibvlist = List()
+        for (val k <- range(len(definiendum))) {
+          if (bvlist.contains(definiendum(k))) {
+            ibvlist.append(k)
             }
-          if (symtype(introductor) == 5) {
-            if (len(definiendum) == 2) {
-              if (termorformula == 1) {
-                td(introductor) = 14
-                }
-               else {
-                td(introductor) = 15
-                }
+          }
+        if (symtype(introductor) == 5) {
+          if (len(definiendum) == 2) {
+            if (termorformula == 1) {
+              td(introductor) = 14
               }
              else {
-              definiendum(0).substring(1) = List(List(0))
-              definiendum(0)(1).extend(ibvlist)
-              defs(introductor) = List(definiendum)
-              td(introductor) = 17
+              td(introductor) = 15
               }
             }
            else {
-            if (symtype(introductor) == 17) {
-              //           If definiendum is subsumed it just parses.
-              definiendum(0).substring(1) = List(List(len(defs(introductor))))
-              definiendum(0)(1).extend(ibvlist)
-              defs(introductor).append(definiendum)
-              }
+            definiendum(0).substring(1) = List(List(0))
+            definiendum(0)(1).extend(ibvlist)
+            defs(introductor) = List(definiendum)
+            td(introductor) = 17
             }
+          }
+         else if (symtype(introductor) == 17) {
+          //           If definiendum is subsumed it just parses.
+          definiendum(0).substring(1) = List(List(len(defs(introductor))))
+          definiendum(0)(1).extend(ibvlist)
+          defs(introductor).append(definiendum)
           }
         }
       }
@@ -1999,13 +1817,11 @@ object synt {
         // This should never happen.
         return List(10, 14, 40, 42).contains(headeri(0))
         }
+       else if (symtype(form) == 11) {
+        return List(11, 15, 41, 43).contains(headeri(0))
+        }
        else {
-        if (symtype(form) == 11) {
-          return List(11, 15, 41, 43).contains(headeri(0))
-          }
-         else {
-          return form == instance(1)
-          }
+        return form == instance(1)
         }
       }
      else {
@@ -2039,23 +1855,19 @@ object synt {
         if (indvars.contains(form)) {
           return headeri(0) == 48
           }
+         else if (type(instance) == str) {
+          return List(10, 14).contains(symtype(instance))
+          }
          else {
-          if (type(instance) == str) {
-            return List(10, 14).contains(symtype(instance))
-            }
-           else {
-            return List(10, 14, 40, 42).contains(headeri(0))
-            }
+          return List(10, 14, 40, 42).contains(headeri(0))
           }
         }
+       else // form is a schemator
+      if (List(11, 12, 13).contains(symtype(form)) && arity(form) == 0) {
+        return List(11, 15, 41, 43).contains(headeri(0))
+        }
        else {
-        // form is a schemator
-        if (List(11, 12, 13).contains(symtype(form)) && arity(form) == 0) {
-          return List(11, 15, 41, 43).contains(headeri(0))
-          }
-         else {
-          return form == instance
-          }
+        return form == instance
         }
       }
      else {
@@ -2099,44 +1911,38 @@ object synt {
         linetail(0) = linetail(0).substring(TeXdollars.end(1))
         }
       }
+     else if (Noparsem) {
+      if (Noparsem.group("TeXcomment")) {
+        val p = process_directive(linetail(0))
+        if (p == -1) {
+          //				print "New primitive formula" 
+          /* pass */
+          }
+         else if (p == -2) {
+          //				print "New primitive term" 
+          /* pass */
+          }
+         else if (p == -7) {
+          mode(0) = 4
+          return
+          }
+        }
+      if (type(outfragments) == list) {
+        outfragments.append(linetail(0))
+        }
+      linetail(0) = ""
+      }
      else {
-      if (Noparsem) {
-        if (Noparsem.group("TeXcomment")) {
-          val p = process_directive(linetail(0))
-          if (p == -1) {
-            //				print "New primitive formula" 
-            /* pass */
-            }
-           else {
-            if (p == -2) {
-              //				print "New primitive term" 
-              /* pass */
-              }
-             else {
-              if (p == -7) {
-                mode(0) = 4
-                return
-                }
-              }
-            }
-          }
-        if (type(outfragments) == list) {
-          outfragments.append(linetail(0))
-          }
-        linetail(0) = ""
+      if (type(outfragments) == list) {
+        outfragments.append(linetail(0))
         }
-       else {
-        if (type(outfragments) == list) {
-          outfragments.append(linetail(0))
-          }
-        linetail(0) = ""
-        }
+      linetail(0) = ""
       }
     return
     }
   
   def process_directive(comment_line: Any, hereditary_only: Any = True): Any = {
-    val directivem = pattern.directive.match_(comment_line)
+    val directivem = pattern.directive.match(comment_line)
     if (! directivem) {
       return 0
       }
@@ -2162,116 +1968,88 @@ object synt {
         }
       return -3
       }
-     else {
-      if (directivem.group(1) == "def_symbol") {
-        mathdb(MD_MACR)(directivem.group(3).substring(1)) = directivem.group(4).substring(1).rstrip()
+     else if (directivem.group(1) == "def_symbol") {
+      mathdb(MD_MACR)(directivem.group(3).substring(1)) = directivem.group(4).substring(1).rstrip()
+      }
+     else if (directivem.group(1) == "external_ref" && ! hereditary_only) {
+      mathdb(MD_REFD)(directivem.group(3)) = directivem.group(4).rstrip()
+      }
+     else if (directivem.group(1) == "major_unit:") {
+      // Handle this in renum.
+      /* pass */
+      }
+     else if (directivem.group(1) == "subfile:") {
+      // Handle this in makedf.
+      /* pass */
+      }
+     else if (directivem.group(1) == "term_definor:") {
+      mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 1
+      }
+     else if (directivem.group(1) == "formula_definor:") {
+      mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 2
+      }
+     else if (directivem.group(1) == "rules_file:") {
+      mathdb(MD_RFILE) = directivem.group(2).strip()
+      }
+     else if (directivem.group(1) == "props_file:") {
+      mathdb(MD_PFILE) = directivem.group(2).strip()
+      }
+     else if (directivem.group(1) == "undefined_term:") {
+      val tree = List()
+      val tempmode = List(2)
+      val linetailcopy = List(directivem.group(2).strip())
+      addtoken(tree, "(")
+      mathparse(tempmode, linetailcopy, tree)
+      addtoken(tree, """\ident""")
+      if (tree(-1)(0)(0) == -11) {
+        val new_term = tree(-1)(1)
+        //			print  "Primitive term: ", directivem.group(2) 
+        val rd = register_definiendum(new_term, 1)
+        if (! rd) {
+          println("Error: Register definiendum failed on " + new_term)
+          return -7
+          }
+        return -2
+        promote(tree(-1), 45)
+        }
+       else if (tree(-1)(1)(0)(0) == 40) {
+        /* pass */
+        }
+       else if (tree(-1)(1)(0)(0) == 14) {
+        /* pass */
         }
        else {
-        if (directivem.group(1) == "external_ref" && ! hereditary_only) {
-          mathdb(MD_REFD)(directivem.group(3)) = directivem.group(4).rstrip()
+        println("Error: Could not parse primitive term")
+        return -7
+        }
+      }
+     else if (directivem.group(1) == "undefined_formula:") {
+      val tree = List()
+      val tempmode = List(2)
+      val linetailcopy = List(directivem.group(2).strip())
+      addtoken(tree, "(")
+      mathparse(tempmode, linetailcopy, tree)
+      addtoken(tree, """\Iff""")
+      if (tree(-1)(0)(0) == -11) {
+        val new_formula = tree(-1)(1)
+        //			print  "Primitive formula: ", directivem.group(2) 
+        val rd = register_definiendum(new_formula, 2)
+        if (! rd) {
+          println("Error: Register definiendum failed on" + new_formula)
+          return -7
           }
-         else {
-          if (directivem.group(1) == "major_unit:") {
-            // Handle this in renum.
-            /* pass */
-            }
-           else {
-            if (directivem.group(1) == "subfile:") {
-              // Handle this in makedf.
-              /* pass */
-              }
-             else {
-              if (directivem.group(1) == "term_definor:") {
-                mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 1
-                }
-               else {
-                if (directivem.group(1) == "formula_definor:") {
-                  mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 2
-                  }
-                 else {
-                  if (directivem.group(1) == "rules_file:") {
-                    mathdb(MD_RFILE) = directivem.group(2).strip()
-                    }
-                   else {
-                    if (directivem.group(1) == "props_file:") {
-                      mathdb(MD_PFILE) = directivem.group(2).strip()
-                      }
-                     else {
-                      if (directivem.group(1) == "undefined_term:") {
-                        val tree = List()
-                        val tempmode = List(2)
-                        val linetailcopy = List(directivem.group(2).strip())
-                        addtoken(tree, "(")
-                        mathparse(tempmode, linetailcopy, tree)
-                        addtoken(tree, """\ident""")
-                        if (tree(-1)(0)(0) == -11) {
-                          val new_term = tree(-1)(1)
-                          //			print  "Primitive term: ", directivem.group(2) 
-                          val rd = register_definiendum(new_term, 1)
-                          if (! rd) {
-                            println("Error: Register definiendum failed on " + new_term)
-                            return -7
-                            }
-                          return -2
-                          promote(tree(-1), 45)
-                          }
-                         else {
-                          if (tree(-1)(1)(0)(0) == 40) {
-                            /* pass */
-                            }
-                           else {
-                            if (tree(-1)(1)(0)(0) == 14) {
-                              /* pass */
-                              }
-                             else {
-                              println("Error: Could not parse primitive term")
-                              return -7
-                              }
-                            }
-                          }
-                        }
-                       else {
-                        if (directivem.group(1) == "undefined_formula:") {
-                          val tree = List()
-                          val tempmode = List(2)
-                          val linetailcopy = List(directivem.group(2).strip())
-                          addtoken(tree, "(")
-                          mathparse(tempmode, linetailcopy, tree)
-                          addtoken(tree, """\Iff""")
-                          if (tree(-1)(0)(0) == -11) {
-                            val new_formula = tree(-1)(1)
-                            //			print  "Primitive formula: ", directivem.group(2) 
-                            val rd = register_definiendum(new_formula, 2)
-                            if (! rd) {
-                              println("Error: Register definiendum failed on" + new_formula)
-                              return -7
-                              }
-                            return -1
-                            promote(tree(-1), 45)
-                            }
-                           else {
-                            if (tree(-1)(1)(0)(0) == 41) {
-                              /* pass */
-                              }
-                             else {
-                              if (tree(-1)(1)(0)(0) == 15) {
-                                /* pass */
-                                }
-                               else {
-                                println("Error: Could not parse primitive formula")
-                                return -7
-                                }
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+        return -1
+        promote(tree(-1), 45)
+        }
+       else if (tree(-1)(1)(0)(0) == 41) {
+        /* pass */
+        }
+       else if (tree(-1)(1)(0)(0) == 15) {
+        /* pass */
+        }
+       else {
+        println("Error: Could not parse primitive formula")
+        return -7
         }
       }
     return 0
@@ -2288,50 +2066,46 @@ object synt {
       linetail(0) = newlinetail
       }
     if (linetail(0)) {
-      val TeXdollarm = pattern.TeXdollar.match_(linetail(0))
-      if (pattern.TeXcomment.match_(linetail(0))) {
+      val TeXdollarm = pattern.TeXdollar.match(linetail(0))
+      if (pattern.TeXcomment.match(linetail(0))) {
         if (type(outfragments) == list) {
           outfragments.append(linetail(0))
           }
         linetail(0) = ""
         }
+       else if (TeXdollarm) {
+        if (type(outfragments) == list) {
+          //				outfragments.append(linetail[0][:1])
+          outfragments.append(linetail(0).substring(0, TeXdollarm.end(1)))
+          }
+        linetail(0) = linetail(0).substring(TeXdollarm.end(1))
+        mode(0) = 2
+        }
        else {
-        if (TeXdollarm) {
-          if (type(outfragments) == list) {
-            //				outfragments.append(linetail[0][:1])
-            outfragments.append(linetail(0).substring(0, TeXdollarm.end(1)))
-            }
-          linetail(0) = linetail(0).substring(TeXdollarm.end(1))
-          mode(0) = 2
+        val notem = pattern.note.match(linetail(0))
+        if (notem) {
+          println("Error: Previous note unfinished.")
+          mode(0) = 4
+          return
           }
          else {
-          val notem = pattern.note.match_(linetail(0))
-          if (notem) {
-            println("Error: Previous note unfinished.")
-            mode(0) = 4
-            return
+          val linem = pattern.line.match(linetail(0))
+          if (linem) {
+            val nn = (linem.start(2) - 1)
+            if (type(outfragments) == list) {
+              outfragments.append(linetail(0).substring(0, nn))
+              }
+            linetail(0) = linetail(0).substring(nn)
+            }
+           else if (linetail(0).substring(0, 3) == """\By""") {
+            if (type(outfragments) == list) {
+              outfragments.append(linetail(0))
+              }
+            linetail(0) = ""
             }
            else {
-            val linem = pattern.line.match_(linetail(0))
-            if (linem) {
-              val nn = (linem.start(2) - 1)
-              if (type(outfragments) == list) {
-                outfragments.append(linetail(0).substring(0, nn))
-                }
-              linetail(0) = linetail(0).substring(nn)
-              }
-             else {
-              if (linetail(0).substring(0, 3) == """\By""") {
-                if (type(outfragments) == list) {
-                  outfragments.append(linetail(0))
-                  }
-                linetail(0) = ""
-                }
-               else {
-                // Signal an error
-                mode(0) = 4
-                }
-              }
+            // Signal an error
+            mode(0) = 4
             }
           }
         }
@@ -2343,26 +2117,24 @@ object synt {
     if (! linetail(0)) {
       return
       }
-    val TeXcommentm = pattern.TeXcomment.match_(linetail(0))
-    val TeXdollarm = pattern.TeXdollar.match_(linetail(0))
+    val TeXcommentm = pattern.TeXcomment.match(linetail(0))
+    val TeXdollarm = pattern.TeXdollar.match(linetail(0))
     if (TeXcommentm) {
       linetail(0) = ""
       return
       }
-     else {
-      if (TeXdollarm) {
-        linetail(0) = linetail(0).substring(TeXdollarm.end(1))
-        mode(0) = 2
-        return
-        }
+     else if (TeXdollarm) {
+      linetail(0) = linetail(0).substring(TeXdollarm.end(1))
+      mode(0) = 2
+      return
       }
-    val linem = pattern.line.match_(linetail(0))
+    val linem = pattern.line.match(linetail(0))
     if (linem) {
       linetail(0) = linem.group(2)
       mode(0) = 2
       return
       }
-    val bym = pattern.by.match_(linetail(0))
+    val bym = pattern.by.match(linetail(0))
     if (bym) {
       val rp = refparse(bym.group(1))
       if (rp == 0) {
@@ -2375,26 +2147,22 @@ object synt {
       return
       }
     val newlinetail = linetail(0).lstrip()
-    val TeXdollarm = pattern.TeXdollar.match_(newlinetail)
-    val TeXcommentm = pattern.TeXcomment.match_(newlinetail)
+    val TeXdollarm = pattern.TeXdollar.match(newlinetail)
+    val TeXcommentm = pattern.TeXcomment.match(newlinetail)
     if (! newlinetail) {
       linetail(0) = ""
       }
+     else if (TeXcommentm) {
+      linetail(0) = ""
+      }
+     else if (TeXdollarm) {
+      linetail(0) = newlinetail.substring(TeXdollarm.end(1))
+      mode(0) = 2
+      }
      else {
-      if (TeXcommentm) {
-        linetail(0) = ""
-        }
-       else {
-        if (TeXdollarm) {
-          linetail(0) = newlinetail.substring(TeXdollarm.end(1))
-          mode(0) = 2
-          }
-         else {
-          println("Error: Only references allowed in note margins")
-          // Signal an error
-          mode(0) = 4
-          }
-        }
+      println("Error: Only references allowed in note margins")
+      // Signal an error
+      mode(0) = 4
       }
     return
     }
@@ -2420,7 +2188,7 @@ object synt {
       }
     val currentline = linetail(0)
     val lenline = len(currentline)
-    val blanklinem = pattern.blankline.match_(currentline, currentpos)
+    val blanklinem = pattern.blankline.match(currentline, currentpos)
     if (blanklinem) {
       // If the parse is done
       if (tree(0)(0)(0) > 0) {
@@ -2438,7 +2206,7 @@ object synt {
       linetail(0) = currentline.substring(currentpos)
       return
       }
-    val tokenm = pattern.token.match_(currentline, currentpos)
+    val tokenm = pattern.token.match(currentline, currentpos)
     if (! tokenm) {
       println("Error: Line empty following TeX dollar sign")
       mode(0) = 4
@@ -2451,7 +2219,7 @@ object synt {
       val currentpos = tokenm.end(1)
       }
     while (currentpos < lenline) {
-      val TeXdollarm = pattern.TeXdollar.match_(currentline, currentpos)
+      val TeXdollarm = pattern.TeXdollar.match(currentline, currentpos)
       if (TeXdollarm) {
         // If the parse is done
         if (tree(0)(0)(0) > 0) {
@@ -2476,7 +2244,7 @@ object synt {
         linetail(0) = currentline.substring(currentpos)
         return
         }
-      val tokenm = pattern.token.match_(currentline, currentpos)
+      val tokenm = pattern.token.match(currentline, currentpos)
       if (! tokenm) {
         mode(0) = 4
         return
@@ -2490,13 +2258,11 @@ object synt {
       if (pfcdict == None || len(token) == 1) {
         val pfctoken = token
         }
+       else if (pfcdict.contains(token.substring(1))) {
+        val pfctoken = ("""\""" + pfcdict(token.substring(1)))
+        }
        else {
-        if (pfcdict.contains(token.substring(1))) {
-          val pfctoken = ("""\""" + pfcdict(token.substring(1)))
-          }
-         else {
-          val pfctoken = token
-          }
+        val pfctoken = token
         }
       val ck = addtoken(tree, pfctoken)
       if (tokenm.group(1)) {
@@ -2513,20 +2279,16 @@ object synt {
         if (ck == 1) {
           outfragments.append(token)
           }
+         else if (ck == 2) {
+          outfragments.append(("""\""" + pattern.skipstring))
+          outfragments.append(token)
+          }
+         else if (ck == 3) {
+          outfragments.append(token)
+          outfragments.append(("""\""" + pattern.skipstring))
+          }
          else {
-          if (ck == 2) {
-            outfragments.append(("""\""" + pattern.skipstring))
-            outfragments.append(token)
-            }
-           else {
-            if (ck == 3) {
-              outfragments.append(token)
-              outfragments.append(("""\""" + pattern.skipstring))
-              }
-             else {
-              outfragments.append(token)
-              }
-            }
+          outfragments.append(token)
           }
         if (tokenm.group(4)) {
           outfragments.append(tokenm.group(4))
@@ -2552,7 +2314,7 @@ object synt {
         return 0
         }
       if (t(0) == "." || t(0).isdigit()) {
-        val refmatch = pattern.ref.match_(t)
+        val refmatch = pattern.ref.match(t)
         if (! refmatch) {
           return 0
           }
@@ -2572,29 +2334,27 @@ object synt {
         continue
         }
       val reflast = False
-      val punctsmatch = pattern.puncts.match_(t)
+      val punctsmatch = pattern.puncts.match(t)
       val puncts = punctsmatch.group(1)
-      val findsinglematch = pattern.findsingle.match_(puncts)
+      val findsinglematch = pattern.findsingle.match(puncts)
       if (findsinglematch) {
         if (findsinglematch.start(1) == 0) {
           reflist.append(puncts(0))
           val t = t.substring(1)
           }
+         else if (reference_punctuator_list.contains(findsinglematch.group(1))) {
+          reflist.append(findsinglematch.group(1))
+          val t = t.substring(findsinglematch.start(2))
+          }
          else {
-          if (reference_punctuator_list.contains(findsinglematch.group(1))) {
-            reflist.append(findsinglematch.group(1))
-            val t = t.substring(findsinglematch.start(2))
-            }
-           else {
-            println("Error:" + findsinglematch.group(1) + " not in reference_punctuator_list")
-            return 0
-            }
+          println("Error:" + findsinglematch.group(1) + " not in reference_punctuator_list")
+          return 0
           }
         }
        else {
         val u = punctsmatch.group(2)
         if (len(puncts) > 4 && puncts.substring(-5) == """\char""") {
-          val nummatch = pattern.nums.match_(u)
+          val nummatch = pattern.nums.match(u)
           if (nummatch) {
             reflist.append((puncts + nummatch.group(1)))
             val t = nummatch.group(2)
@@ -2604,15 +2364,13 @@ object synt {
             return 0
             }
           }
+         else if (reference_punctuator_list.contains(puncts)) {
+          reflist.append(puncts)
+          val t = u
+          }
          else {
-          if (reference_punctuator_list.contains(puncts)) {
-            reflist.append(puncts)
-            val t = u
-            }
-           else {
-            println("Error:" + puncts + "not in reference_punctuator_list")
-            return 0
-            }
+          println("Error:" + puncts + "not in reference_punctuator_list")
+          return 0
           }
         }
       }
@@ -2630,7 +2388,7 @@ object synt {
         break
         }
       if (t(0) == "$") {
-        val TeXmatch = pattern.TeXmath.match_(t)
+        val TeXmatch = pattern.TeXmath.match(t)
         if (! TeXmatch) {
           println("Error: Unmatched Tex dollar sign")
           return 0
@@ -2650,31 +2408,29 @@ object synt {
           }
         continue
         }
-      val punctsmatch = pattern.puncts.match_(t)
+      val punctsmatch = pattern.puncts.match(t)
       val puncts = punctsmatch.group(1)
-      val findsinglematch = pattern.findsingle.match_(puncts)
+      val findsinglematch = pattern.findsingle.match(puncts)
       if (findsinglematch) {
         if (findsinglematch.start(1) == 0) {
           rule.append(puncts(0))
           rulesignature.append(puncts(0))
           val t = t.substring(1)
           }
+         else if (reference_punctuator_list.contains(findsinglematch.group(1))) {
+          rule.append(findsinglematch.group(1))
+          rulesignature.append(findsinglematch.group(1))
+          val t = t.substring(findsinglematch.start(2))
+          }
          else {
-          if (reference_punctuator_list.contains(findsinglematch.group(1))) {
-            rule.append(findsinglematch.group(1))
-            rulesignature.append(findsinglematch.group(1))
-            val t = t.substring(findsinglematch.start(2))
-            }
-           else {
-            println("Error: " + findsinglematch.group(1) + " not in reference_punctuator_list")
-            return 0
-            }
+          println("Error: " + findsinglematch.group(1) + " not in reference_punctuator_list")
+          return 0
           }
         }
        else {
         val u = punctsmatch.group(2)
         if (len(puncts) > 4 && puncts.substring(-5) == """\char""") {
-          val nummatch = pattern.nums.match_(u)
+          val nummatch = pattern.nums.match(u)
           if (nummatch) {
             rule.append((puncts + nummatch.group(1)))
             rulesignature.append((puncts + nummatch.group(1)))
@@ -2685,16 +2441,14 @@ object synt {
             return 0
             }
           }
+         else if (reference_punctuator_list.contains(puncts)) {
+          rule.append(puncts)
+          rulesignature.append(puncts)
+          val t = u
+          }
          else {
-          if (reference_punctuator_list.contains(puncts)) {
-            rule.append(puncts)
-            rulesignature.append(puncts)
-            val t = u
-            }
-           else {
-            println("Error: " + puncts + "not in reference_punctuator_list")
-            return 0
-            }
+          println("Error: " + puncts + "not in reference_punctuator_list")
+          return 0
           }
         }
       }
@@ -2721,51 +2475,45 @@ object synt {
           }
         val depth = (depth + 1)
         }
-       else {
-        if (sig(k) == ")") {
-          val depth = (depth - 1)
-          if (depth == 0) {
-            retlist.append(chunk)
-            }
+       else if (sig(k) == ")") {
+        val depth = (depth - 1)
+        if (depth == 0) {
+          retlist.append(chunk)
+          }
+        }
+       else if (sig(k) == "$") {
+        val localvarlist = List()
+        if (type(rule(k)) == list && len(rule(k)(0)) < 2) {
+          assert(rule(k)(0) == List(11))
+          val localvarlist = List(rule(k)(1))
           }
          else {
-          if (sig(k) == "$") {
-            val localvarlist = List()
-            if (type(rule(k)) == list && len(rule(k)(0)) < 2) {
-              assert(rule(k)(0) == List(11))
-              val localvarlist = List(rule(k)(1))
-              }
-             else {
-              for (val x <- nblist(rule(k))) {
-                if (! localvarlist.contains(x)) {
-                  localvarlist.append(x)
-                  }
-                }
-              }
-            if (depth == 0) {
-              val chunk = localvarlist
-              retlist.append(chunk)
-              }
-             else {
-              for (val x <- localvarlist) {
-                if (! chunk.contains(x)) {
-                  chunk.append(x)
-                  }
-                }
-              }
-            }
-           else {
-            if (reference_punctuator_list.contains(sig(k))) {
-              assert(! sig(k).contains("(") && ! sig(k).contains(")"))
-              if (depth == 0) {
-                retlist.append(sig(k))
-                }
-              }
-             else {
-              println("Programming error:" + sig(k))
+          for (val x <- nblist(rule(k))) {
+            if (! localvarlist.contains(x)) {
+              localvarlist.append(x)
               }
             }
           }
+        if (depth == 0) {
+          val chunk = localvarlist
+          retlist.append(chunk)
+          }
+         else {
+          for (val x <- localvarlist) {
+            if (! chunk.contains(x)) {
+              chunk.append(x)
+              }
+            }
+          }
+        }
+       else if (reference_punctuator_list.contains(sig(k))) {
+        assert(! sig(k).contains("(") && ! sig(k).contains(")"))
+        if (depth == 0) {
+          retlist.append(sig(k))
+          }
+        }
+       else {
+        println("Programming error:" + sig(k))
         }
       }
     return retlist
@@ -2787,10 +2535,8 @@ object synt {
         val fetched_tf = ((fetched_tf + " ") + stuff)
         mathparse(mode, linetail, parsetree)
         }
-       else {
-        if (mode(0) == 3) {
-          mathmargin(mode, linetail)
-          }
+       else if (mode(0) == 3) {
+        mathmargin(mode, linetail)
         }
       if (! linetail(0)) {
         getline(linetail, verbose)
@@ -2838,22 +2584,20 @@ object synt {
         return List()
         }
       }
-     else {
-      if (type(pexp) == list) {
-        val r = List()
-        for (val t <- pexp) {
-          val s = varlist(t)
-          for (val u <- s) {
-            if (! r.contains(u)) {
-              r.append(u)
-              }
+     else if (type(pexp) == list) {
+      val r = List()
+      for (val t <- pexp) {
+        val s = varlist(t)
+        for (val u <- s) {
+          if (! r.contains(u)) {
+            r.append(u)
             }
           }
-        return r
         }
-       else {
-        return List()
-        }
+      return r
+      }
+     else {
+      return List()
       }
     }
   
@@ -2866,28 +2610,26 @@ object synt {
         return List()
         }
       }
-     else {
-      if (type(pexp) == list) {
-        val r = List()
-        for (val t <- pexp) {
-          val s = varlist(t)
-          if (s == 0) {
+     else if (type(pexp) == list) {
+      val r = List()
+      for (val t <- pexp) {
+        val s = varlist(t)
+        if (s == 0) {
+          return 0
+          }
+        for (val u <- s) {
+          if (r.contains(u)) {
             return 0
             }
-          for (val u <- s) {
-            if (r.contains(u)) {
-              return 0
-              }
-             else {
-              r.append(u)
-              }
+           else {
+            r.append(u)
             }
           }
-        return r
         }
-       else {
-        return List()
-        }
+      return r
+      }
+     else {
+      return List()
       }
     }
   
@@ -2903,49 +2645,39 @@ object synt {
           }
         addnode(tree, xi)
         }
-       else {
-        if (symtype(xi) == 14) {
-          if (state == 1) {
-            val state = 2
-            }
-          addtoken(tree, xi)
+       else if (symtype(xi) == 14) {
+        if (state == 1) {
+          val state = 2
+          }
+        addtoken(tree, xi)
+        }
+       else if (symtype(xi) == 10) {
+        if (state == 0) {
+          /* pass */
+          }
+         else if (state == 1) {
+          val state = 2
+          }
+        addtoken(tree, xi)
+        }
+       else if (xi == ",") {
+        if (state == 2) {
+          val state = 0
+          addtoken(tree, """\And""")
           }
          else {
-          if (symtype(xi) == 10) {
-            if (state == 0) {
-              /* pass */
-              }
-             else {
-              if (state == 1) {
-                val state = 2
-                }
-              }
-            addtoken(tree, xi)
-            }
-           else {
-            if (xi == ",") {
-              if (state == 2) {
-                val state = 0
-                addtoken(tree, """\And""")
-                }
-               else {
-                addtoken(tree, xi)
-                }
-              }
-             else {
-              if (symtype(xi) == 3) {
-                if (state == 0) {
-                  val state = 1
-                  val verbfound = 1
-                  }
-                addtoken(tree, xi)
-                }
-               else {
-                throw new "Scope error"()
-                }
-              }
-            }
+          addtoken(tree, xi)
           }
+        }
+       else if (symtype(xi) == 3) {
+        if (state == 0) {
+          val state = 1
+          val verbfound = 1
+          }
+        addtoken(tree, xi)
+        }
+       else {
+        throw new "Scope error"()
         }
       }
     if (verbfound) {
@@ -2974,90 +2706,82 @@ object synt {
           println("Initial commas and double commas not allowed")
           throw new SystemExit()
           }
-         else {
-          if (lastterm == List()) {
-            verblist.append(lastverb)
-            val lastverb = List()
-            }
-           else {
-            if (lastverb == List()) {
-              termlist.extend(lastterm)
-              val lastterm = List()
-              }
-            }
+         else if (lastterm == List()) {
+          verblist.append(lastverb)
+          val lastverb = List()
+          }
+         else if (lastverb == List()) {
+          termlist.extend(lastterm)
+          val lastterm = List()
+          }
+        }
+       else if (type(x) == list || List(10, 14).contains(symtype(x))) {
+        if (lastterm != List()) {
+          throw new "Parse failure"()
+          }
+        val lastterm = List(x)
+        if (lastverb != List()) {
+          verblist.append(lastverb)
+          val modifiers = verblist
+          val lastverb = List()
+          val verblist = List()
+          }
+         else if (verblist != List()) {
+          throw new "Parse wrong"()
           }
         }
        else {
-        if (type(x) == list || List(10, 14).contains(symtype(x))) {
+        if (lastverb == verblist && verblist == List()) {
           if (lastterm != List()) {
-            throw new "Parse failure"()
+            termlist.extend(lastterm)
+            // Here is the possible change!!!!!!!!!!!
+            val lastterm = List()
             }
-          val lastterm = List(x)
-          if (lastverb != List()) {
-            verblist.append(lastverb)
-            val modifiers = verblist
-            val lastverb = List()
-            val verblist = List()
+          if (len(termlist) == 1) {
+            val object = termlist(0)
             }
            else {
-            if (verblist != List()) {
-              throw new "Parse wrong"()
+            val object = List(List(44, 6))
+            for (val y <- termlist) {
+              object.append(y)
+              object.append(",")
               }
-            }
-          }
-         else {
-          if (lastverb == verblist && verblist == List()) {
-            if (lastterm != List()) {
-              termlist.extend(lastterm)
-              // Here is the possible change!!!!!!!!!!!
-              val lastterm = List()
-              }
-            if (len(termlist) == 1) {
-              val object = termlist(0)
-              }
-             else {
-              val object = List(List(44, 6))
-              for (val y <- termlist) {
-                object.append(y)
-                object.append(",")
+            object -= -1}
+          for (val s <- subjects) {
+            val clause = List(List(45, 6))
+            clause.append(s)
+            clause.extend(modifiers(-1))
+            clause.append(object)
+            conjunctlist.append(clause)
+            for (val t <- subjects) {
+              if (t == s) {
+                break
                 }
-              object -= -1}
-            for (val s <- subjects) {
-              val clause = List(List(45, 6))
-              clause.append(s)
-              clause.extend(modifiers(-1))
-              clause.append(object)
-              conjunctlist.append(clause)
-              for (val t <- subjects) {
-                if (t == s) {
-                  break
-                  }
-                for (val r <- modifiers.substring(0, -1)) {
-                  val clause = List(List(45, 6))
-                  clause.append(t)
-                  clause.extend(r)
-                  clause.append(s)
-                  conjunctlist.append(clause)
-                  }
+              for (val r <- modifiers.substring(0, -1)) {
+                val clause = List(List(45, 6))
+                clause.append(t)
+                clause.extend(r)
+                clause.append(s)
+                conjunctlist.append(clause)
                 }
               }
-            if (len(termlist) > 1 && lastterm == List()) {
-              val subjects = termlist
-              }
-             else {
-              val subjects = List(object)
-              }
-            //
-            //To accomodate Morse's tuple scheme uncomment this:		
-            //
-            // 				if len(termlist) == 1 and lastterm == []:
-            // 					lastverb.append(',')
-            //
-            val lastterm = List()
-            val termlist = List()
             }
-          lastverb.append(x)
+          if (len(termlist) > 1 && lastterm == List()) {
+            val subjects = termlist
+            }
+           else {
+            val subjects = List(object)
+            }
+          //
+          //To accomodate Morse's tuple scheme uncomment this:		
+          //
+          // 				if len(termlist) == 1 and lastterm == []:
+          // 					lastverb.append(',')
+          //
+          val lastterm = List()
+          val termlist = List()
           }
+        lastverb.append(x)
         }
       }
     if (verblist != List() || lastverb != List("=")) {
@@ -3099,10 +2823,8 @@ object synt {
     if (type(newexp) == str) {
       return newexp
       }
-     else {
-      if (len(newexp) == 4 && newexp(2) == """\c""" && newexp(1) == """\true""") {
-        return negdeep(newexp(3))
-        }
+     else if (len(newexp) == 4 && newexp(2) == """\c""" && newexp(1) == """\true""") {
+      return negdeep(newexp(3))
       }
     if (len(newexp) == 4 && newexp(2) == """\c""" && newexp(3) == """\false""") {
       if (type(newexp(1)) == list && len(newexp(1)) == 3 && newexp(1)(1) == """\Not""") {
@@ -3122,64 +2844,54 @@ object synt {
     if (type(exp) == str) {
       return exp
       }
-     else {
-      if (exp(1) == "(") {
-        return deep(exp(2))
+     else if (exp(1) == "(") {
+      return deep(exp(2))
+      }
+     else if (List(14, 15).contains(exp(0)(0))) {
+      return exp(1)
+      }
+     else //	elif len(exp) == 4 and exp[2] == '\\c' and exp[1] == '\\true':
+    //		return deep(exp[3])
+    if (exp(0)(0) == 45 && exp(0)(1) == 6) {
+      val recurselist = List(exp(0))
+      for (val r <- exp.substring(1)) {
+        recurselist.append(deep(r))
         }
-       else {
-        if (List(14, 15).contains(exp(0)(0))) {
-          return exp(1)
+      return verbexpand(recurselist)
+      }
+     else if (cmopp) {
+      val retlist = List(exp(0))
+      for (val r <- exp.substring(1)) {
+        val d = deep(r)
+        if (cmop(d) == cmopp) {
+          retlist.extend(d.substring(1))
           }
          else {
-          //	elif len(exp) == 4 and exp[2] == '\\c' and exp[1] == '\\true':
-          //		return deep(exp[3])
-          if (exp(0)(0) == 45 && exp(0)(1) == 6) {
-            val recurselist = List(exp(0))
-            for (val r <- exp.substring(1)) {
-              recurselist.append(deep(r))
-              }
-            return verbexpand(recurselist)
-            }
-           else {
-            if (cmopp) {
-              val retlist = List(exp(0))
-              for (val r <- exp.substring(1)) {
-                val d = deep(r)
-                if (cmop(d) == cmopp) {
-                  retlist.extend(d.substring(1))
-                  }
-                 else {
-                  retlist.append(d)
-                  }
-                }
-              return retlist
-              }
-             else {
-              //	elif exp[0] == [45,5,1]:
-              //		retlist = [exp[0]]
-              // 		for r in exp[1:]:
-              //			d = deep(r)
-              //			if type(d) is str: 
-              //				retlist.append(d)
-              //			elif d[0] == [45,5,1]:
-              //				retlist.extend(d[1:])
-              //			else:
-              //				retlist.append(d)
-              //		return retlist
-              if (len(exp(0)) > 1 && List(40, 41).contains(exp(0)(0)) && List(3, 4, 5, 6, 7).contains(exp(0)(1))) {
-                return notariancondense(exp)
-                }
-               else {
-                val retlist = List(exp(0))
-                for (val x <- exp.substring(1)) {
-                  retlist.append(deep(x))
-                  }
-                return retlist
-                }
-              }
-            }
+          retlist.append(d)
           }
         }
+      return retlist
+      }
+     else //	elif exp[0] == [45,5,1]:
+    //		retlist = [exp[0]]
+    // 		for r in exp[1:]:
+    //			d = deep(r)
+    //			if type(d) is str: 
+    //				retlist.append(d)
+    //			elif d[0] == [45,5,1]:
+    //				retlist.extend(d[1:])
+    //			else:
+    //				retlist.append(d)
+    //		return retlist
+    if (len(exp(0)) > 1 && List(40, 41).contains(exp(0)(0)) && List(3, 4, 5, 6, 7).contains(exp(0)(1))) {
+      return notariancondense(exp)
+      }
+     else {
+      val retlist = List(exp(0))
+      for (val x <- exp.substring(1)) {
+        retlist.append(deep(x))
+        }
+      return retlist
       }
     }
   
@@ -3221,10 +2933,8 @@ object synt {
       if (type(x) == str) {
         /* pass */
         }
-       else {
-        if (x(0)(0) == 48) {
-          val scopecond = scopecondition(x)
-          }
+       else if (x(0)(0) == 48) {
+        val scopecond = scopecondition(x)
         }
       }
     if (ntyp == 4) {
@@ -3235,14 +2945,12 @@ object synt {
         val scopecond = newform(-1)
         }
       }
-     else {
-      if (List(5, 7).contains(ntyp)) {
-        if (scopecond) {
-          val scopecond = makeand(scopecond, deep(newform(-2)))
-          }
-         else {
-          val scopecond = newform(-2)
-          }
+     else if (List(5, 7).contains(ntyp)) {
+      if (scopecond) {
+        val scopecond = makeand(scopecond, deep(newform(-2)))
+        }
+       else {
+        val scopecond = newform(-2)
         }
       }
     if (scopecond == List()) {
@@ -3253,19 +2961,17 @@ object synt {
     if (List(3, 5).contains(ntyp)) {
       val indform = newform(-1)
       }
-     else {
-      if (ntyp == 4) {
-        if (len(indvs) == 1) {
-          val indform = indvs(0)
-          }
-         else {
-          //We may never use this:
-          val indform = (List(List(45, 6)) + newscope.substring(1))
-          }
+     else if (ntyp == 4) {
+      if (len(indvs) == 1) {
+        val indform = indvs(0)
         }
        else {
-        val indform = newform(2)
+        //We may never use this:
+        val indform = (List(List(45, 6)) + newscope.substring(1))
         }
+      }
+     else {
+      val indform = newform(2)
       }
     if (List(6, 7).contains(ntyp) && styp == 9) {
       if (ntyp == 7) {
@@ -3273,61 +2979,51 @@ object synt {
         newform(4) = newscope
         newform(6) = deep(scopecond)
         }
-       else {
-        if (ntyp == 6) {
-          newform(0)(1) = 7
-          newform(2) = deep(newform(2))
-          newform(4) = newscope
-          newform.substring(5, 5) = List(";", deep(scopecond))
-          }
+       else if (ntyp == 6) {
+        newform(0)(1) = 7
+        newform(2) = deep(newform(2))
+        newform(4) = newscope
+        newform.substring(5, 5) = List(";", deep(scopecond))
         }
       }
+     else if (styp == 8) {
+      newform.substring(2) = List()
+      newform(0)(1) = 5
+      newform.append(newscope)
+      newform.append(";")
+      newform.append(deep(scopecond))
+      newform.append(deep(indform))
+      }
      else {
-      if (styp == 8) {
-        newform.substring(2) = List()
-        newform(0)(1) = 5
-        newform.append(newscope)
-        newform.append(";")
-        newform.append(deep(scopecond))
-        newform.append(deep(indform))
+      newform.substring(2) = List()
+      newform(0)(1) = 3
+      val indform = deep(indform)
+      if (newform(1) == """\Each""") {
+        if (ntyp == 4) {
+          throw new "Colon not expected"()
+          }
+         else if (type(indform) == list && indform(0) == List(45, 2) && indform(2) == """\c""" && scopecond) {
+          indform(1) = makeand(deep(scopecond), indform(1))
+          }
+         else if (scopecond) {
+          val indform = List(List(45, 2), deep(scopecond), """\c""", indform)
+          }
         }
-       else {
-        newform.substring(2) = List()
-        newform(0)(1) = 3
-        val indform = deep(indform)
-        if (newform(1) == """\Each""") {
-          if (ntyp == 4) {
-            throw new "Colon not expected"()
-            }
-           else {
-            if (type(indform) == list && indform(0) == List(45, 2) && indform(2) == """\c""" && scopecond) {
-              indform(1) = makeand(deep(scopecond), indform(1))
-              }
-             else {
-              if (scopecond) {
-                val indform = List(List(45, 2), deep(scopecond), """\c""", indform)
-                }
-              }
-            }
-          }
-         else {
-          if (scopecond) {
-            val indform = makeand(deep(scopecond), indform)
-            }
-          }
-        newform.append(newscope)
-        newform.append(indform)
-        if (len(indvs) > 1 && List("""\Each""", """\Some""").contains(newform(1))) {
-          val indform = deep(newform(-1))
-          val singlequant = newform.substring(0, 2)
-          val rindvs = indvs.substring(0)
-          rindvs.reverse()
-          for (val x <- rindvs) {
-            val newscope = List(List(48, List()), x)
-            val newform = (singlequant + List(newscope))
-            newform.append(indform)
-            val indform = newform
-            }
+       else if (scopecond) {
+        val indform = makeand(deep(scopecond), indform)
+        }
+      newform.append(newscope)
+      newform.append(indform)
+      if (len(indvs) > 1 && List("""\Each""", """\Some""").contains(newform(1))) {
+        val indform = deep(newform(-1))
+        val singlequant = newform.substring(0, 2)
+        val rindvs = indvs.substring(0)
+        rindvs.reverse()
+        for (val x <- rindvs) {
+          val newscope = List(List(48, List()), x)
+          val newform = (singlequant + List(newscope))
+          newform.append(indform)
+          val indform = newform
           }
         }
       }
@@ -3396,57 +3092,45 @@ object synt {
       if (type(x) == str) {
         /* pass */
         }
-       else {
-        if (x(0)(0) == 48) {
-          val state = 0
-          for (val xi <- x.substring(1)) {
-            if (type(xi) == list) {
-              if (state == 1) {
-                val state = 2
-                retlist.extend(nfvlist(xi))
-                }
-              }
-             else {
-              if (symtype(xi) == 14) {
-                if (state == 1) {
-                  val state = 2
-                  }
-                }
-               else {
-                if (symtype(xi) == 10) {
-                  if (state == 0) {
-                    retlist.append(xi)
-                    }
-                   else {
-                    if (state == 1) {
-                      val state = 2
-                      }
-                    }
-                  }
-                 else {
-                  if (xi == ",") {
-                    if (state == 2) {
-                      val state = 0
-                      }
-                    }
-                   else {
-                    if (symtype(xi) == 3) {
-                      if (state == 0) {
-                        val state = 1
-                        }
-                      }
-                     else {
-                      throw new "Scope error"()
-                      }
-                    }
-                  }
-                }
+       else if (x(0)(0) == 48) {
+        val state = 0
+        for (val xi <- x.substring(1)) {
+          if (type(xi) == list) {
+            if (state == 1) {
+              val state = 2
+              retlist.extend(nfvlist(xi))
               }
             }
+           else if (symtype(xi) == 14) {
+            if (state == 1) {
+              val state = 2
+              }
+            }
+           else if (symtype(xi) == 10) {
+            if (state == 0) {
+              retlist.append(xi)
+              }
+             else if (state == 1) {
+              val state = 2
+              }
+            }
+           else if (xi == ",") {
+            if (state == 2) {
+              val state = 0
+              }
+            }
+           else if (symtype(xi) == 3) {
+            if (state == 0) {
+              val state = 1
+              }
+            }
+           else {
+            throw new "Scope error"()
+            }
           }
-         else {
-          retlist.extend(nfvlist(x))
-          }
+        }
+       else {
+        retlist.extend(nfvlist(x))
         }
       }
     return retlist
@@ -3467,54 +3151,42 @@ object synt {
       if (type(x) == str) {
         /* pass */
         }
-       else {
-        if (x(0)(0) == 48) {
-          val state = 0
-          for (val xi <- x.substring(1)) {
-            if (type(xi) == list) {
-              if (state == 1) {
-                val state = 2
-                }
+       else if (x(0)(0) == 48) {
+        val state = 0
+        for (val xi <- x.substring(1)) {
+          if (type(xi) == list) {
+            if (state == 1) {
+              val state = 2
               }
-             else {
-              if (symtype(xi) == 14) {
-                if (state == 1) {
-                  val state = 2
-                  }
-                }
-               else {
-                if (symtype(xi) == 10) {
-                  if (state == 0) {
-                    retlist.append(xi)
-                    }
-                   else {
-                    if (state == 1) {
-                      val state = 2
-                      }
-                    }
-                  }
-                 else {
-                  if (xi == ",") {
-                    if (state == 2) {
-                      val state = 0
-                      }
-                    }
-                   else {
-                    if (symtype(xi) == 3) {
-                      if (state == 0) {
-                        val state = 1
-                        }
-                      }
-                     else {
-                      println("form = " + form)
-                      println("x = " + x)
-                      println("xi = " + xi)
-                      throw new "Scope error"()
-                      }
-                    }
-                  }
-                }
+            }
+           else if (symtype(xi) == 14) {
+            if (state == 1) {
+              val state = 2
               }
+            }
+           else if (symtype(xi) == 10) {
+            if (state == 0) {
+              retlist.append(xi)
+              }
+             else if (state == 1) {
+              val state = 2
+              }
+            }
+           else if (xi == ",") {
+            if (state == 2) {
+              val state = 0
+              }
+            }
+           else if (symtype(xi) == 3) {
+            if (state == 0) {
+              val state = 1
+              }
+            }
+           else {
+            println("form = " + form)
+            println("x = " + x)
+            println("xi = " + xi)
+            throw new "Scope error"()
             }
           }
         }
@@ -3551,26 +3223,24 @@ object synt {
             newform.append(form(n))
             }
           }
-         else {
-          if (List(42, 43).contains(definiendum(n)(0)(0))) {
-            val subinlist = List()
-            val suboutlist = List()
-            for (val m <- ibvlist) {
-              if (definiendum(n).contains(definiendum(m))) {
-                if (outlist.contains(form(m))) {
-                  subinlist.append(inlist(outlist.index(form(m))))
-                  suboutlist.append(form(m))
-                  }
-                 else {
-                  throw new "Bound variable error"()
-                  }
+         else if (List(42, 43).contains(definiendum(n)(0)(0))) {
+          val subinlist = List()
+          val suboutlist = List()
+          for (val m <- ibvlist) {
+            if (definiendum(n).contains(definiendum(m))) {
+              if (outlist.contains(form(m))) {
+                subinlist.append(inlist(outlist.index(form(m))))
+                suboutlist.append(form(m))
+                }
+               else {
+                throw new "Bound variable error"()
                 }
               }
-            newform.append(subst(subinlist, suboutlist, form(n)))
             }
-           else {
-            newform.append(form(n))
-            }
+          newform.append(subst(subinlist, suboutlist, form(n)))
+          }
+         else {
+          newform.append(form(n))
           }
         }
       return newform
@@ -3584,97 +3254,79 @@ object synt {
           newform.append(x)
           }
         }
-       else {
-        if (x(0)(0) == 48) {
-          val accum_inlist = List()
-          val accum_outlist = List()
-          val new_inv = ""
-          val new_outv = ""
-          val newscope = List(x(0))
-          val state = 0
-          for (val xi <- x.substring(1)) {
-            if (type(xi) == list) {
-              if (state == 1) {
-                val state = 2
-                newscope.append(subst(accum_inlist, accum_outlist, xi))
-                }
-               else {
-                if (state == 2) {
-                  newscope.append(subst(accum_inlist, accum_outlist, xi))
-                  }
-                }
+       else if (x(0)(0) == 48) {
+        val accum_inlist = List()
+        val accum_outlist = List()
+        val new_inv = ""
+        val new_outv = ""
+        val newscope = List(x(0))
+        val state = 0
+        for (val xi <- x.substring(1)) {
+          if (type(xi) == list) {
+            if (state == 1) {
+              val state = 2
+              newscope.append(subst(accum_inlist, accum_outlist, xi))
               }
-             else {
-              if (symtype(xi) == 14) {
-                if (state == 1) {
-                  val state = 2
-                  newscope.append(xi)
-                  }
-                 else {
-                  if (state == 2) {
-                    newscope.append(xi)
-                    }
-                  }
-                }
-               else {
-                if (symtype(xi) == 10) {
-                  if (state == 0) {
-                    if (new_outv) {
-                      accum_outlist.append(new_outv)
-                      }
-                    if (new_inv) {
-                      accum_inlist.append(new_inv)
-                      }
-                    if (outlist.contains(xi)) {
-                      val new_outv = xi
-                      val new_inv = inlist(outlist.index(xi))
-                      newscope.append(new_inv)
-                      }
-                     else {
-                      val new_outv = ""
-                      val new_inv = ""
-                      newscope.append(xi)
-                      }
-                    }
-                   else {
-                    if (state == 1) {
-                      val state = 2
-                      newscope.append(xi)
-                      }
-                     else {
-                      if (state == 2) {
-                        newscope.append(xi)
-                        }
-                      }
-                    }
-                  }
-                 else {
-                  if (xi == ",") {
-                    if (state == 2) {
-                      val state = 0
-                      }
-                    newscope.append(xi)
-                    }
-                   else {
-                    if (symtype(xi) == 3) {
-                      if (state == 0) {
-                        val state = 1
-                        }
-                      newscope.append(xi)
-                      }
-                     else {
-                      throw new "Scope error"()
-                      }
-                    }
-                  }
-                }
+             else if (state == 2) {
+              newscope.append(subst(accum_inlist, accum_outlist, xi))
               }
             }
-          newform.append(newscope)
+           else if (symtype(xi) == 14) {
+            if (state == 1) {
+              val state = 2
+              newscope.append(xi)
+              }
+             else if (state == 2) {
+              newscope.append(xi)
+              }
+            }
+           else if (symtype(xi) == 10) {
+            if (state == 0) {
+              if (new_outv) {
+                accum_outlist.append(new_outv)
+                }
+              if (new_inv) {
+                accum_inlist.append(new_inv)
+                }
+              if (outlist.contains(xi)) {
+                val new_outv = xi
+                val new_inv = inlist(outlist.index(xi))
+                newscope.append(new_inv)
+                }
+               else {
+                val new_outv = ""
+                val new_inv = ""
+                newscope.append(xi)
+                }
+              }
+             else if (state == 1) {
+              val state = 2
+              newscope.append(xi)
+              }
+             else if (state == 2) {
+              newscope.append(xi)
+              }
+            }
+           else if (xi == ",") {
+            if (state == 2) {
+              val state = 0
+              }
+            newscope.append(xi)
+            }
+           else if (symtype(xi) == 3) {
+            if (state == 0) {
+              val state = 1
+              }
+            newscope.append(xi)
+            }
+           else {
+            throw new "Scope error"()
+            }
           }
-         else {
-          newform.append(subst(inlist, outlist, x))
-          }
+        newform.append(newscope)
+        }
+       else {
+        newform.append(subst(inlist, outlist, x))
         }
       }
     return newform
@@ -3690,63 +3342,53 @@ object synt {
       if (type(x) == str) {
         /* pass */
         }
-       else {
-        if (x(0)(0) == 48) {
-          val state = 0
-          val newbv = ""
-          val accum = List()
-          for (val xi <- x.substring(1)) {
-            if (type(xi) == list) {
-              if (state == 1) {
-                val state = 2
-                }
-              retlist.extend(nblist(xi, accum))
+       else if (x(0)(0) == 48) {
+        val state = 0
+        val newbv = ""
+        val accum = List()
+        for (val xi <- x.substring(1)) {
+          if (type(xi) == list) {
+            if (state == 1) {
+              val state = 2
               }
-             else {
-              if (symtype(xi) == 14) {
-                if (state == 1) {
-                  val state = 2
-                  }
+            retlist.extend(nblist(xi, accum))
+            }
+           else if (symtype(xi) == 14) {
+            if (state == 1) {
+              val state = 2
+              }
+            }
+           else if (symtype(xi) == 10) {
+            if (state == 0) {
+              if (newbv) {
+                accum.append(newbv)
                 }
-               else {
-                if (symtype(xi) == 10) {
-                  if (state == 0) {
-                    if (newbv) {
-                      accum.append(newbv)
-                      }
-                    val newbv = xi
-                    }
-                  if (state == 1) {
-                    val state = 2
-                    }
-                  if (state == 2) {
-                    if (! accum.contains(xi)) {
-                      retlist.append(xi)
-                      }
-                    }
-                  }
-                 else {
-                  if (xi == ",") {
-                    if (state == 2) {
-                      val state = 0
-                      }
-                    }
-                   else {
-                    if (symtype(xi) == 3) {
-                      if (state == 0) {
-                        val state = 1
-                        }
-                      }
-                     else {
-                      println("form = " + form)
-                      println("x = " + x)
-                      println("xi = " + xi)
-                      throw new "Scope error"()
-                      }
-                    }
-                  }
+              val newbv = xi
+              }
+            if (state == 1) {
+              val state = 2
+              }
+            if (state == 2) {
+              if (! accum.contains(xi)) {
+                retlist.append(xi)
                 }
               }
+            }
+           else if (xi == ",") {
+            if (state == 2) {
+              val state = 0
+              }
+            }
+           else if (symtype(xi) == 3) {
+            if (state == 0) {
+              val state = 1
+              }
+            }
+           else {
+            println("form = " + form)
+            println("x = " + x)
+            println("xi = " + xi)
+            throw new "Scope error"()
             }
           }
         }
@@ -3763,19 +3405,17 @@ object synt {
         }
       return r
       }
-     else {
-      if (type(pexp) == str) {
-        if (outlist.contains(pexp)) {
-          return inlist(outlist.index(pexp))
-          }
-         else {
-          return pexp
-          }
+     else if (type(pexp) == str) {
+      if (outlist.contains(pexp)) {
+        return inlist(outlist.index(pexp))
         }
        else {
-        //Numbers don't get trashed
         return pexp
         }
+      }
+     else {
+      //Numbers don't get trashed
+      return pexp
       }
     }
   
@@ -3799,7 +3439,7 @@ object synt {
         return List()
         }
       if (List(10, 11, 12, 13).contains(symtype(form))) {
-        if (pattern.bvar.match_(form)) {
+        if (pattern.bvar.match(form)) {
           return List()
           }
         return List(form)
@@ -3821,25 +3461,21 @@ object synt {
           if (ibvlist.contains(n)) {
             /* pass */
             }
-           else {
-            if (List(10, 11).contains(symtype(definiendum(n)))) {
-              addvars.append(definiendum(n))
-              }
+           else if (List(10, 11).contains(symtype(definiendum(n)))) {
+            addvars.append(definiendum(n))
             }
           }
-         else {
-          if (List(42, 43).contains(definiendum(n)(0)(0))) {
-            val suboutlist = List()
-            for (val m <- ibvlist) {
-              if (definiendum(n).contains(definiendum(m))) {
-                suboutlist.append(form(m))
-                }
+         else if (List(42, 43).contains(definiendum(n)(0)(0))) {
+          val suboutlist = List()
+          for (val m <- ibvlist) {
+            if (definiendum(n).contains(definiendum(m))) {
+              suboutlist.append(form(m))
               }
-            addvars.extend(nblist(form(n), (boundlist + suboutlist)))
             }
-           else {
-            addvars.extend(nblist(form(n)), boundlist)
-            }
+          addvars.extend(nblist(form(n), (boundlist + suboutlist)))
+          }
+         else {
+          addvars.extend(nblist(form(n)), boundlist)
           }
         }
       for (val x <- addvars) {
@@ -3861,60 +3497,46 @@ object synt {
               val state = 2
               val addvars = (addvars + nblist(xi, (boundlist + accum)))
               }
-             else {
-              if (state == 2) {
-                val addvars = (addvars + nblist(xi, (boundlist + accum)))
+             else if (state == 2) {
+              val addvars = (addvars + nblist(xi, (boundlist + accum)))
+              }
+            }
+           else if (symtype(xi) == 14) {
+            if (state == 1) {
+              val state = 2
+              }
+            }
+           else if (List(10, 11, 12, 13).contains(symtype(xi))) {
+            if (state == 0) {
+              if (newbv) {
+                accum.append(newbv)
+                }
+              val newbv = xi
+              }
+             else if (state == 1) {
+              val state = 2
+              if (! boundlist.contains(xi)) {
+                if (! accum.contains(x)) {
+                  addvars.append(xi)
+                  }
+                }
+              }
+             else if (state == 2) {
+              if (! boundlist.contains(xi)) {
+                if (! accum.contains(x)) {
+                  addvars.append(xi)
+                  }
                 }
               }
             }
-           else {
-            if (symtype(xi) == 14) {
-              if (state == 1) {
-                val state = 2
-                }
+           else if (xi == ",") {
+            if (state == 2) {
+              val state = 0
               }
-             else {
-              if (List(10, 11, 12, 13).contains(symtype(xi))) {
-                if (state == 0) {
-                  if (newbv) {
-                    accum.append(newbv)
-                    }
-                  val newbv = xi
-                  }
-                 else {
-                  if (state == 1) {
-                    val state = 2
-                    if (! boundlist.contains(xi)) {
-                      if (! accum.contains(x)) {
-                        addvars.append(xi)
-                        }
-                      }
-                    }
-                   else {
-                    if (state == 2) {
-                      if (! boundlist.contains(xi)) {
-                        if (! accum.contains(x)) {
-                          addvars.append(xi)
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-               else {
-                if (xi == ",") {
-                  if (state == 2) {
-                    val state = 0
-                    }
-                  }
-                 else {
-                  if (symtype(xi) == 3) {
-                    if (state == 0) {
-                      val state = 1
-                      }
-                    }
-                  }
-                }
+            }
+           else if (symtype(xi) == 3) {
+            if (state == 0) {
+              val state = 1
               }
             }
           }
@@ -3994,122 +3616,106 @@ object synt {
       val TeXdollars = pattern.TeXdollar.search(linecopy)
       val dollar_spot = linecopy.find("$")
       val by_spot = linecopy.find("""\By""")
-      val tokenm = pattern.token.match_(linecopy)
+      val tokenm = pattern.token.match(linecopy)
       if (mode(0) == 1) {
         if (by_spot != -1) {
           val thisref = linecopy.substring((by_spot + 3)).strip()
           }
+         else if (thisref) {
+          val thisref = (thisref + linecopy)
+          }
          else {
-          if (thisref) {
-            val thisref = (thisref + linecopy)
-            }
-           else {
-            val thisref = ""
-            }
+          val thisref = ""
           }
         linelist.append(List(lenstepconnector, newstuff, thisref))
         val parsed_item = parsetree(0)
         linelist.append(parsed_item)
         return linelist
         }
-       else {
-        if (mode(0) == 2 && ! tokenm) {
-          val newtag = List()
-          //			print "linelist = ", linelist
-          //			print "lenstepconnector = ", lenstepconnector
-          //			print "newstuff = ", newstuff
-          //			print "thisref = ", thisref
-          //			print "linecopy = ", linecopy
-          //			print "dollar_spot = ", dollar_spot
-          //			print "newtag = ", newtag
-          //			print "TeXdollars = ", TeXdollars 
-          val linecopy = linecopy.substring((dollar_spot + 1))
-          linetail(0) = linecopy
-          mode(0) = 3
+       else if (mode(0) == 2 && ! tokenm) {
+        val newtag = List()
+        //			print "linelist = ", linelist
+        //			print "lenstepconnector = ", lenstepconnector
+        //			print "newstuff = ", newstuff
+        //			print "thisref = ", thisref
+        //			print "linecopy = ", linecopy
+        //			print "dollar_spot = ", dollar_spot
+        //			print "newtag = ", newtag
+        //			print "TeXdollars = ", TeXdollars 
+        val linecopy = linecopy.substring((dollar_spot + 1))
+        linetail(0) = linecopy
+        mode(0) = 3
+        }
+       else if (mode(0) == 2) {
+        //			tokenm = pattern.token.match(linecopy)
+        val newtag = optag(linecopy, parsetree)
+        val token = tokenm.group(2)
+        val nexttokenlen = len(token)
+        if (lenstepconnector != -1) {
+          linelist.append(List(lenstepconnector, newstuff, thisref))
+          }
+        val thisref = ""
+        if (TeXdollars) {
+          val newstuff = linecopy.substring(0, TeXdollars.start(1))
           }
          else {
-          if (mode(0) == 2) {
-            //			tokenm = pattern.token.match_(linecopy)
-            val newtag = optag(linecopy, parsetree)
-            val token = tokenm.group(2)
-            val nexttokenlen = len(token)
-            if (lenstepconnector != -1) {
-              linelist.append(List(lenstepconnector, newstuff, thisref))
-              }
-            val thisref = ""
-            if (TeXdollars) {
-              val newstuff = linecopy.substring(0, TeXdollars.start(1))
-              }
-             else {
-              val newstuff = linecopy
-              }
-            linetail(0) = linecopy
-            if (newtag == List()) {
-              val lenstepconnector = List()
-              }
-             else {
-              if (parsetree == List()) {
-                println("Error in multi-line note")
-                return List()
-                }
-               else {
-                //Check for preceding op
-                if (opcoords(parsetree, precedence(token)) == (0, 0)) {
-                  if (len(linelist) > 2) {
-                    val reverse_linelist = linelist.substring(0)
-                    reverse_linelist.reverse()
-                    for (val t <- reverse_linelist) {
-                      if (t(0) != List()) {
-                        if (t(0)(1) < newtag(1) || t(0)(1) == newtag(1) && t(0)(2) < newtag(2)) {
-                          break
-                          }
-                         else {
-                          if (newtag(3) == """\c""") {
-                            println("Consider using `True implies ...'")
-                            }
-                          println("Note parse error line: " + str(linetail(2)) + linetail(0))
-                          return List()
-                          }
-                        }
-                      }
+          val newstuff = linecopy
+          }
+        linetail(0) = linecopy
+        if (newtag == List()) {
+          val lenstepconnector = List()
+          }
+         else if (parsetree == List()) {
+          println("Error in multi-line note")
+          return List()
+          }
+         else //Check for preceding op
+        if (opcoords(parsetree, precedence(token)) == (0, 0)) {
+          if (len(linelist) > 2) {
+            val reverse_linelist = linelist.substring(0)
+            reverse_linelist.reverse()
+            for (val t <- reverse_linelist) {
+              if (t(0) != List()) {
+                if (t(0)(1) < newtag(1) || t(0)(1) == newtag(1) && t(0)(2) < newtag(2)) {
+                  break
+                  }
+                 else {
+                  if (newtag(3) == """\c""") {
+                    println("Consider using `True implies ...'")
                     }
-                  val lenstepconnector = List()
-                  }
-                 else {
-                  val lenstepconnector = newtag
-                  }
-                }
-              }
-            mathparse(mode, linetail, parsetree)
-            }
-           else {
-            if (mode(0) == 3) {
-              if (! TeXdollars) {
-                val by_spot = linecopy.find("""\By""")
-                if (by_spot == -1) {
-                  val thisref = ((thisref + " ") + linecopy.strip())
-                  }
-                 else {
-                  val thisref = ((thisref + " ") + linecopy.substring((by_spot + 3)).strip())
-                  }
-                }
-              linetail(0) = linecopy
-              notemargin(mode, linetail)
-              }
-             else {
-              if (mode(0) == 4) {
-                println("Note parse error line: " + str(linetail(2)) + linetail(0))
-                return List()
-                }
-               else {
-                if (mode(0) == 5) {
-                  println("Note fails to terminate: " + str(linetail(2)) + linetail(0))
+                  println("Note parse error line: " + str(linetail(2)) + linetail(0))
                   return List()
                   }
                 }
               }
             }
+          val lenstepconnector = List()
           }
+         else {
+          val lenstepconnector = newtag
+          }
+        mathparse(mode, linetail, parsetree)
+        }
+       else if (mode(0) == 3) {
+        if (! TeXdollars) {
+          val by_spot = linecopy.find("""\By""")
+          if (by_spot == -1) {
+            val thisref = ((thisref + " ") + linecopy.strip())
+            }
+           else {
+            val thisref = ((thisref + " ") + linecopy.substring((by_spot + 3)).strip())
+            }
+          }
+        linetail(0) = linecopy
+        notemargin(mode, linetail)
+        }
+       else if (mode(0) == 4) {
+        println("Note parse error line: " + str(linetail(2)) + linetail(0))
+        return List()
+        }
+       else if (mode(0) == 5) {
+        println("Note fails to terminate: " + str(linetail(2)) + linetail(0))
+        return List()
         }
       val linecopy = linetail(0).lstrip()
       if (! linecopy && mode(0) != 1) {
@@ -4122,7 +3728,7 @@ object synt {
   def optag(line: Any, node: Any): Any = {
     val precedence = mathdb(MD_PRECED)
     val original_len = len(line)
-    val tokenm = pattern.token.match_(line)
+    val tokenm = pattern.token.match(line)
     val token = tokenm.group(2)
     val tokens = List()
     val precedence_list = List()
@@ -4135,7 +3741,7 @@ object synt {
       val nexttokenlen = len(token)
       val line = line.substring(nexttokenlen)
       val line = line.lstrip()
-      val tokenm = pattern.token.match_(line)
+      val tokenm = pattern.token.match(line)
       if (tokenm) {
         val token = tokenm.group(2)
         }
@@ -4153,10 +3759,8 @@ object synt {
     if (len(tokens) == 1) {
       return List(len(tokens(0)), len(node), minimum_precedence, tokens(0))
       }
-     else {
-      if (len(tokens) > 1) {
-        return List((original_len - len(line)), len(node), minimum_precedence, tuple(tokens))
-        }
+     else if (len(tokens) > 1) {
+      return List((original_len - len(line)), len(node), minimum_precedence, tuple(tokens))
       }
     }
   
@@ -4294,18 +3898,16 @@ object synt {
         /* pass */
         }
       }
+     else //			print "Transitivity not established."
+    if (type(resultop) == str) {
+      node(-1)(1) = resultop
+      }
      else {
-      //			print "Transitivity not established."
-      if (type(resultop) == str) {
-        node(-1)(1) = resultop
+      val resultnodes = List()
+      for (val op <- resultop) {
+        resultnodes.append(List(node(-1)(0), op, node(-1)(2)))
         }
-       else {
-        val resultnodes = List()
-        for (val op <- resultop) {
-          resultnodes.append(List(node(-1)(0), op, node(-1)(2)))
-          }
-        node.substring(-1) = resultnodes
-        }
+      node.substring(-1) = resultnodes
       }
     for (val n <- range((length + 1))) {
       node -= index}
@@ -4455,23 +4057,19 @@ object synt {
       if (left_vars == right_vars) {
         return
         }
-       else {
-        if ((right_vars - left_vars)) {
-          val error_message = "Dropped variables: "
-          for (val x <- (right_vars - left_vars)) {
-            val error_message = ((error_message + " ") + x)
-            }
-          return error_message
+       else if ((right_vars - left_vars)) {
+        val error_message = "Dropped variables: "
+        for (val x <- (right_vars - left_vars)) {
+          val error_message = ((error_message + " ") + x)
           }
-         else {
-          if ((left_vars - right_vars)) {
-            val error_message = "Useless variables: "
-            for (val x <- (left_vars - right_vars)) {
-              val error_message = ((error_message + " ") + x)
-              }
-            return error_message
-            }
+        return error_message
+        }
+       else if ((left_vars - right_vars)) {
+        val error_message = "Useless variables: "
+        for (val x <- (left_vars - right_vars)) {
+          val error_message = ((error_message + " ") + x)
           }
+        return error_message
         }
       if (parsed_exp(0)(0) == 51) {
         //			print "New form:"
@@ -4544,15 +4142,13 @@ object synt {
     if (type(exp) == str) {
       println(((depth * "  ") + exp))
       }
+     else if ((len(str(exp)) + (depth * 2)) < 60) {
+      println(((depth * "  ") + str(exp)))
+      }
      else {
-      if ((len(str(exp)) + (depth * 2)) < 60) {
-        println(((depth * "  ") + str(exp)))
-        }
-       else {
-        println(((depth * "  ") + str(exp(0))))
-        for (val t <- exp.substring(1)) {
-          pprint(t, (depth + 1))
-          }
+      println(((depth * "  ") + str(exp(0))))
+      for (val t <- exp.substring(1)) {
+        pprint(t, (depth + 1))
         }
       }
     return
@@ -4566,41 +4162,35 @@ object synt {
       if (fixedvars.contains(t)) {
         /* pass */
         }
-       else {
-        if (takenvars.contains(t)) {
-          oldvlist.append(t)
-          val newvar = t
-          while (takenvars.contains(newvar)) {
-            val newvarnum = (newvarnum + 1)
-            val st = symtype(t)
-            val arity = mathdb(MD_ARITY)
-            val pf = (("_{" + ("%d" % newvarnum)) + "}")
-            if (st == 10) {
-              val newvar = ("v" + pf)
+       else if (takenvars.contains(t)) {
+        oldvlist.append(t)
+        val newvar = t
+        while (takenvars.contains(newvar)) {
+          val newvarnum = (newvarnum + 1)
+          val st = symtype(t)
+          val arity = mathdb(MD_ARITY)
+          val pf = (("_{" + ("%d" % newvarnum)) + "}")
+          if (st == 10) {
+            val newvar = ("v" + pf)
+            }
+           else {
+            val r = arity(t)
+            if (st == 11) {
+              val newvar = ("""\q^{0}""" + pf)
               }
-             else {
-              val r = arity(t)
-              if (st == 11) {
-                val newvar = ("""\q^{0}""" + pf)
-                }
-               else {
-                if (st == 12) {
-                  val newvar = ((("""\w^{""" + ("%d" % r)) + "}") + pf)
-                  }
-                 else {
-                  if (st == 13) {
-                    val newvar = ((("""\q^{""" + ("%d" % r)) + "}") + pf)
-                    }
-                  }
-                }
+             else if (st == 12) {
+              val newvar = ((("""\w^{""" + ("%d" % r)) + "}") + pf)
+              }
+             else if (st == 13) {
+              val newvar = ((("""\q^{""" + ("%d" % r)) + "}") + pf)
               }
             }
-          takenvars.append(newvar)
-          newvlist.append(newvar)
           }
-         else {
-          takenvars.append(t)
-          }
+        takenvars.append(newvar)
+        newvlist.append(newvar)
+        }
+       else {
+        takenvars.append(t)
         }
       }
     return List(newvlist, oldvlist)
@@ -4618,7 +4208,7 @@ object synt {
     val line_list = f.readlines()
     f.close()
     val transitive_ops = List()
-    val trans_mult = Dict()
+    val trans_mult = Map()
     val commutative_associative_ops = List()
     val commutative_ops = List()
     val associative_ops = List()
@@ -4626,7 +4216,7 @@ object synt {
     val linetail = List(line_list(0), 0, 1, line_list)
     val r = linetail(0)
     while (r) {
-      val dollarm = pattern.dollar.match_(r)
+      val dollarm = pattern.dollar.match(r)
       if (dollarm) {
         val dollar_spot = dollarm.start(1)
         linetail(0) = dollarm.group(1)
@@ -4667,7 +4257,7 @@ object synt {
       }
     val commutative_ops = List()
     val transitive_ops = List("""\ident""", """\Iff""", "=")
-    val transitive_mult = Dict()
+    val transitive_mult = Map()
     for (val trip <- chain_triplets) {
       if (trip(0) == trip(1) && trip(1) == trip(2)) {
         if (! transitive_ops.contains(trip(0))) {
@@ -4926,4 +4516,6 @@ object synt {
       return op1
       }
     }
+    *@@@@@@@@@@@@@@@@ */
+
   }
