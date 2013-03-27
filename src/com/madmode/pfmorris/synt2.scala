@@ -7,411 +7,406 @@
 
 package com.madmode.pfmorris
 
-import scala.collection.mutable.{Map, ArrayBuffer}
+import scala.collection.mutable.{ Map, ArrayBuffer }
 
 object synt2 {
-//#
-//# Each parse begins with a header.  Each header begins with a 
-//# tag which is one of the following numbers.
-//#
-//# Tags which appear only at the top level of a complete parse:
-//#
-//#  1. Term Definor                 16. Left Parenthesis        
-//#  2. Formula Definor              17. Introductor      
-//#  3. Connector                    18. Decimal Numeration
-//#  4.                              19. Left Scope Bracket 
-//#  5. Unrecognized constant        20. Right Scope Bracket   
-//#  6. Right Parenthesis            21. Colon 
-//#  7. Other known constant         22. Semi-colon
-//#  8. Term Seeking Notarian        23. Ignore Token  (Not parsed)
-//#  9. Formula Seeking Notarian 
-//# 10. Variable
-//# 11. Sentence variable, 0-ary schemator
-//# 12. Function symbol, n-ary schemator n > 0
-//# 13. Predicate symbol, n-ary schemator n > 0
-//# 14. Noun             (Length 1 constant term) 
-//# 15. Boolean Constant (Length 1 constant formula)
-//#
-//# Tags which may appear at any level of a complete parse:
-//#
-//#  40. Term       (Not length 1) 
-//#  41. Formula    (Not length 1) 
-//#  42. Schematic Term        
-//#  43. Schematic Formula    (Not zero-ary) 
-//#  44. Parade Term
-//#  45. Parade Formula
-//#  47. Newly  Defined Form
-//#  48. Scope 
-//#  49. Undefined Expression (2nd level only)  
-//#  50. Undefined Parade (3rd level only)  
-//#  51. New  Definition
-//# 
-//# Tags which may appear only at the beginning of an incomplete parse:
-//#
-//# -1. Non-Parenthetical Expression  -7. Formula Quantifying Form
-//# -2. Parenthetical Expression      -8. Scope     
-//# -3. Undefined Expression          -9. Parade
-//# -4. Schematic Term               -10. 
-//# -5. Schematic Formula            -11. New Definition     
-//# -6. Term Quantifying Form        -12. Undefined Parade 
-//#
-//################################################################
-	type Tag = Int
+  //#
+  //# Each parse begins with a header.  Each header begins with a 
+  //# tag which is one of the following numbers.
+  //#
+  //# Tags which appear only at the top level of a complete parse:
+  //#
+  //#  1. Term Definor                 16. Left Parenthesis        
+  //#  2. Formula Definor              17. Introductor      
+  //#  3. Connector                    18. Decimal Numeration
+  //#  4.                              19. Left Scope Bracket 
+  //#  5. Unrecognized constant        20. Right Scope Bracket   
+  //#  6. Right Parenthesis            21. Colon 
+  //#  7. Other known constant         22. Semi-colon
+  //#  8. Term Seeking Notarian        23. Ignore Token  (Not parsed)
+  //#  9. Formula Seeking Notarian 
+  //# 10. Variable
+  //# 11. Sentence variable, 0-ary schemator
+  //# 12. Function symbol, n-ary schemator n > 0
+  //# 13. Predicate symbol, n-ary schemator n > 0
+  //# 14. Noun             (Length 1 constant term) 
+  //# 15. Boolean Constant (Length 1 constant formula)
+  //#
+  //# Tags which may appear at any level of a complete parse:
+  //#
+  //#  40. Term       (Not length 1) 
+  //#  41. Formula    (Not length 1) 
+  //#  42. Schematic Term        
+  //#  43. Schematic Formula    (Not zero-ary) 
+  //#  44. Parade Term
+  //#  45. Parade Formula
+  //#  47. Newly  Defined Form
+  //#  48. Scope 
+  //#  49. Undefined Expression (2nd level only)  
+  //#  50. Undefined Parade (3rd level only)  
+  //#  51. New  Definition
+  //# 
+  //# Tags which may appear only at the beginning of an incomplete parse:
+  //#
+  //# -1. Non-Parenthetical Expression  -7. Formula Quantifying Form
+  //# -2. Parenthetical Expression      -8. Scope     
+  //# -3. Undefined Expression          -9. Parade
+  //# -4. Schematic Term               -10. 
+  //# -5. Schematic Formula            -11. New Definition     
+  //# -6. Term Quantifying Form        -12. Undefined Parade 
+  //#
+  //################################################################
+  type Tag = Int
 
-	//#  This database is loaded from the dfs file.  It is modified by parse and mathparse
-	//#  but not by check.  It is initialized by resetdefs and resetprops.  
-    var mathdb: MathDB = null
+  //#  This database is loaded from the dfs file.  It is modified by parse and mathparse
+  //#  but not by check.  It is initialized by resetdefs and resetprops.  
+  var mathdb: MathDB = null
 
-    type Defienda = List[String]
-    type Theorem = String
+  type Defienda = List[String]
+  type Theorem = String
 
-	case class MathDB(
-	//#  Dictionary storing the type of each symbol
-	val MD_SYMTYPE: Map[String, Tag],
-	//#  Dictionary storing the precedence of each connector
-	val MD_PRECED: Map[String, Int],
-	//#  Dictionary storing a list of definienda for each introductor
-	val MD_DEFS: Map[String, Defienda],
-	//#  Dictionary storing the arity of each schemator 
-	val MD_ARITY: Map[String, Int],
-	//#  List of Transitive operators
-	val MD_TROPS: List[String],
-	//#  Dictionary mapping 2-tuples of transitive ops to a transitive op
-	val MD_TRMUL: Map[(String, String), String],
-	//#  List of commutative associative ops
-	val MD_CAOPS: List[String],
-	//#  List of all theorems from some properties file
-	val MD_THMS: List[Theorem],
-	//#  Dictionary of external file reference definitions 
-	val MD_REFD: Map[String, String],
-	//#  Dictionary of user macro definitions
-	val MD_MACR: Map[String, String],
-	//#  Boolean reset definitions flag
-	val MD_RSFLG: Boolean,
-	//#  Name of properties file
-	val MD_PFILE: String,
-	//#  Name of rules of inference file
-	val MD_RFILE: String)
+  case class MathDB(
+    //#  Dictionary storing the type of each symbol
+    val MD_SYMTYPE: Map[String, Tag],
+    //#  Dictionary storing the precedence of each connector
+    val MD_PRECED: Map[String, Int],
+    //#  Dictionary storing a list of definienda for each introductor
+    val MD_DEFS: Map[String, Defienda],
+    //#  Dictionary storing the arity of each schemator 
+    val MD_ARITY: Map[String, Int],
+    //#  List of Transitive operators
+    val MD_TROPS: List[String],
+    //#  Dictionary mapping 2-tuples of transitive ops to a transitive op
+    val MD_TRMUL: Map[(String, String), String],
+    //#  List of commutative associative ops
+    val MD_CAOPS: List[String],
+    //#  List of all theorems from some properties file
+    val MD_THMS: List[Theorem],
+    //#  Dictionary of external file reference definitions 
+    val MD_REFD: Map[String, String],
+    //#  Dictionary of user macro definitions
+    val MD_MACR: Map[String, String],
+    //#  Boolean reset definitions flag
+    val MD_RSFLG: Boolean,
+    //#  Name of properties file
+    val MD_PFILE: String,
+    //#  Name of rules of inference file
+    val MD_RFILE: String)
 
-	//#  Length of mathdb
-	val MD_LEN = 13
+  //#  Length of mathdb
+  val MD_LEN = 13
 
-	//#
-	//# The following fast moving variable keeps track of which numbers have been
-	//# used already as variable tags.   
-	//#
-	val newvarnum = 0
+  //#
+  //# The following fast moving variable keeps track of which numbers have been
+  //# used already as variable tags.   
+  //#
+  val newvarnum = 0
 
-	//#The following are tokens added so that TeX spacing characters can be used.
-	val ignore_tokens = List("\\,", "\\>", "\\;", "\\!")
-	val reference_punctuator_list = List(",", ";", "<=",
-	    "\\C", "G", "H", "!", "D", "P", "A", "S", "U",
-	    ")", "(", "),", ",(", ";(", "+", "-", "\\char124", ":", "|")
+  //#The following are tokens added so that TeX spacing characters can be used.
+  val ignore_tokens = List("\\,", "\\>", "\\;", "\\!")
+  val reference_punctuator_list = List(",", ";", "<=",
+    "\\C", "G", "H", "!", "D", "P", "A", "S", "U",
+    ")", "(", "),", ",(", ";(", "+", "-", "\\char124", ":", "|")
 
-	def makemathdb(): MathDB = {
-		val td = Map[String, Tag]()
-		val precedence = Map[String, Int]()
-		val defs = Map[String, List[String]]()
-		val arity = Map[String, Int]()
-		td("\\dft") = 1
-		td("\\dff") = 2
-		td(")") = 6
-		td("(") = 16
-		td("\\ls") = 19
-		td("\\rs") = 20
-		td(":") = 21
-		td(";") = 22
-		td("\\}") = 7
-		td("\\false") = 15
-		td("\\true") = 15
-		td("\\Nul") = 14
-		td("0") = 14
-		td("1") = 14
-		td("2") = 14
-		td("3") = 14
-		td("4") = 14
-		td("5") = 14
-		td("6") = 14
-		td("7") = 14
-		td("8") = 14
-		td("9") = 14
-		td("\\ten") = 14
-		//###############################
-		//#  
-		//#   Connector Symbols
-		//#
-		//############################### 
-		//#
-		//#  The number introducing each connector list is the
-		//#  precedence value.  
-		//#
-		//###############################
-		val connectors = List(
-		    (1, List("\\case")),
-		    (2, List("\\c")),
-		    (3, List("\\cond", "\\els")),
-		    (4, List("\\Iff")),
-		    (5, List("\\And", "\\Or")),
-		    (6, List("=", "\\ne", "\\le", "\\ge",
-		        "\\notin", "\\noti", "\\ident", "\\in",
-		        "<", ">", "\\i", "\\j", "\\subset", ",")),
-		    (9, List("+", "-")),
-		    (13, List("\\cdot", "/")))
-	    for ((prec, plist) <- connectors) {
-	    	for (s <- plist) {
-	    		precedence(s) = prec
-	    		td(s) = 3
-	    	}
-	    }
-		td("\\ident") = 1
-		td("\\Iff") = 2
-		precedence("\\dff") = 4
-		precedence("\\dft") = 6
-		//#######################################################
-		//#
-		//#  Initialize Transitive Properties
-		//#
-		//#######################################################
-		val transitive_ops = List("\\ident", "=", "\\Iff")
-		val trans_mult = Map[(String, String), String]()
-		//#######################################################
-	    //#
-		//#  Initialize Commutative Associative Properties
-		//#
-		//#######################################################
-		val commutative_associative_ops = List()
-		val theorems = List()
-		val reference_dictionary = Map[String, String]()
-		reference_dictionary("0") = "common.tex"
-		val user_dictionary = Map[String, String]()
-		val reset_flag = true
-		val properties_file = "properties.tex"
-		val rules_file = "rules.tex"
-		return MathDB(td, precedence, defs, arity,
-		    transitive_ops, trans_mult, commutative_associative_ops,
-		    theorems, reference_dictionary, user_dictionary,
-		    reset_flag, properties_file, rules_file)
-	}
+  def makemathdb(): MathDB = {
+    val td = Map[String, Tag]()
+    val precedence = Map[String, Int]()
+    val defs = Map[String, List[String]]()
+    val arity = Map[String, Int]()
+    td("\\dft") = 1
+    td("\\dff") = 2
+    td(")") = 6
+    td("(") = 16
+    td("\\ls") = 19
+    td("\\rs") = 20
+    td(":") = 21
+    td(";") = 22
+    td("\\}") = 7
+    td("\\false") = 15
+    td("\\true") = 15
+    td("\\Nul") = 14
+    td("0") = 14
+    td("1") = 14
+    td("2") = 14
+    td("3") = 14
+    td("4") = 14
+    td("5") = 14
+    td("6") = 14
+    td("7") = 14
+    td("8") = 14
+    td("9") = 14
+    td("\\ten") = 14
+    //###############################
+    //#  
+    //#   Connector Symbols
+    //#
+    //############################### 
+    //#
+    //#  The number introducing each connector list is the
+    //#  precedence value.  
+    //#
+    //###############################
+    val connectors = List(
+      (1, List("\\case")),
+      (2, List("\\c")),
+      (3, List("\\cond", "\\els")),
+      (4, List("\\Iff")),
+      (5, List("\\And", "\\Or")),
+      (6, List("=", "\\ne", "\\le", "\\ge",
+        "\\notin", "\\noti", "\\ident", "\\in",
+        "<", ">", "\\i", "\\j", "\\subset", ",")),
+      (9, List("+", "-")),
+      (13, List("\\cdot", "/")))
+    for ((prec, plist) <- connectors) {
+      for (s <- plist) {
+        precedence(s) = prec
+        td(s) = 3
+      }
+    }
+    td("\\ident") = 1
+    td("\\Iff") = 2
+    precedence("\\dff") = 4
+    precedence("\\dft") = 6
+    //#######################################################
+    //#
+    //#  Initialize Transitive Properties
+    //#
+    //#######################################################
+    val transitive_ops = List("\\ident", "=", "\\Iff")
+    val trans_mult = Map[(String, String), String]()
+    //#######################################################
+    //#
+    //#  Initialize Commutative Associative Properties
+    //#
+    //#######################################################
+    val commutative_associative_ops = List()
+    val theorems = List()
+    val reference_dictionary = Map[String, String]()
+    reference_dictionary("0") = "common.tex"
+    val user_dictionary = Map[String, String]()
+    val reset_flag = true
+    val properties_file = "properties.tex"
+    val rules_file = "rules.tex"
+    return MathDB(td, precedence, defs, arity,
+      transitive_ops, trans_mult, commutative_associative_ops,
+      theorems, reference_dictionary, user_dictionary,
+      reset_flag, properties_file, rules_file)
+  }
 
+  def dbmerge(mathdb: MathDB, db: MathDB) = {
+    mathdb.MD_SYMTYPE ++= db.MD_SYMTYPE
+    mathdb.MD_PRECED ++= db.MD_PRECED
+    mathdb.MD_DEFS ++= db.MD_DEFS
+    mathdb.MD_ARITY ++= db.MD_ARITY
+    if (db.MD_REFD != null) {
+      mathdb.MD_REFD ++= db.MD_REFD
+    } else {
+      println("Warning: format does not match.")
+    }
+    if (db.MD_MACR != null) {
+      mathdb.MD_MACR ++= db.MD_MACR
+    } else {
+      println("Warning: format does not match.")
+    }
+  }
 
-	def dbmerge(mathdb: MathDB, db: MathDB) = {
-		mathdb.MD_SYMTYPE ++= db.MD_SYMTYPE
-		mathdb.MD_PRECED ++= db.MD_PRECED
-		mathdb.MD_DEFS ++= db.MD_DEFS
-		mathdb.MD_ARITY ++= db.MD_ARITY
-		if (db.MD_REFD != null) {
-			mathdb.MD_REFD ++= db.MD_REFD
-		} else {
-			println("Warning: format does not match.")
-		}
-		if (db.MD_MACR != null) {
-			mathdb.MD_MACR ++= db.MD_MACR
-		} else {
-			println("Warning: format does not match.")
-		}
-	}
+  def symtype(token: String): Tag = {
+    val td = mathdb.MD_SYMTYPE
+    val arity = mathdb.MD_ARITY
+    assert(token != null)
 
+    def save(t: Tag) = { td(token) = t; t }
 
-	def symtype(token: String): Tag = {
-		val td = mathdb.MD_SYMTYPE
-		val arity = mathdb.MD_ARITY
-		assert(token != null)
-		
-		def save(t: Tag) = { td(token) = t; t}
+    td.get(token) match {
+      case Some(retval) => retval
+      case _ => token match {
+        case pattern.ignore_token => {
+          td(token) = 23
+          return 23
+        }
+        case pattern.TeX_leftdelimiter => {
+          return 6
+        }
+        case pattern.TeX_rightdelimiter => {
+          return 16
+        }
+        case _ => validschemator(token) match {
+          case Some((t, a)) => {
+            arity(token) = a
+            save(t)
+          }
+          case _ => if (validvar(token)) {
+            save(10)
+          } else {
+            if (validnum(token)) { save(18) } else { save(5) }
+          }
+        }
+      }
+    }
+  }
 
-		td.get(token) match {
-		  case Some(retval) => retval
-		  case _ => token match {
-			  case pattern.ignore_token => {
-				td(token) = 23
-				return 23
-			  }
-			  case pattern.TeX_leftdelimiter => {
-				  return 6
-			  }
-			  case pattern.TeX_rightdelimiter => {
-				  return 16
-			  }
-			  case _ =>  validschemator(token) match {
-			  	case Some((t, a)) => {
-			  		arity(token) = a
-			  		save(t)
-				}
-			  	case _ => if (validvar(token)) {
-								save(10)
-						} else {
-							if (validnum(token)) { save(18) } else { save(5)  }
-						}
-			  }
-			}
-		}
-	}
+  def validschemator(token: String): Option[(Tag, Int)] = {
+    token match {
+      case pattern.newschem(numeral) => {
+        val arity = numeral.toInt
+        if (token(1) == "w") {
+          Some((12, arity))
+        } else {
+          if (arity == 0) {
+            Some((11, arity))
+          } else {
+            Some((13, arity))
+          }
+        }
+      }
+      case pattern.genschem(sym, x) => {
+        val arity = x.length() + 1
+        val sym2 = sym(0)
+        if (List("p", "q", "r").contains(sym2)) {
+          Some((13, arity))
+        } else {
+          Some((12, arity))
+        }
+      }
+      case pattern.gensent() => Some((11, 0))
+      case _ if (token.length() < 5 ||
+        token(0) != "\\" ||
+        !List("o", "p", "q", "r", "s", "t", "u", "v", "w").contains(token(1))) => None
+      case _ if (token.length() == 6 && token(5) != 'p') => {
+        if (token.substring(3, 6) != "var" ||
+          !"pqrst".contains(token(1)) ||
+          !"pqrst".contains(token(2))) {
+          None
+        } else {
+          Some((11, 0))
+        }
+      }
+      case _ if token.substring(3, 5) != "ar" => None
+      case _ if token(2) == "v" => {
+        if ("opqrst".contains(token(1)) && token.length() == 5) {
+          Some((11, 0))
+        } else {
+          None
+        }
+      }
+      case _ if token(2) != 'b' => None
+      case _ if (!List("p", "q", "r", "u", "v", "w").contains(token(1))) => None
+      case _ => {
+        val tail = token.substring(5)
+        val lt = tail.length()
+        if (tail.count(_ == 'p') == lt) {
+          if (List("p", "q", "r").contains(token(1))) {
+            Some((13, (1 + lt)))
+          } else {
+            Some((12, (1 + lt)))
+          }
+        } else {
+          None
+        }
+      }
+    }
+  }
 
+  def isalpha1(c: Char) = { Character.isLetter(c) || Character.isDigit(c) }
+  def isalpha(s: String): Boolean = { s.forall(isalpha1) }
 
-	def validschemator(token: String): Option[(Tag, Int)] = {
-		token match {
-		  case pattern.newschem(numeral) => {
-			  val arity = numeral.toInt
-			  if (token(1) == "w") {
-				  Some((12, arity))
-			  } else {
-				  if (arity == 0) {
-					   Some((11, arity))
-				  } else {
-					  Some((13, arity))
-				  }
-			  }
-		  }
-		  case pattern.genschem(sym, x) => {
-			  val arity = x.length() + 1
-			  val sym2 = sym(0)
-			  if (List("p", "q", "r").contains(sym2)) {
-				  Some((13, arity))
-			  } else {
-				  Some((12, arity))
-			  }
-		  }
-		  case pattern.gensent() => Some((11, 0))
-		  case _ if (token.length() < 5 ||
-		        token(0) != "\\" ||
-		        ! List("o", "p", "q", "r", "s", "t", "u", "v", "w").contains(token(1))) => None
-		  case _ if (token.length() == 6 && token(5) != 'p') => {
-			  if (token.substring(3, 6) != "var" ||
-			      ! "pqrst".contains(token(1)) ||
-			      ! "pqrst".contains(token(2))) {
-						None
-			  } else {
-					Some((11, 0))
-			  }
-		  }
-		  case _ if token.substring(3, 5) != "ar" => None
-		  case _ if token(2) == "v" => {
-			  if ("opqrst".contains(token(1)) && token.length() == 5) {
-				  Some((11, 0))
-			  } else {
-				None
-			}
-		  }
-		  case _ if token(2) != 'b' => None
-		  case _ if (! List("p", "q", "r", "u", "v", "w").contains(token(1))) => None
-		  case _ => {
-			  val tail = token.substring(5)
-			  val lt = tail.length()
-			  if (tail.count(_ == 'p') == lt) {
-				  if (List("p", "q", "r").contains(token(1))) {
-					  Some((13, (1 + lt)))
-				  } else {
-					  Some((12, (1 + lt)))
-				  }
-			  } else {
-				  None
-			  }
-		}
-		}
-	}
+  def validvar(token: String): Boolean = {
+    if (isalpha1(token(0))) {
+      true
+    } else {
+      if (token(0) == "{") {
+        val x = token.substring(1, token.length() - 1).trim()
+        if (isalpha(x)) {
+          true
+        } else {
+          if (x(0) == "\\") {
+            val y = x.indexOf(' ')
+            if (y == -1) {
+              false
+            } else {
+              if (x.substring(1, y) == "cal" && isalpha(x.substring(y).trim())) {
+                true
+              } else {
+                false
+              }
+            }
+          } else {
+            false
+          }
+        }
+      } else {
+        token match {
+          case pattern.token(s, t, v) => allowed_variables.contains(v)
+          case _ => false
+        }
+      }
+    }
+  }
 
-	def isalpha1(c: Char) = { Character.isLetter(c) || Character.isDigit(c) }
-	def isalpha(s: String): Boolean = { s.forall(isalpha1) }
-	
-	def validvar(token: String): Boolean = {
-		if (isalpha1(token(0))) {
-			true
-		} else {
-			if (token(0) == "{") {
-				val x = token.substring(1, token.length()-1).trim()
-				if (isalpha(x)) {
-					true
-				} else {
-					if (x(0) == "\\") {
-						val y = x.indexOf(' ')
-						if (y == -1) {
-							false
-						} else {
-							if (x.substring(1, y) == "cal" && isalpha(x.substring(y).trim())) {
-								true
-							} else {
-								false
-							}
-						}
-					} else {
-						false
-					}
-				}
-			} else {
-			  token match {
-			    case pattern.token(s, t, v) => allowed_variables.contains(v)
-			    case _ => false
-			  }
-			}
-		}
-	}
+  val allowed_variables = List("\\alpha", "\\beta", "\\gamma", "\\delta", "\\epsilon",
+    "\\varepsilon", "\\zeta", "\\eta", "\\theta", "\\vartheta",
+    "\\iota", "\\kappa", "\\lambda",
+    "\\mu", "\\nu", "\\xi", "\\pi",
+    "\\varpi", "\\rho", "\\varrho", "\\sigma",
+    "\\varsigma", "\\tau", "\\upsilon", "\\phi",
+    "\\varphi", "\\chi", "\\psi",
+    "\\Gamma", "\\Delta", "\\Theta", "\\Lambda",
+    "\\Xi", "\\Pi", "\\Sigma", "\\Upsilon", "\\Phi", "\\Psi", "\\imath", "\\jmath", "\\ell")
 
-	val allowed_variables = List("\\alpha", "\\beta", "\\gamma", "\\delta", "\\epsilon",
-	    "\\varepsilon", "\\zeta", "\\eta", "\\theta", "\\vartheta",
-	    "\\iota", "\\kappa", "\\lambda",
-	    "\\mu", "\\nu", "\\xi", "\\pi",
-	    "\\varpi", "\\rho", "\\varrho", "\\sigma",
-	    "\\varsigma", "\\tau", "\\upsilon", "\\phi",
-	    "\\varphi", "\\chi", "\\psi",
-	    "\\Gamma", "\\Delta", "\\Theta", "\\Lambda",
-	    "\\Xi", "\\Pi", "\\Sigma", "\\Upsilon", "\\Phi", "\\Psi", "\\imath", "\\jmath", "\\ell")
+  def validnum(token: String): Boolean = {
+    try {
+      token.toInt
+      true
+    } catch {
+      case e: Exception => false
+    }
+  }
 
+  def tokenparse(token: String): Any = {
+    //#
+    val precedence = mathdb.MD_PRECED
+    val defs = mathdb.MD_DEFS
+    val arity = mathdb.MD_ARITY
+    val n = symtype(token)
+    var x: Any = null
+    if (n == 18) {
+      //@@x = decimalparse(token)
+    } else {
+      if (n == 12) {
+        x = List(List(-4, arity(token)), List(List(n), token))
+      } else {
+        if (n == 13) {
+          x = List(List(-5, arity(token)), List(List(n), token))
+        } else {
+          if (n == 16) {
+            x = List(List(-2, List()), List(List(n), token))
+          } else {
+            if (n == 17) {
+              x = List(List(-1, defs(token)), List(List(n), token))
+            } else {
+              if (n == 8) {
+                x = List(List(-6, defs(token)), List(List(n), token))
+              } else {
+                if (n == 9) {
+                  x = List(List(-7, defs(token)), List(List(n), token))
+                } else {
+                  if (List(1, 2, 3).contains(n)) {
+                    x = List(List(n), token, precedence(token))
+                  } else {
+                    //# Even unknown constants are passed on as complete 
+                    x = List(List(n), token)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return x
+  }
 
-	def validnum(token: String): Boolean = {
-	  try {
-		  token.toInt
-		  true
-	  } catch {
-	    case e: Exception => false
-	  }
-	}
-
-
-	def tokenparse(token: String): Any = {
-		//#
-		val precedence = mathdb.MD_PRECED
-		val defs = mathdb.MD_DEFS
-		val arity = mathdb.MD_ARITY
-		val n = symtype(token)
-		var x: Any = null
-		if (n == 18) {
-			 x = decimalparse(token)
-		} else {
-			if (n == 12) {
-				 x = List(List(-4, arity(token)), List(List(n), token))
-			} else {
-				if (n == 13) {
-					 x = List(List(-5, arity(token)), List(List(n), token))
-				} else {
-					if (n == 16) {
-						 x = List(List(-2, List()), List(List(n), token))
-					} else {
-						if (n == 17) {
-							 x = List(List(-1, defs(token)), List(List(n), token))
-						} else {
-							if (n == 8) {
-								 x = List(List(-6, defs(token)), List(List(n), token))
-							} else {
-								if (n == 9) {
-									 x = List(List(-7, defs(token)), List(List(n), token))
-								} else {
-									if (List(1, 2, 3).contains(n)) {
-										 x = List(List(n), token, precedence(token))
-									} else {
-										//# Even unknown constants are passed on as complete 
-										 x = List(List(n), token)
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-		return x
-	}
-
-/*
+  /*
 def decimalparse(token: Any): Any = {
 val precedence = mathdb(MD_PRECED)
 val n = len(token)
