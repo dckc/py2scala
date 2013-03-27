@@ -218,11 +218,28 @@ class PyToScala(ast.NodeVisitor):
         self.newline()
 
     def visit_Import(self, node):
+        """Import(alias* names)"""
         wr = self._sync(node)
         for name in node.names:
             wr('import ')
             self.visit(name)
             self.newline()
+
+    def visit_ImportFrom(self, node):
+        """ImportFrom(identifier? module, alias* names, int? level)"""
+        wr = self._sync(node)
+        limitation(node.level == 0)  # what is that, anyway?
+        limitation(node.module)
+        wr('import ')
+        wr(node.module)
+        wr('.{')
+        sep = ''
+        for name in node.names:
+            wr(sep)
+            self.visit(name)
+            sep = ', '
+        wr('}')
+        self.newline()
 
     def visit_Global(self, node):
         # Global(identifier* names)
@@ -355,12 +372,10 @@ class PyToScala(ast.NodeVisitor):
         s = node.s
         limitation('"""' not in s)
 
-        esc = s.replace('\\', '\\\\')
-
-        if '"' in s:
-            wr('"""' + esc + '"""')
+        if '\\' in s or '"' in s and not s.endswith('"'):
+            wr('"""' + s + '"""')
         else:
-            wr('"' + esc + '"')
+            wr('"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"')
 
     def visit_Attribute(self, node):
         # Attribute(expr value, identifier attr, expr_context ctx)
