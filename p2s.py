@@ -5,7 +5,6 @@ ideas:
    - use JSON object for pyobj?
  - special case for elif
  - more general handling of x[y:z]
- - idomatic indentation
  - special case for docstrings
 
 '''
@@ -14,6 +13,8 @@ import StringIO
 import ast
 import logging
 import tokenize
+from os.path import splitext, basename
+from contextlib import contextmanager
 
 log = logging.getLogger(__name__)
 
@@ -26,15 +27,18 @@ def main(argv, open, stdout,
 
 
 def convert(infn, src, out):
+    modname = splitext(basename(infn))[0]
     t = ast.parse(src, infn)
     tl = PyToScala.tokens_per_line(src)
-    p2s = PyToScala(out, tl)
+    p2s = PyToScala(modname, out, tl)
     p2s.visit(t)
 
 
 class PyToScala(ast.NodeVisitor):
-    def __init__(self, out, token_lines):
+    def __init__(self, modname, out, token_lines):
+        self._modname = modname
         self._out = out
+        self._col = 0
         self._lines = list(token_lines)
         self._line_ix = 0
         self._node_row = 0
@@ -60,35 +64,44 @@ class PyToScala(ast.NodeVisitor):
             while node.lineno >= self._lines[self._line_ix][0]:
                 for tok in self._lines[self._line_ix][1]:
                     if tok[0] == tokenize.COMMENT:
-                        wr('//' + tok[1] + '\n')
+                        wr('//' + tok[1][1:])
+                        self.newline()
                 self._line_ix += 1
         return wr
+
+    @contextmanager
+    def _block(self):
+        wr = self._out.write
+        self._col += 2
+        wr('{\n')
+        wr(' ' * self._col)
+        yield
+        self._col -= 2
+        wr('}\n')
+        wr(' ' * self._col)
 
     def newline(self):
         wr = self._out.write
         wr('\n')
+        wr(' ' * self._col)
 
     def visit_Module(self, node):
         wr = self._sync(node)
-        wr('object __name__ {\n')
-        for stmt in node.body:
-            self.visit(stmt)
-        wr('}')
-        self.newline()
+        wr('object %s ' % self._modname)
+        with self._block():
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_FunctionDef(self, node):
         limitation(not node.decorator_list)
         wr = self._sync(node)
         self.newline()
-        self.newline()
         wr('def %s(' % node.name)
         self.visit(node.args)
-        wr('): Any = {')
-        self.newline()
-        for stmt in node.body:
-            self.visit(stmt)
-        wr('}')
-        self.newline()
+        wr('): Any = ')
+        with self._block():
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_Return(self, node):
         # Return(expr? value)
@@ -139,25 +152,20 @@ class PyToScala(ast.NodeVisitor):
         self.visit(node.target)
         wr(' <- ')
         self.visit(node.iter)
-        wr(') {')
-        self.newline()
-        for stmt in node.body:
-            self.visit(stmt)
-        wr('}')
-        self.newline()
-
+        wr(') ')
+        with self._block():
+            for stmt in node.body:
+                self.visit(stmt)
 
         if node.orelse:
-            wr('/* for ... else: */\n')
+            wr('/* for ... else: */')
             self.newline()
             wr('if ((')
             self.visit(node.iter)
-            wr(').isEmpty) {')
-            self.newline()
-            for stmt in node.orelse:
-                self.visit(stmt)
-            wr('}')
-            self.newline()
+            wr(').isEmpty) ')
+            with self._block():
+                for stmt in node.orelse:
+                    self.visit(stmt)
 
     def visit_While(self, node):
         # While(expr test, stmt* body, stmt* orelse)
@@ -165,37 +173,32 @@ class PyToScala(ast.NodeVisitor):
         wr = self._sync(node)
         wr('while (')
         self.visit(node.test)
-        wr(') {')
-        self.newline()
-        for stmt in node.body:
-            self.visit(stmt)
-        wr('}')
-        self.newline()
+        wr(') ')
+        with self._block():
+            for stmt in node.body:
+                self.visit(stmt)
 
     def visit_If(self, node):
         # If(expr test, stmt* body, stmt* orelse)
         wr = self._sync(node)
         wr('if (')
         self.visit(node.test)
-        wr(') {')
-        self.newline()
-        for stmt in node.body:
-            self.visit(stmt)
-        wr('}')
-        if node.orelse:
-            wr(' else {')
-            self.newline()
-            for stmt in node.orelse:
+        wr(') ')
+        with self._block():
+            for stmt in node.body:
                 self.visit(stmt)
-            wr('}')
-        self.newline()
+        if node.orelse:
+            wr(' else ')
+            with self._block():
+                for stmt in node.orelse:
+                    self.visit(stmt)
 
     def visit_Raise(self, node):
         # Raise(expr? type, expr? inst, expr? tback)
         limitation(not node.tback and node.type)
 
         wr = self._sync(node)
-        wr('throw new')
+        wr('throw new ')
         self.visit(node.type)
         wr('(')
         if node.inst:
@@ -327,7 +330,7 @@ class PyToScala(ast.NodeVisitor):
 
     def visit_Call(self, node):
         # Call(expr func, expr* args, keyword* keywords,
-	#		 expr? starargs, expr? kwargs)
+        #      expr? starargs, expr? kwargs)
 
         # TODO: change x.update(y) to x ++= y
         wr = self._sync(node)
