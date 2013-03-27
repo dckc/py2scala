@@ -5,6 +5,29 @@ package com.madmode.pfmorris
  * python runtime: builtin functions
  */
 object __builtin__ {
+  import scala.collection.mutable.{Map, ArrayBuffer}
+  
+  val True = true
+  val False = false
+
+  implicit def test_string(s: String): Boolean = !s.isEmpty
+  implicit def test_int(i: Int): Boolean = i != 0
+  
+  def int(s: String) = s.toInt
+  def len(s: String) = s.length()
+
+  /** not sure about this one... */
+  implicit def test_option[T](o: Option[T]): Boolean = !o.isEmpty
+
+  class Dict[K, V] extends Map[K, V]{
+    def update(x: Dict[K, V]): Unit = { this ++= x }
+    def get(k: K, default: V) = this.getOrElse(k, default)
+  }
+  object Dict {
+    def apply[K, V]() = Map[K, V]()
+  }
+  implicit def test_dict[K, V](d: Dict[K, V]): Boolean = !d.isEmpty
+
   def raw_input(prompt: String): String = {
     import java.io.{ BufferedReader, InputStreamReader }
     val b = new BufferedReader(new InputStreamReader(System.in))
@@ -12,7 +35,6 @@ object __builtin__ {
     return b.readLine()
   }
 
-  implicit def test_string(s: String): Boolean = !s.isEmpty
 }
 
 /**
@@ -42,5 +64,9 @@ object batteries {
     }
     implicit def test_matcher(m: Match): Boolean = m.test()
 
+  }
+  
+  object sys {
+    
   }
 }
