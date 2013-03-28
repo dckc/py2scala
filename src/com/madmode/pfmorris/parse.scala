@@ -20,6 +20,15 @@ object parse {
     throw new SystemExit()
     }
   val Arg_1 = sys.argv(1)
+  try {
+    val f = open((Arg_1 + ".tex"), 'r')
+    }
+  catch {
+    case _ => {
+      println((Arg_1 + ".tex not found"))
+      throw new SystemExit()
+      }
+    }
   val line_list = f.readlines()
   f.close()
   val getprops = False
@@ -29,6 +38,19 @@ object parse {
   //
   //###########################################################
   val new_dfs = False
+  try {
+    val f = open((Arg_1 + ".dfs"), 'r')
+    val dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
+    val syntdb = pickle.load(f)
+    f.close()
+    }
+  catch {
+    case _ => {
+      val new_dfs = True
+      val syntdb = synt.makemathdb()
+      val getprops = True
+      }
+    }
   if (len(syntdb) < synt.MD_LEN) {
     val syntdb = synt.makemathdb()
     val getprops = True
