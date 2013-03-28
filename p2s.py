@@ -341,7 +341,7 @@ class PyToScala(ast.NodeVisitor):
                        ast.LtE: '<=',
                        ast.Gt: '>',
                        ast.GtE: '>=',
-                       ast.Is: '==',  # hmm...
+                       ast.Is: 'eq',
                        ast.IsNot: '!='}[op.__class__]
                 self.visit(left)
                 wr(' ' + sym + ' ')
@@ -377,7 +377,12 @@ class PyToScala(ast.NodeVisitor):
         limitation('"""' not in s)
         #@@limitation('\\u' not in s)
 
-        if '\\' in s or '"' in s and not s.endswith('"'):
+        # translate length-1 strings to char, then
+        # implicitly convert back as needed
+        if len(s) == 1:
+            esc = '\\' if s in "'\\" else ''
+            wr("'" + esc + s + "'")
+        elif '\\' in s or '"' in s and not s.endswith('"'):
             wr('"""' + s + '"""')
         else:
             wr('"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"')
