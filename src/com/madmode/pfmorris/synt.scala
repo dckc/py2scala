@@ -70,9 +70,9 @@ object synt {
   //  but not by check.  It is initialized by resetdefs and resetprops.  
   var mathdb: MD = null
   case class MD(MD_SYMTYPE: SYMTYPE, MD_PRECED: PRECED, MD_DEFS: DEFS,
-      MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
-      MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
-      MD_PFILE: PFILE, MD_RFILE: RFILE) {
+    MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
+    MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
+    MD_PFILE: PFILE, MD_RFILE: RFILE) {
   }
   object MD {
     def fromJson(o: Any): MD = throw new Exception("TODO")
@@ -113,7 +113,7 @@ object synt {
   //The following are tokens added so that TeX spacing characters can be used.
   val ignore_tokens = List("""\,""", """\>""", """\;""", """\!""")
   val reference_punctuator_list = List(",", ";", "<=", """\C""", "G", "H", "!", "D", "P", "A", "S", "U", ")", "(", "),", ",(", ";(", "+", "-", """\char124""", ":", "|")
-  
+
   def makemathdb(): MD = {
     val td: SYMTYPE = new Dict()
     val precedence: PRECED = new Dict()
@@ -153,24 +153,24 @@ object synt {
     //
     //##############################
     val connectors = List(
-        (1, List("""\case""")),
-        (2, List("""\c""")),
-        (3, List("""\cond""", """\els""")),
-        (4, List("""\Iff""")),
-        (5, List("""\And""", """\Or""")),
-        (6, List("=", """\ne""", """\le""", """\ge""", """\notin""",
-            """\noti""", """\ident""", """\in""", "<", ">",
-            """\i""", """\j""", """\subset""", ",")),
-        (9, List("+", "-")),
-        (13, List("""\cdot""", "/")))
+      (1, List("""\case""")),
+      (2, List("""\c""")),
+      (3, List("""\cond""", """\els""")),
+      (4, List("""\Iff""")),
+      (5, List("""\And""", """\Or""")),
+      (6, List("=", """\ne""", """\le""", """\ge""", """\notin""",
+        """\noti""", """\ident""", """\in""", "<", ">",
+        """\i""", """\j""", """\subset""", ",")),
+      (9, List("+", "-")),
+      (13, List("""\cdot""", "/")))
     for (x <- connectors) {
       val prec = x._1
       val plist = x._2
       for (s <- plist) {
         precedence(s) = prec
         td(s) = 3
-        }
       }
+    }
     td("""\ident""") = 1
     td("""\Iff""") = 2
     precedence("""\dff""") = 4
@@ -196,10 +196,10 @@ object synt {
     val properties_file = "properties.tex"
     val rules_file = "rules.tex"
     return MD(td, precedence, defs, arity, transitive_ops, trans_mult,
-        commutative_associative_ops, theorems, reference_dictionary,
-        user_dictionary, reset_flag, properties_file, rules_file)
-    }
-  
+      commutative_associative_ops, theorems, reference_dictionary,
+      user_dictionary, reset_flag, properties_file, rules_file)
+  }
+
   def dbmerge(mathdb: MD, db: MD): Any = {
     mathdb.MD_SYMTYPE.update(db.MD_SYMTYPE)
     mathdb.MD_PRECED.update(db.MD_PRECED)
@@ -207,18 +207,16 @@ object synt {
     mathdb.MD_ARITY.update(db.MD_ARITY)
     if (db.MD_REFD != null) {
       mathdb.MD_REFD.update(db.MD_REFD)
-      }
-     else {
+    } else {
       println("Warning: format does not match.")
-      }
+    }
     if (db.MD_MACR != null) {
       mathdb.MD_MACR.update(db.MD_MACR)
-      }
-     else {
+    } else {
       println("Warning: format does not match.")
-      }
     }
-  
+  }
+
   def symtype(token: String): Tag = {
     val td = mathdb.MD_SYMTYPE
     val arity = mathdb.MD_ARITY
@@ -226,45 +224,43 @@ object synt {
     var retval = td.get(token, 0)
     if (retval) {
       return retval
-      }
-     else {
+    } else {
       if (pattern.ignore_token.match_(token)) {
         td(token) = 23
         return 23
-        }
+      }
       if (pattern.TeX_leftdelimiter.match_(token)) {
         return 6
-        }
+      }
       if (pattern.TeX_rightdelimiter.match_(token)) {
         return 16
-        }
+      }
       val b = validschemator(token)
-      b match { case Right(b) => {
-        td(token) = b._1
-        arity(token) = b._2
-        retval = b._1
+      b match {
+        case Right(b) => {
+          td(token) = b._1
+          arity(token) = b._2
+          retval = b._1
         }
-      case _ => {
-        if (validvar(token)) {
-          td(token) = 10
-          val retval = 10
-          }
-         else {
-          if (validnum(token)) {
-            td(token) = 18
-            val retval = 18
-            }
-           else {
-            td(token) = 5
-            val retval = 5
+        case _ => {
+          if (validvar(token)) {
+            td(token) = 10
+            val retval = 10
+          } else {
+            if (validnum(token)) {
+              td(token) = 18
+              val retval = 18
+            } else {
+              td(token) = 5
+              val retval = 5
             }
           }
+        }
       }
-     }
       return retval
-      }
     }
-  
+  }
+
   type SchematorInfo = Either[Int, (Tag, Int)]
   implicit def test_either(x: SchematorInfo): Boolean = x.isRight
 
@@ -276,141 +272,128 @@ object synt {
       val arity = int(schemm.group(1))
       if (token(1) == 'w') {
         return (12, arity)
-        }
-       else {
+      } else {
         if (arity == 0) {
           return (11, arity)
-          }
-         else {
+        } else {
           return (13, arity)
-          }
         }
       }
+    }
     val genschemm = pattern.genschem.match_(token)
     if (genschemm) {
       val arity = (len(genschemm.group(2)) + 1)
       val sym2 = genschemm.group(1)(0)
       if (List('p', 'q', 'r').contains(sym2)) {
         return (13, arity)
-        }
-       else {
+      } else {
         return (12, arity)
-        }
       }
+    }
     val gensentm = pattern.gensent.match_(token)
     if (gensentm) {
       return (11, 0)
-      }
+    }
     if (len(token) < 5) {
       return 0
-      }
+    }
     if (token(0) != '\\') {
       return 0
-      }
-    if (! List('o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w').contains(token(1))) {
+    }
+    if (!List('o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w').contains(token(1))) {
       return 0
-      }
+    }
     if (len(token) == 6 && token(5) != 'p') {
       if (token.substring(3, 6) != "var") {
         return 0
-        }
-      if (! List('p', 'q', 'r', 's', 't').contains(token(1))) {
-        return 0
-        }
-      if (! List('p', 'q', 'r', 's', 't').contains(token(2))) {
-        return 0
-        }
-      return (11, 0)
       }
+      if (!List('p', 'q', 'r', 's', 't').contains(token(1))) {
+        return 0
+      }
+      if (!List('p', 'q', 'r', 's', 't').contains(token(2))) {
+        return 0
+      }
+      return (11, 0)
+    }
     if (token.substring(3, 5) != "ar") {
       return 0
-      }
+    }
     if (token(2) == 'v') {
       if (List('o', 'p', 'q', 'r', 's', 't').contains(token(1)) && len(token) == 5) {
         return (11, 0)
-        }
-       else {
+      } else {
         return 0
-        }
       }
-     else {
+    } else {
       if (token(2) != 'b') {
         return 0
-        }
       }
-    if (! List('p', 'q', 'r', 'u', 'v', 'w').contains(token(1))) {
+    }
+    if (!List('p', 'q', 'r', 'u', 'v', 'w').contains(token(1))) {
       return 0
-      }
+    }
     val tail = token.substring(5)
     val lt = len(tail)
     if (tail.count(_ == 'p') == lt) {
       if (List('p', 'q', 'r').contains(token(1))) {
         return (13, (1 + lt))
-        }
-       else {
+      } else {
         return (12, (1 + lt))
-        }
       }
-     else {
+    } else {
       return 0
-      }
     }
-  
+  }
+
   def validvar(token: String): Boolean = {
     if (token(0).isalpha()) {
       return True
-      }
-     else {
+    } else {
       if (token(0) == '{') {
         val x = token.substring(1, -1).strip()
 
         if (x.isalpha()) {
           return True
-          }
-         else {
+        } else {
           if (x(0) == '\\') {
             val y = x.find(' ')
             if (y == -1) {
               return False
-              }
-             else {
+            } else {
               if (x.substring(1, y) == "cal" && x.substring(y).strip().isalpha()) {
                 return True
-                }
-               else {
+              } else {
                 return False
-                }
               }
             }
-           else {
+          } else {
             return False
-            }
           }
         }
-       else {
+      } else {
         val tokenm = pattern.token.match_(token)
         if (allowed_variables.contains(tokenm.group(3))) {
           return True
-          }
-        return False
         }
+        return False
       }
     }
+  }
   val allowed_variables = List("""\alpha""", """\beta""", """\gamma""",
-      """\delta""", """\epsilon""", """\varepsilon""",
-      """\zeta""", """\eta""", """\theta""", """\vartheta""",
-      """\iota""", """\kappa""", """\lambda""", """\mu""", """\nu""",
-      """\xi""", """\pi""", """\varpi""", """\rho""", """\varrho""",
-      """\sigma""", """\varsigma""", """\tau""", "\\upsilon",
-      """\phi""", """\varphi""", """\chi""", """\psi""",
-      """\Gamma""", """\Delta""", """\Theta""", """\Lambda""",
-      """\Xi""", """\Pi""", """\Sigma""", """\Upsilon""",
-      """\Phi""", """\Psi""", """\imath""", """\jmath""", """\ell""")
-  
+    """\delta""", """\epsilon""", """\varepsilon""",
+    """\zeta""", """\eta""", """\theta""", """\vartheta""",
+    """\iota""", """\kappa""", """\lambda""", """\mu""", """\nu""",
+    """\xi""", """\pi""", """\varpi""", """\rho""", """\varrho""",
+    """\sigma""", """\varsigma""", """\tau""", "\\upsilon",
+    """\phi""", """\varphi""", """\chi""", """\psi""",
+    """\Gamma""", """\Delta""", """\Theta""", """\Lambda""",
+    """\Xi""", """\Pi""", """\Sigma""", """\Upsilon""",
+    """\Phi""", """\Psi""", """\imath""", """\jmath""", """\ell""")
+
   def validnum(token: String): Boolean = {
     return token.isdigit()
-    }
-  
+  }
+
   type Tok = List[Any]
   def tokenparse(token: String): Tok = {
     //
@@ -421,9 +404,9 @@ object synt {
     var x: Tok = null
     n match {
       case 18 => {
-      //@@x = decimalparse(token)
+        //@@x = decimalparse(token)
       }
-      case  12 => {
+      case 12 => {
         x = List(List(-4, arity(token)), (List(n), token))
       }
       case 13 => {
@@ -4522,4 +4505,4 @@ object synt {
       }
     }
     * @@@@@@@@@@@@@ */
-  }
+}

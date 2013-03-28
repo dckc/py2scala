@@ -30,7 +30,7 @@ object parse {
     val Arg_1 = args(1)
     var f: __builtin__.File = null
     try {
-      f = open((Arg_1 + ".tex"), 'r')
+      f = open((Arg_1 + ".tex"), "r")
     } catch {
       case _: Throwable => {
         println((Arg_1 + ".tex not found"))
@@ -45,7 +45,7 @@ object parse {
     // Load math data from .dfs file
     //
     //###########################################################
-    val new_dfs = False
+    var new_dfs = False
     var syntdb: synt.MD = null
     var dfs_mtime: Int = -1
     try {
@@ -55,7 +55,7 @@ object parse {
       f.close()
     } catch {
       case _: Throwable => {
-        val new_dfs = True
+        new_dfs = True
         syntdb = synt.makemathdb()
         getprops = True
       }
@@ -66,7 +66,7 @@ object parse {
     }
     synt.mathdb = syntdb
     if (syntdb.MD_RSFLG) {
-      val dfs_mtime = -1
+      dfs_mtime = -1
     }
     //############################################################
     //

@@ -68,6 +68,7 @@ object __builtin__ {
         if (line == null) ()
         else { b += line; mk() }
       }
+      mk()
       b.result()
     }
 
@@ -75,8 +76,9 @@ object __builtin__ {
     class LinesIterator(var line: String) extends Iterator[String] {
       override def hasNext = line != null
       override def next() = {
+        val l = line
         line = fp.readLine()
-        line
+        l
       }
     }
   }
@@ -88,7 +90,7 @@ object __builtin__ {
     return b.readLine()
   }
 
-  class SystemExit extends Exception
+  class SystemExit extends Exception("SystemExit")
 }
 
 /**
