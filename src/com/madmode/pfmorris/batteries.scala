@@ -7,7 +7,7 @@ import java.io.BufferedReader
 import scala.annotation.tailrec
 import scala.collection.mutable.{ Map, HashMap }
 import scala.collection.immutable.VectorBuilder
-import scala.collection.{Iterable, Iterator}
+import scala.collection.{ Iterable, Iterator }
 
 /**
  * python runtime: builtin functions

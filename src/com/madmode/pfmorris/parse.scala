@@ -1,119 +1,118 @@
 package com.madmode.pfmorris
 
-  /**###############################################################
-  //
-  //           Check both math and proof syntax 
-  //
-  //############################################################### */
+/**
+ * ###############################################################
+ * //
+ * //           Check both math and proof syntax
+ * //
+ * //###############################################################
+ */
 object parse {
-    import __builtin__._
+  import __builtin__._
   import batteries._
-  
+
   import batteries.sys
   import batteries.pickle
   import batteries.os
-  import getpath.{getpath}
-  import batteries.stat.{ST_MTIME}
+  import getpath.{ getpath }
+  import batteries.stat.{ ST_MTIME }
   //
   import pattern._
   //import newsynt as synt
   import synt._
   val verbose = False
-  
-    def main(args: Array[String]): Unit = {
-  if (len(args) == 1) {
-    println("No file specified.")
-    throw new SystemExit()
-    }
-  val Arg_1 = args(1)
-  var f: __builtin__.File = null
-  try {
-    f = open((Arg_1 + ".tex"), 'r')
-    }
-  catch {
-    case _ : Throwable => {
-      println((Arg_1 + ".tex not found"))
+
+  def main(args: Array[String]): Unit = {
+    if (len(args) <= 1) {
+      println("No file specified.")
       throw new SystemExit()
-      }
     }
-  val line_list = f.readlines()
-  f.close()
-  var getprops = False
-  //###########################################################
-  //
-  // Load math data from .dfs file
-  //
-  //###########################################################
-  val new_dfs = False
-  var syntdb: synt.MD = null
-  var dfs_mtime: Int = -1
-  try {
-    val f = open((Arg_1 + ".dfs"), 'r')
-    dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
-    syntdb = MD.fromJson(pickle.load(f))
-    f.close()
-    }
-  catch {
-    case _ : Throwable => {
-      val new_dfs = True
-      syntdb = synt.makemathdb()
-       getprops = True
-      }
-    }
-  if (syntdb == null) {
-     syntdb = synt.makemathdb()
-     getprops = True
-    }
-  synt.mathdb = syntdb
-  if (syntdb.MD_RSFLG) {
-    val dfs_mtime = -1
-    }
-  //############################################################
-  //
-  //  Do pre-processing: Run all directives and
-  //
-  //     merge revised .dfs files
-  //
-  //############################################################
-  for (r <- line_list) {
-    val inputfilem = pattern.inputfile.match_(r)
-    if (inputfilem) {
-      val fname = inputfilem.group(1)
-      val dfs_file = (inputfilem.group(2) + ".dfs")
-      val fpathname = getpath(fname)
-      // Should perhaps require the same path
-      val dfs_pathname = getpath(dfs_file)
-      if (! fpathname) {
-        println("File" + fname + " not found.")
+    val Arg_1 = args(1)
+    var f: __builtin__.File = null
+    try {
+      f = open((Arg_1 + ".tex"), 'r')
+    } catch {
+      case _: Throwable => {
+        println((Arg_1 + ".tex not found"))
         throw new SystemExit()
+      }
+    }
+    val line_list = f.readlines()
+    f.close()
+    var getprops = False
+    //###########################################################
+    //
+    // Load math data from .dfs file
+    //
+    //###########################################################
+    val new_dfs = False
+    var syntdb: synt.MD = null
+    var dfs_mtime: Int = -1
+    try {
+      val f = open((Arg_1 + ".dfs"), 'r')
+      dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
+      syntdb = MD.fromJson(pickle.load(f))
+      f.close()
+    } catch {
+      case _: Throwable => {
+        val new_dfs = True
+        syntdb = synt.makemathdb()
+        getprops = True
+      }
+    }
+    if (syntdb == null) {
+      syntdb = synt.makemathdb()
+      getprops = True
+    }
+    synt.mathdb = syntdb
+    if (syntdb.MD_RSFLG) {
+      val dfs_mtime = -1
+    }
+    //############################################################
+    //
+    //  Do pre-processing: Run all directives and
+    //
+    //     merge revised .dfs files
+    //
+    //############################################################
+    for (r <- line_list) {
+      val inputfilem = pattern.inputfile.match_(r)
+      if (inputfilem) {
+        val fname = inputfilem.group(1)
+        val dfs_file = (inputfilem.group(2) + ".dfs")
+        val fpathname = getpath(fname)
+        // Should perhaps require the same path
+        val dfs_pathname = getpath(dfs_file)
+        if (!fpathname) {
+          println("File" + fname + " not found.")
+          throw new SystemExit()
         }
-      if (os.stat(fpathname)(ST_MTIME) > dfs_mtime) {
-        for (s <- open(fpathname)) {
-          if (pattern.directive.match_(s)) {
-            if (inputfilem.group(2) == Arg_1) {
-              //@@@@synt.process_directive(shereditary_only=False)
-              throw new Exception("TODO")
-              }
-             else {
-              //@@@synt.process_directive(s)
-              throw new Exception("TODO")
+        if (os.stat(fpathname)(ST_MTIME) > dfs_mtime) {
+          for (s <- open(fpathname)) {
+            if (pattern.directive.match_(s)) {
+              if (inputfilem.group(2) == Arg_1) {
+                //@@@@synt.process_directive(shereditary_only=False)
+                throw new Exception("TODO")
+              } else {
+                //@@@synt.process_directive(s)
+                throw new Exception("TODO")
               }
             }
           }
         }
-      if (fname != "utility.tdf" && fname != "utility.ldf" && fname != (Arg_1 + ".tdf") && fname != (Arg_1 + ".ldf") && ! dfs_pathname) {
-        println("Warning: can't find " + dfs_file)
+        if (fname != "utility.tdf" && fname != "utility.ldf" && fname != (Arg_1 + ".tdf") && fname != (Arg_1 + ".ldf") && !dfs_pathname) {
+          println("Warning: can't find " + dfs_file)
         }
-      if (dfs_pathname && os.stat(dfs_pathname)(ST_MTIME) > dfs_mtime) {
-        val f = open(dfs_pathname)
-        val pickled_db = MD.fromJson(pickle.load(f))
-        println("Merging " + dfs_pathname)
-        synt.dbmerge(synt.mathdb, pickled_db)
-        f.close()
+        if (dfs_pathname && os.stat(dfs_pathname)(ST_MTIME) > dfs_mtime) {
+          val f = open(dfs_pathname)
+          val pickled_db = MD.fromJson(pickle.load(f))
+          println("Merging " + dfs_pathname)
+          synt.dbmerge(synt.mathdb, pickled_db)
+          f.close()
         }
       }
     }
-  /*@@@@@@@@@@@@@@@@@
+    /*@@@@@@@@@@@@@@@@@
   val proppathname = getpath(syntdb(synt.MD_PFILE))
   if (! proppathname) {
     println("Can't find" + syntdb(synt.MD_PFILE))
@@ -497,4 +496,4 @@ object parse {
     * @@@@@@@@@@@@
     */
   }
-  }
+}
