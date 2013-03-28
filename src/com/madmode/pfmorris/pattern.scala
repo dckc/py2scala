@@ -132,23 +132,4 @@ object pattern {
       }
     }
   }
-
-  def main_x(args: Array[String]): Unit = {
-
-    var repeat = "yes"
-    while (repeat.length > 0) {
-      repeat = raw_input("Enter possible token string: ")
-      token.findFirstIn(repeat) match {
-        case Some(token(s, x, y)) => {
-          println(x)
-          println((x, y))
-        }
-        case Some(oops) => {
-          println("oops!" + oops)
-        }
-        case None => ()
-      }
-    }
-  }
-
 }
