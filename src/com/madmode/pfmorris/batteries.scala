@@ -110,7 +110,7 @@ object batteries {
     object path {
       def isdir(path: String): Boolean = TODO
       def isfile(filename: String): Boolean = Files.exists(Paths.get(filename))
-      def join(x: String, y: String): String = TODO
+      def join(x: String, y: String): String = Paths.get(x).resolve(Paths.get(y)).toString()
     }
   }
 
