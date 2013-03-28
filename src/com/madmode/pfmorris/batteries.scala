@@ -5,7 +5,7 @@ package com.madmode.pfmorris
  * python runtime: builtin functions
  */
 object __builtin__ {
-  import scala.collection.mutable.{Map, ArrayBuffer}
+  import scala.collection.mutable.{Map, HashMap}
   
   val True = true
   val False = false
@@ -17,6 +17,7 @@ object __builtin__ {
   def int(s: String) = s.toInt
   def len(s: String) = s.length()
 
+  implicit def as_string(c: Char): String = new String(c)
   implicit def as_py_char(c: Char): PyChar = new PyChar(c)
   class PyChar(c: Char) {
     def isalpha() = Character.isLetter(c) || Character.isDigit(c)  
@@ -29,9 +30,10 @@ object __builtin__ {
     def isdigit(): Boolean = s.forall(_.isdigit())
     def strip(): String = s.trim()
     def find(needle: String) = s.indexOf(needle)
+    def find(needle: Char) = s.indexOf(needle)
   }
 
-  class Dict[K, V] extends Map[K, V]{
+  class Dict[K, V] extends HashMap[K, V]{
     def update(x: Dict[K, V]): Unit = { this ++= x }
     def get(k: K, default: V) = this.getOrElse(k, default)
   }
