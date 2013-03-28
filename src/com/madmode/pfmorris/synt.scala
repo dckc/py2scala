@@ -1,8 +1,10 @@
 package com.madmode.pfmorris
 
+import com.madmode.py2scala.batteries._
+
+import com.madmode.py2scala.__builtins__._
+
 object synt {
-  import __builtin__._
-  import batteries._
 
   //###############################################################
   //

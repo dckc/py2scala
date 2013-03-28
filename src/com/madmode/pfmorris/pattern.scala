@@ -1,13 +1,15 @@
 package com.madmode.pfmorris
 
+import com.madmode.py2scala.batteries._
+
+import com.madmode.py2scala.__builtins__._
+
 /**
  * ########################################
  * # pattern.py
  * #
  */
 object pattern {
-  import __builtin__._
-  import batteries._
 
   import re.{compile}
 
@@ -121,7 +123,6 @@ object pattern {
   val alphacontrolseq_or_skip = compile(s)
 
   def main(args: Array[String]): Unit = {
-    import __builtin__._
     var repeat = "yes"
     while (repeat) {
       repeat = raw_input("Enter possible token string: ")

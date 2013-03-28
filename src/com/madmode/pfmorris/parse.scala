@@ -1,5 +1,9 @@
 package com.madmode.pfmorris
 
+import com.madmode.py2scala.batteries
+
+import com.madmode.py2scala.__builtins__._
+
 /**
  * ###############################################################
  * //
@@ -8,8 +12,6 @@ package com.madmode.pfmorris
  * //###############################################################
  */
 object parse {
-  import __builtin__._
-  import batteries._
 
   import batteries.sys
   import batteries.pickle
@@ -28,7 +30,7 @@ object parse {
       throw new SystemExit()
     }
     val Arg_1 = args(1)
-    var f: __builtin__.File = null
+    var f: File = null
     try {
       f = open((Arg_1 + ".tex"), "r")
     } catch {
