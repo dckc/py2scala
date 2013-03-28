@@ -9,18 +9,23 @@ object getpath {
     if (os.path.isfile(filename)) {
       return filename
     }
+    /*@@
     if (os.getenv("TEXPATH")) {
       val another_name = os.path.join(os.getenv("TEXPATH"), filename)
       if (os.path.isfile(another_name)) {
         return another_name
       }
     }
-    var home_dir: String = null
+    */
+    var home_dir: String = "."
+    /*@@
     if (os.name == "posix") {
       home_dir = os.getenv("HOME")
     } else {
       home_dir = '.'
     }
+    * 
+    */
     val config_file_name = os.path.join(home_dir, ".proofcheck")
     if (os.path.isfile(config_file_name)) {
       val config_file = open(config_file_name)
@@ -39,11 +44,12 @@ object getpath {
         return second_try_name
       }
     }
+    /*
     val pipe = os.popen(("kpsewhich " + filename))
     val kpathtry_name = pipe.read().strip()
     if (kpathtry_name) {
       return kpathtry_name
-    }
+    }*/
     return null
   }
   def main(args: Array[String]): Unit = {
