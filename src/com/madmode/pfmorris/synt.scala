@@ -269,7 +269,7 @@ object synt {
     val schemm = pattern.newschem.match_(token)
     if (schemm) {
       val arity = int(schemm.group(1))
-      if (token(1) == "w") {
+      if (token(1) == 'w') {
         return (12, arity)
         }
        else {
@@ -285,7 +285,7 @@ object synt {
     if (genschemm) {
       val arity = (len(genschemm.group(2)) + 1)
       val sym2 = genschemm.group(1)(0)
-      if (List("p", "q", "r").contains(sym2)) {
+      if (List('p', 'q', 'r').contains(sym2)) {
         return (13, arity)
         }
        else {
@@ -299,20 +299,20 @@ object synt {
     if (len(token) < 5) {
       return 0
       }
-    if (token(0) != """\""") {
+    if (token(0) != '\\') {
       return 0
       }
-    if (! List("o", "p", "q", "r", "s", "t", "u", "v", "w").contains(token(1))) {
+    if (! List('o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w').contains(token(1))) {
       return 0
       }
-    if (len(token) == 6 && token(5) != "p") {
+    if (len(token) == 6 && token(5) != 'p') {
       if (token.substring(3, 6) != "var") {
         return 0
         }
-      if (! List("p", "q", "r", "s", "t").contains(token(1))) {
+      if (! List('p', 'q', 'r', 's', 't').contains(token(1))) {
         return 0
         }
-      if (! List("p", "q", "r", "s", "t").contains(token(2))) {
+      if (! List('p', 'q', 'r', 's', 't').contains(token(2))) {
         return 0
         }
       return (11, 0)
@@ -320,8 +320,8 @@ object synt {
     if (token.substring(3, 5) != "ar") {
       return 0
       }
-    if (token(2) == "v") {
-      if (List("o", "p", "q", "r", "s", "t").contains(token(1)) && len(token) == 5) {
+    if (token(2) == 'v') {
+      if (List('o', 'p', 'q', 'r', 's', 't').contains(token(1)) && len(token) == 5) {
         return (11, 0)
         }
        else {
@@ -329,11 +329,11 @@ object synt {
         }
       }
      else {
-      if (token(2) != "b") {
+      if (token(2) != 'b') {
         return 0
         }
       }
-    if (! List("p", "q", "r", "u", "v", "w").contains(token(1))) {
+    if (! List('p', 'q', 'r', 'u', 'v', 'w').contains(token(1))) {
       return 0
       }
     val tail = token.substring(5)
@@ -356,15 +356,15 @@ object synt {
       return True
       }
      else {
-      if (token(0) == "{") {
+      if (token(0) == '{') {
         val x = token.substring(1, -1).strip()
 
         if (x.isalpha()) {
           return True
           }
          else {
-          if (x(0) == """\""") {
-            val y = x.find(" ")
+          if (x(0) == '\\') {
+            val y = x.find(' ')
             if (y == -1) {
               return False
               }
@@ -455,9 +455,9 @@ object synt {
       }
     val retval = token(0)
     for (val k <- range(1, n)) {
-      val retval = List(List(44, precedence("+")), List(List(44, precedence("""\cdot""")), retval, """\cdot""", """\ten"""), "+", token(k))
+      val retval = List(List(44, precedence('+')), List(List(44, precedence("""\cdot""")), retval, """\cdot""", """\ten"""), '+', token(k))
       }
-    return List(List(40, List()), "(", retval, ")")
+    return List(List(40, List()), '(', retval, ')')
     }
   
   def addtoken(tree: Any, token: Any): Any = {
@@ -1229,7 +1229,7 @@ object synt {
         }
       }
      else if (prec == 6) {
-      if (lastsix == ",") {
+      if (lastsix == ',') {
         if (n_arycheck(item)) {
           return 44
           }
@@ -1276,7 +1276,7 @@ object synt {
             println("Error: Start with a term.")
             return 0
             }
-           else if (x(1) != ",") {
+           else if (x(1) != ',') {
             if (x(2) != 6) {
               throw new "Non verb!"()
               }
@@ -1311,7 +1311,7 @@ object synt {
         }
        else if (state == 2) {
         if (y == 3 || y == 1) {
-          if (x(1) == ",") {
+          if (x(1) == ',') {
             val state = 0
             val j = 0
             }
@@ -1356,7 +1356,7 @@ object synt {
             println("Error: Indicial variable needed.")
             return 0
             }
-           else if (x(1) != ",") {
+           else if (x(1) != ',') {
             if (x(2) < 6) {
               println((("Error: " + x(1)) + " not allowed in scope"))
               return 0
@@ -1391,7 +1391,7 @@ object synt {
         }
        else if (state == 2) {
         if (y == 3) {
-          if (x(1) == ",") {
+          if (x(1) == ',') {
             val state = 0
             val j = 0
             }
@@ -1592,7 +1592,7 @@ object synt {
       if (definiendum(2)(0)(0) != 50) {
         return 0
         }
-      if (definiendum(3) != ")") {
+      if (definiendum(3) != ')') {
         return 0
         }
       val definiendum = definiendum(2)
@@ -1744,10 +1744,10 @@ object synt {
       if (bvlist) {
         val initialsegment = List(introductor, bvlist(0))
         for (val y <- bvlist.substring(1)) {
-          val initialsegment = (initialsegment + List(",", y))
+          val initialsegment = (initialsegment + List(',', y))
           }
         }
-      if (term_schemexp && formula_schemexp && term_schemexp.substring(2) == formula_schemexp.substring(2) && formula_schemexp.substring(2) == bvlist && definiendum.substring(1) == (initialsegment + List(";", formula_schemexp, term_schemexp))) {
+      if (term_schemexp && formula_schemexp && term_schemexp.substring(2) == formula_schemexp.substring(2) && formula_schemexp.substring(2) == bvlist && definiendum.substring(1) == (initialsegment + List(';', formula_schemexp, term_schemexp))) {
         if (symtype(introductor) == 5) {
           td(introductor) = 8
           // Needed to determine T or F status
@@ -1998,7 +1998,7 @@ object synt {
       val tree = List()
       val tempmode = List(2)
       val linetailcopy = List(directivem.group(2).strip())
-      addtoken(tree, "(")
+      addtoken(tree, '(')
       mathparse(tempmode, linetailcopy, tree)
       addtoken(tree, """\ident""")
       if (tree(-1)(0)(0) == -11) {
@@ -2027,7 +2027,7 @@ object synt {
       val tree = List()
       val tempmode = List(2)
       val linetailcopy = List(directivem.group(2).strip())
-      addtoken(tree, "(")
+      addtoken(tree, '(')
       mathparse(tempmode, linetailcopy, tree)
       addtoken(tree, """\Iff""")
       if (tree(-1)(0)(0) == -11) {
@@ -2259,7 +2259,7 @@ object synt {
         val pfctoken = token
         }
        else if (pfcdict.contains(token.substring(1))) {
-        val pfctoken = ("""\""" + pfcdict(token.substring(1)))
+        val pfctoken = ('\\' + pfcdict(token.substring(1)))
         }
        else {
         val pfctoken = token
@@ -2280,12 +2280,12 @@ object synt {
           outfragments.append(token)
           }
          else if (ck == 2) {
-          outfragments.append(("""\""" + pattern.skipstring))
+          outfragments.append(('\\' + pattern.skipstring))
           outfragments.append(token)
           }
          else if (ck == 3) {
           outfragments.append(token)
-          outfragments.append(("""\""" + pattern.skipstring))
+          outfragments.append(('\\' + pattern.skipstring))
           }
          else {
           outfragments.append(token)
@@ -2310,10 +2310,10 @@ object synt {
       if (! t) {
         break
         }
-      if (t(0) == "$") {
+      if (t(0) == '$') {
         return 0
         }
-      if (t(0) == "." || t(0).isdigit()) {
+      if (t(0) == '.' || t(0).isdigit()) {
         val refmatch = pattern.ref.match(t)
         if (! refmatch) {
           return 0
@@ -2387,7 +2387,7 @@ object synt {
       if (! t) {
         break
         }
-      if (t(0) == "$") {
+      if (t(0) == '$') {
         val TeXmatch = pattern.TeXmath.match(t)
         if (! TeXmatch) {
           println("Error: Unmatched Tex dollar sign")
@@ -2399,7 +2399,7 @@ object synt {
           return 0
           }
         rule.append(rvar)
-        rulesignature.append("$")
+        rulesignature.append('$')
         val t = TeXmatch.group(2)
         for (val x <- varlist(rvar)) {
           if (! rulevars.contains(x)) {
@@ -2469,19 +2469,19 @@ object synt {
     val depth = 0
     val retlist = List()
     for (val k <- range(len(sig))) {
-      if (sig(k) == "(") {
+      if (sig(k) == '(') {
         if (depth == 0) {
           val chunk = List()
           }
         val depth = (depth + 1)
         }
-       else if (sig(k) == ")") {
+       else if (sig(k) == ')') {
         val depth = (depth - 1)
         if (depth == 0) {
           retlist.append(chunk)
           }
         }
-       else if (sig(k) == "$") {
+       else if (sig(k) == '$') {
         val localvarlist = List()
         if (type(rule(k)) == list && len(rule(k)(0)) < 2) {
           assert(rule(k)(0) == List(11))
@@ -2507,7 +2507,7 @@ object synt {
           }
         }
        else if (reference_punctuator_list.contains(sig(k))) {
-        assert(! sig(k).contains("(") && ! sig(k).contains(")"))
+        assert(! sig(k).contains('(') && ! sig(k).contains(')'))
         if (depth == 0) {
           retlist.append(sig(k))
           }
@@ -2532,7 +2532,7 @@ object synt {
          else {
           val stuff = linetail(0).strip()
           }
-        val fetched_tf = ((fetched_tf + " ") + stuff)
+        val fetched_tf = ((fetched_tf + ' ') + stuff)
         mathparse(mode, linetail, parsetree)
         }
        else if (mode(0) == 3) {
@@ -2540,7 +2540,7 @@ object synt {
         }
       if (! linetail(0)) {
         getline(linetail, verbose)
-        while (linetail(0)(0) == "%") {
+        while (linetail(0)(0) == '%') {
           getline(linetail, verbose)
           }
         }
@@ -2636,7 +2636,7 @@ object synt {
   def scopecondition(scopenode: Any): Any = {
     val state = 0
     val tree = List()
-    addtoken(tree, "(")
+    addtoken(tree, '(')
     val verbfound = 0
     for (val xi <- scopenode.substring(1)) {
       if (type(xi) == list) {
@@ -2660,7 +2660,7 @@ object synt {
           }
         addtoken(tree, xi)
         }
-       else if (xi == ",") {
+       else if (xi == ',') {
         if (state == 2) {
           val state = 0
           addtoken(tree, """\And""")
@@ -2681,7 +2681,7 @@ object synt {
         }
       }
     if (verbfound) {
-      addtoken(tree, ")")
+      addtoken(tree, ')')
       return tree(0)(2)
       }
      else {
@@ -2700,8 +2700,8 @@ object synt {
     val lastverb = List()
     val subjects = List()
     val conjunctlist = List()
-    for (val x <- (pexp.substring(1) + List("="))) {
-      if (x == ",") {
+    for (val x <- (pexp.substring(1) + List('='))) {
+      if (x == ',') {
         if (lastterm == lastverb && lastverb == List()) {
           println("Initial commas and double commas not allowed")
           throw new SystemExit()
@@ -2744,7 +2744,7 @@ object synt {
             val object = List(List(44, 6))
             for (val y <- termlist) {
               object.append(y)
-              object.append(",")
+              object.append(',')
               }
             object -= -1}
           for (val s <- subjects) {
@@ -2784,7 +2784,7 @@ object synt {
         lastverb.append(x)
         }
       }
-    if (verblist != List() || lastverb != List("=")) {
+    if (verblist != List() || lastverb != List('=')) {
       println("Mistake")
       throw new SystemExit()
       }
@@ -2844,7 +2844,7 @@ object synt {
     if (type(exp) == str) {
       return exp
       }
-     else if (exp(1) == "(") {
+     else if (exp(1) == '(') {
       return deep(exp(2))
       }
      else if (List(14, 15).contains(exp(0)(0))) {
@@ -2902,7 +2902,7 @@ object synt {
     val r = List()
     for (val x <- list) {
       val newvarnum = (newvarnum + 1)
-      r.append((("v_{" + ("%d" % newvarnum)) + "}"))
+      r.append((("v_{" + ("%d" % newvarnum)) + '}'))
       }
     return r
     }
@@ -2926,7 +2926,7 @@ object synt {
       }
     val newscope = List(List(48, List()), indvs(0))
     for (val x <- indvs.substring(1)) {
-      newscope.append(",")
+      newscope.append(',')
       newscope.append(x)
       }
     for (val x <- newform.substring(1)) {
@@ -2983,14 +2983,14 @@ object synt {
         newform(0)(1) = 7
         newform(2) = deep(newform(2))
         newform(4) = newscope
-        newform.substring(5, 5) = List(";", deep(scopecond))
+        newform.substring(5, 5) = List(';', deep(scopecond))
         }
       }
      else if (styp == 8) {
       newform.substring(2) = List()
       newform(0)(1) = 5
       newform.append(newscope)
-      newform.append(";")
+      newform.append(';')
       newform.append(deep(scopecond))
       newform.append(deep(indform))
       }
@@ -3114,7 +3114,7 @@ object synt {
               val state = 2
               }
             }
-           else if (xi == ",") {
+           else if (xi == ',') {
             if (state == 2) {
               val state = 0
               }
@@ -3172,7 +3172,7 @@ object synt {
               val state = 2
               }
             }
-           else if (xi == ",") {
+           else if (xi == ',') {
             if (state == 2) {
               val state = 0
               }
@@ -3307,7 +3307,7 @@ object synt {
               newscope.append(xi)
               }
             }
-           else if (xi == ",") {
+           else if (xi == ',') {
             if (state == 2) {
               val state = 0
               }
@@ -3374,7 +3374,7 @@ object synt {
                 }
               }
             }
-           else if (xi == ",") {
+           else if (xi == ',') {
             if (state == 2) {
               val state = 0
               }
@@ -3529,7 +3529,7 @@ object synt {
                 }
               }
             }
-           else if (xi == ",") {
+           else if (xi == ',') {
             if (state == 2) {
               val state = 0
               }
@@ -3574,7 +3574,7 @@ object synt {
         }
        else {
         if (tempref) {
-          println("Lost reference found near" + linetail(2) + ":" + tempref)
+          println("Lost reference found near" + linetail(2) + ':' + tempref)
           }
         val tempref = t.pop()
         steplist(-1).append(t(1))
@@ -3614,7 +3614,7 @@ object synt {
     val linecopy = linetail(0).lstrip()
     while (1) {
       val TeXdollars = pattern.TeXdollar.search(linecopy)
-      val dollar_spot = linecopy.find("$")
+      val dollar_spot = linecopy.find('$')
       val by_spot = linecopy.find("""\By""")
       val tokenm = pattern.token.match(linecopy)
       if (mode(0) == 1) {
@@ -3700,10 +3700,10 @@ object synt {
         if (! TeXdollars) {
           val by_spot = linecopy.find("""\By""")
           if (by_spot == -1) {
-            val thisref = ((thisref + " ") + linecopy.strip())
+            val thisref = ((thisref + ' ') + linecopy.strip())
             }
            else {
-            val thisref = ((thisref + " ") + linecopy.substring((by_spot + 3)).strip())
+            val thisref = ((thisref + ' ') + linecopy.substring((by_spot + 3)).strip())
             }
           }
         linetail(0) = linecopy
@@ -3765,7 +3765,7 @@ object synt {
     }
   
   def buildchain(steplist: Any): Any = {
-    val firstline = " ".join(steplist(0).substring(1, -1))
+    val firstline = ' '.join(steplist(0).substring(1, -1))
     val treesg = List()
     val mode = List(2)
     mathparse(mode, List(firstline), treesg)
@@ -3782,7 +3782,7 @@ object synt {
       val op = tran_tag(3)
       val oplen = tran_tag(0)
       val op = steplist(k)(1).substring(0, oplen)
-      val finish = ((steplist(k)(1).substring(oplen) + " ") + " ".join(steplist(k).substring(2, -1)))
+      val finish = ((steplist(k)(1).substring(oplen) + ' ') + ' '.join(steplist(k).substring(2, -1)))
       if (type(op) != str) {
         println("step = " + steplist(k))
         println("oplen = " + oplen)
@@ -3796,15 +3796,15 @@ object synt {
         return List()
         }
       val depth = len(treedl)
-      val splitlist = finish.split(")")
+      val splitlist = finish.split(')')
       val len_splitlist = len(splitlist)
       val j = 0
       mathparse(mode, List(splitlist(j)), treedl)
       mathparse(mode, List(splitlist(j)), treesg)
       while ((j + 1) < len_splitlist && len(treedl) > depth) {
         val j = (j + 1)
-        mathparse(mode, List((")" + splitlist(j))), treedl)
-        mathparse(mode, List((")" + splitlist(j))), treesg)
+        mathparse(mode, List((')' + splitlist(j))), treedl)
+        mathparse(mode, List((')' + splitlist(j))), treesg)
         }
       if ((j + 1) < len_splitlist) {
         val splitlist = splitlist.substring((j + 1))
@@ -3841,8 +3841,8 @@ object synt {
         pr(-1)(0)(1) = tail_prcd
         if (old_dpth > next_dpth) {
           while (len(pr) >= next_dpth && next_dpth > 0 && len(pr) > 1 && len(splitlist) > 0) {
-            mathparse(mode, List((")" + splitlist(0))), pr)
-            mathparse(mode, List((")" + splitlist(0))), treesg)
+            mathparse(mode, List((')' + splitlist(0))), pr)
+            mathparse(mode, List((')' + splitlist(0))), treesg)
             val splitlist = splitlist.substring(1)
             }
           }
@@ -3850,7 +3850,7 @@ object synt {
         val treedl = pr
         }
       if (splitlist) {
-        val close_off = (")" + ")".join(splitlist))
+        val close_off = (')' + ')'.join(splitlist))
         mathparse(mode, List(close_off), treedl)
         mathparse(mode, List(close_off), treesg)
         }
@@ -3863,7 +3863,7 @@ object synt {
     val copy_tree = subst(List(), List(), parsetree)
     val mode = List(2)
     while (mode(0) == 2) {
-      mathparse(mode, List(")"), copy_tree)
+      mathparse(mode, List(')'), copy_tree)
       }
     if (mode(0) == 4) {
       return List()
@@ -3990,7 +3990,7 @@ object synt {
         return op1
         }
       }
-    if (op1 == "=") {
+    if (op1 == '=') {
       if (type(op2) == str) {
         if (symtype(op2) == 3 && precedence(op2) == 6) {
           return op2
@@ -4008,7 +4008,7 @@ object synt {
         return op2
         }
       }
-    if (op2 == "=") {
+    if (op2 == '=') {
       if (type(op1) == str) {
         if (symtype(op1) == 3 && precedence(op1) == 6) {
           return op1
@@ -4060,14 +4060,14 @@ object synt {
        else if ((right_vars - left_vars)) {
         val error_message = "Dropped variables: "
         for (val x <- (right_vars - left_vars)) {
-          val error_message = ((error_message + " ") + x)
+          val error_message = ((error_message + ' ') + x)
           }
         return error_message
         }
        else if ((left_vars - right_vars)) {
         val error_message = "Useless variables: "
         for (val x <- (left_vars - right_vars)) {
-          val error_message = ((error_message + " ") + x)
+          val error_message = ((error_message + ' ') + x)
           }
         return error_message
         }
@@ -4103,7 +4103,7 @@ object synt {
         return ""
         }
       val y = x.group(3)
-      return ("""\""" + userdict.get(y, y))
+      return ('\\' + userdict.get(y, y))
       }
     val newlines = List()
     val indollars = False
@@ -4169,9 +4169,9 @@ object synt {
           val newvarnum = (newvarnum + 1)
           val st = symtype(t)
           val arity = mathdb(MD_ARITY)
-          val pf = (("_{" + ("%d" % newvarnum)) + "}")
+          val pf = (("_{" + ("%d" % newvarnum)) + '}')
           if (st == 10) {
-            val newvar = ("v" + pf)
+            val newvar = ('v' + pf)
             }
            else {
             val r = arity(t)
@@ -4179,10 +4179,10 @@ object synt {
               val newvar = ("""\q^{0}""" + pf)
               }
              else if (st == 12) {
-              val newvar = ((("""\w^{""" + ("%d" % r)) + "}") + pf)
+              val newvar = ((("""\w^{""" + ("%d" % r)) + '}') + pf)
               }
              else if (st == 13) {
-              val newvar = ((("""\q^{""" + ("%d" % r)) + "}") + pf)
+              val newvar = ((("""\q^{""" + ("%d" % r)) + '}') + pf)
               }
             }
           }
@@ -4204,7 +4204,7 @@ object synt {
   def readprops(propfilename: Any, db: Any): Any = {
     //	print "len db = ", len(db)
     //	print "propfilename = ", propfilename
-    val f = open(propfilename, "r")
+    val f = open(propfilename, 'r')
     val line_list = f.readlines()
     f.close()
     val transitive_ops = List()
@@ -4256,7 +4256,7 @@ object synt {
         }
       }
     val commutative_ops = List()
-    val transitive_ops = List("""\ident""", """\Iff""", "=")
+    val transitive_ops = List("""\ident""", """\Iff""", '=')
     val transitive_mult = Map()
     for (val trip <- chain_triplets) {
       if (trip(0) == trip(1) && trip(1) == trip(2)) {
@@ -4301,7 +4301,7 @@ object synt {
     val r = linetail(0)
     // Begin properties file pass
     while (r) {
-      if (r(0) == "$") {
+      if (r(0) == '$') {
         linetail(0) = r.substring(1)
         val next_file_entry = getformula(linetail)
         if (next_file_entry) {
@@ -4516,6 +4516,5 @@ object synt {
       return op1
       }
     }
-    *@@@@@@@@@@@@@@@@ */
-
+    * @@@@@@@@@@@@@ */
   }
