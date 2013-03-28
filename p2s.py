@@ -1,9 +1,8 @@
 '''p2s -- convert python lexical syntax to scala
 
+see also batteries.scala runtime support
+
 ideas:
- - len(s) -- implicit conversion of s to pyobj
-   - use JSON object for pyobj?
- - special case for elif
  - more general handling of x[y:z]
  - special case for docstrings
 
@@ -35,6 +34,9 @@ def convert(infn, src, out):
 
 
 class PyToScala(ast.NodeVisitor):
+    '''
+    http://docs.python.org/2/library/ast.html
+    '''
     def __init__(self, modname, out, token_lines):
         self._modname = modname
         self._out = out
@@ -210,6 +212,9 @@ class PyToScala(ast.NodeVisitor):
         wr(')')
         self.newline()
 
+    def visit_TryExcept(self, node):
+        ''' TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)'''
+        
     def visit_Assert(self, node):
         # Assert(expr test, expr? msg)
         wr = self._sync(node)
@@ -350,22 +355,25 @@ class PyToScala(ast.NodeVisitor):
             sep = ' && '
 
     def visit_Call(self, node):
-        # Call(expr func, expr* args, keyword* keywords,
-        #      expr? starargs, expr? kwargs)
+        '''Call(expr func, expr* args, keyword* keywords,
+                expr? starargs, expr? kwargs)
+           keyword = (identifier arg, expr value)'''
 
-        # TODO: change x.update(y) to x ++= y
+        limitation(not node.starargs and
+                   not node.kwargs)
         wr = self._sync(node)
         self.visit(node.func)
         wr('(')
-        sep = ''
-        for expr in node.args:
-            wr(sep)
+        for ax, expr in enumerate(node.args):
+            if ax > 0: wr(', ')
             self.visit(expr)
-            sep = ', '
+        if node.keywords:
+            for kx, keyword in enumerate(node.keywords):
+                if kx > 0: wr(', ')
+                wr(keyword.arg)
+                wr('=')
+                self.visit(keyword.value)
         wr(')')
-        limitation(not node.keywords and
-                   not node.starargs and
-                   not node.kwargs)
 
     def visit_Num(self, node):
         wr = self._sync(node)
@@ -471,6 +479,7 @@ class PyToScala(ast.NodeVisitor):
             wr(node.asname)
 
     def generic_visit(self, node):
+        import pdb; pdb.set_trace()
         raise NotImplementedError('need visitor for: %s %s' %
                                   (node.__class__.__name__, node))
 
