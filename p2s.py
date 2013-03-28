@@ -90,20 +90,47 @@ class PyToScala(ast.NodeVisitor):
     def visit_Module(self, node):
         wr = self._sync(node)
         wr('object %s ' % self._modname)
+        self._suite(node.body)
+
+    def _suite(self, body):
         with self._block():
-            for stmt in node.body:
+            for stmt in body:
                 self.visit(stmt)
 
     def visit_FunctionDef(self, node):
-        limitation(not node.decorator_list)
+        '''FunctionDef(identifier name, arguments args, 
+                            stmt* body, expr* decorator_list)
+        '''
         wr = self._sync(node)
         self.newline()
+        self._decorators(node)
         wr('def %s(' % node.name)
         self.visit(node.args)
         wr('): Any = ')
-        with self._block():
-            for stmt in node.body:
-                self.visit(stmt)
+        self._suite(node.body)
+
+    def _decorators(self, node):
+        wr = self._sync(node)
+        for expr in node.decorator_list:
+            wr('@')
+            self.visit(expr)
+            self.newline()
+
+    def visit_ClassDef(self, node):
+        '''ClassDef(identifier name, expr* bases, stmt* body,
+                    expr* decorator_list)
+        '''
+        wr = self._sync(node)
+        self.newline()
+        self._decorators(node)
+        wr('class %s' % node.name)
+        if node.bases:
+            wr(' extends')
+            for ex, expr in enumerate(node.bases):
+                if ex > 0: wr(', ')
+                self.visit(expr)
+        wr(' ')
+        self._suite(node.body)
 
     def visit_Return(self, node):
         # Return(expr? value)
@@ -120,6 +147,8 @@ class PyToScala(ast.NodeVisitor):
             self.visit(expr)
 
     def visit_Assign(self, node):
+        '''Assign(expr* targets, expr value)
+        '''
         wr = self._sync(node)
         if len(node.targets) > 1:
             wr('(')
@@ -130,6 +159,17 @@ class PyToScala(ast.NodeVisitor):
             self.visit(node.targets[0])
 
         wr(' = ')
+        self.visit(node.value)
+        self.newline()
+
+    def visit_AugAssign(self, node):
+        '''AugAssign(expr target, operator op, expr value)
+        '''
+        self.visit(node.target)
+        wr = self._sync(node)
+        wr(' ')
+        wr(self._op(node.op))
+        wr('= ')
         self.visit(node.value)
         self.newline()
 
@@ -150,24 +190,23 @@ class PyToScala(ast.NodeVisitor):
     def visit_For(self, node):
         # For(expr target, expr iter, stmt* body, stmt* orelse)
         wr = self._sync(node)
+        if node.orelse:
+            wr('/* for ... else: */')
+            self.newline()
+            wr('if (!(')
+            self.visit(node.iter)
+            wr(').isEmpty) {')
+
         wr('for (')
         self.visit(node.target)
         wr(' <- ')
         self.visit(node.iter)
         wr(') ')
-        with self._block():
-            for stmt in node.body:
-                self.visit(stmt)
+        self._suite(node.body)
 
         if node.orelse:
-            wr('/* for ... else: */')
-            self.newline()
-            wr('if ((')
-            self.visit(node.iter)
-            wr(').isEmpty) ')
-            with self._block():
-                for stmt in node.orelse:
-                    self.visit(stmt)
+            wr('} else ')
+            self._suite(node.orelse)
 
     def visit_While(self, node):
         # While(expr test, stmt* body, stmt* orelse)
@@ -176,9 +215,7 @@ class PyToScala(ast.NodeVisitor):
         wr('while (')
         self.visit(node.test)
         wr(') ')
-        with self._block():
-            for stmt in node.body:
-                self.visit(stmt)
+        self._suite(node.body)
 
     def visit_If(self, node):
         # If(expr test, stmt* body, stmt* orelse)
@@ -186,18 +223,29 @@ class PyToScala(ast.NodeVisitor):
         wr('if (')
         self.visit(node.test)
         wr(') ')
-        with self._block():
-            for stmt in node.body:
-                self.visit(stmt)
+        self._suite(node.body)
         if node.orelse:
             suite = node.orelse
             wr(' else ')
             if len(suite) == 1 and isinstance(suite[0], ast.If):
                 self.visit(suite[0])
             else:
-                with self._block():
-                    for stmt in suite:
-                        self.visit(stmt)
+                self._suite(suite)
+
+    def visit_With(self, node):
+        # With(expr context_expr, expr? optional_vars, stmt* body)
+        wr = self._sync(node)
+        wr('with (')
+        self.visit(node.context_expr)
+        wr(') ')
+        with self._block():
+            wr('case ')
+            if node.optional_vars:
+                self.visit(node.optional_vars)
+            else:
+                wr('_')
+            wr(' => ')
+            self._suite(node.body)
 
     def visit_Raise(self, node):
         # Raise(expr? type, expr? inst, expr? tback)
@@ -219,9 +267,7 @@ class PyToScala(ast.NodeVisitor):
         '''
         wr = self._sync(node)
         wr('try ')
-        with self._block():
-            for stmt in node.body:
-                self.visit(stmt)
+        self._suite(node.body)
         wr('catch ')
         with self._block():
             for excepthandler in node.handlers:
@@ -234,15 +280,10 @@ class PyToScala(ast.NodeVisitor):
                     wr(': ')
                     self.visit(excepthandler.type)
                 wr(' => ')
-                with self._block():
-                    for stmt in excepthandler.body:
-                        self.visit(stmt)
+                self._suite(excepthandler.body)
             if node.orelse:
                 wr('case _ =>')
-                with self._block():
-                    for stmt in excepthandler.orelse:
-                        self.visit(stmt)
-
+                self._suite(excepthandler.orelse)
                 
     def visit_Assert(self, node):
         # Assert(expr test, expr? msg)
@@ -318,19 +359,29 @@ class PyToScala(ast.NodeVisitor):
             self.visit(expr)
             sep = ' ' + sym + ' '
 
+    operator = {ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/',
+                ast.Mod: '%', ast.Pow: '**',
+                ast.LShift: '<<', ast.RShift: '>>',
+                ast.BitOr: '|',
+                #ast.BitXor: '@@',
+                ast.BitAnd: '&',
+                #ast.FloorDiv: '@@'
+                }
+
+    def _op(self, op):
+        cls = op.__class__
+        limitation(cls in self.operator)
+        return self.operator[cls]
+
     def visit_BinOp(self, node):
         # BinOp(expr left, operator op, expr right)
         # operator = Add | Sub | Mult | Div | Mod | Pow | LShift 
         #         | RShift | BitOr | BitXor | BitAnd | FloorDiv
         wr = self._sync(node)
-        wr('(')  # parens?
+        wr('(')  # parens necessary?
         self.visit(node.left)
         wr(' ')
-        wr({ast.Add: '+', ast.Sub: '-', ast.Mult: '*', ast.Div: '/',
-            ast.Mod: '%', ast.Pow: '**',
-            ast.LShift: '<<', ast.RShift: '>>',
-            ast.BitOr: '|', ast.BitXor: '@@', ast.BitAnd: '&',
-            ast.FloorDiv: '@@'}[node.op.__class__])
+        wr(self._op(node.op))
         wr(' ')
         self.visit(node.right)
         wr(')')
@@ -344,6 +395,19 @@ class PyToScala(ast.NodeVisitor):
         wr('! ')
         self.visit(node.operand)
 
+    def visit_IfExp(self, node):
+        '''IfExp(expr test, expr body, expr orelse)
+        '''
+        wr = self._sync(node)
+        wr('if (')
+        self.visit(node.test)
+        wr(') ')
+        with self._block():
+            self.visit(node.body)
+        wr(' else ')
+        with self._block():
+            self.visit(node.orelse)
+
     def visit_Dict(self, node):
         wr = self._sync(node)
         wr('Map(')
@@ -351,6 +415,15 @@ class PyToScala(ast.NodeVisitor):
             self.visit(k)
             wr(' -> ')
             self.visit(v)
+        wr(')')
+
+    def visit_Yield(self, node):
+        '''Yield(expr? value)
+        '''
+        wr = self._sync(node)
+        wr('yield_(')
+        if node.value:
+            self.visit(node.value)
         wr(')')
 
     def visit_Compare(self, node):
@@ -388,20 +461,24 @@ class PyToScala(ast.NodeVisitor):
                 expr? starargs, expr? kwargs)
            keyword = (identifier arg, expr value)'''
 
-        limitation(not node.starargs and
-                   not node.kwargs)
+        limitation(not node.starargs)
         wr = self._sync(node)
         self.visit(node.func)
         wr('(')
+        ax = kx = 0
         for ax, expr in enumerate(node.args):
             if ax > 0: wr(', ')
             self.visit(expr)
         if node.keywords:
             for kx, keyword in enumerate(node.keywords):
-                if kx > 0: wr(', ')
+                if ax + kx > 0: wr(', ')
                 wr(keyword.arg)
                 wr('=')
                 self.visit(keyword.value)
+        if node.kwargs:
+            if ax + kx > 0: wr(', ')
+            wr('/*kwargs*/')
+            self.visit(node.kwargs)
         wr(')')
 
     def visit_Num(self, node):
@@ -411,7 +488,6 @@ class PyToScala(ast.NodeVisitor):
     def visit_Str(self, node):
         wr = self._sync(node)
         s = node.s
-        limitation('"""' not in s)
         #@@limitation('\\u' not in s)
 
         # translate length-1 strings to char, then
@@ -485,20 +561,27 @@ class PyToScala(ast.NodeVisitor):
         wr(')')
 
     def visit_arguments(self, node):
+        '''(expr* args, identifier? vararg, 
+		     identifier? kwarg, expr* defaults)
+        '''
         wr = self._sync(node)
-        limitation(not node.vararg and
-                   not node.kwarg)
 
-        sep = ''
         for ix, expr in enumerate(node.args):
-            wr(sep)
+            if ix > 0: wr(', ')
             self.visit(expr)
             wr(': Any')
             dx = ix - (len(node.args) - len(node.defaults))
             if dx >= 0:
                 wr(' = ')
                 self.visit(node.defaults[dx])
-            sep = ', '
+        if node.vararg:
+            if ix > 0: wr(', ')
+            self.visit(node.vararg)
+            wr(' : _*')
+            ix += 1
+        if node.kwarg:
+            if ix > 0: wr(', ')
+            wr('/*kwarg*/ ' + node.kwarg + ': Dict[String, Any]')
 
     def visit_alias(self, node):
         wr = self._sync(node)
