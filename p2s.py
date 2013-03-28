@@ -213,8 +213,37 @@ class PyToScala(ast.NodeVisitor):
         self.newline()
 
     def visit_TryExcept(self, node):
-        ''' TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)'''
-        
+        ''' TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
+	excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
+                        attributes (int lineno, int col_offset)
+        '''
+        wr = self._sync(node)
+        wr('try ')
+        with self._block():
+            for stmt in node.body:
+                self.visit(stmt)
+        wr('catch ')
+        with self._block():
+            for excepthandler in node.handlers:
+                wr('case ')
+                if excepthandler.name:
+                    self.visit(excepthandler.name)
+                else:
+                    wr('_')
+                if excepthandler.type:
+                    wr(': ')
+                    self.visit(excepthandler.type)
+                wr(' => ')
+                with self._block():
+                    for stmt in excepthandler.body:
+                        self.visit(stmt)
+            if node.orelse:
+                wr('case _ =>')
+                with self._block():
+                    for stmt in excepthandler.orelse:
+                        self.visit(stmt)
+
+                
     def visit_Assert(self, node):
         # Assert(expr test, expr? msg)
         wr = self._sync(node)
