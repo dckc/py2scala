@@ -1,62 +1,71 @@
-object parse {
-  //!/usr/bin/python
-  //###############################################################
+package com.madmode.pfmorris
+
+  /**###############################################################
   //
   //           Check both math and proof syntax 
   //
-  //###############################################################
-  import sys
-  import pickle
-  import os
+  //############################################################### */
+object parse {
+    import __builtin__._
+  import batteries._
+  
+  import batteries.sys
+  import batteries.pickle
+  import batteries.os
   import getpath.{getpath}
-  import stat.{ST_MTIME}
+  import batteries.stat.{ST_MTIME}
   //
-  import pattern
+  import pattern._
   //import newsynt as synt
-  import synt
+  import synt._
   val verbose = False
-  if (len(sys.argv) == 1) {
+  
+    def main(args: Array[String]): Unit = {
+  if (len(args) == 1) {
     println("No file specified.")
     throw new SystemExit()
     }
-  val Arg_1 = sys.argv(1)
+  val Arg_1 = args(1)
+  var f: __builtin__.File = null
   try {
-    val f = open((Arg_1 + ".tex"), 'r')
+    f = open((Arg_1 + ".tex"), 'r')
     }
   catch {
-    case _ => {
+    case _ : Throwable => {
       println((Arg_1 + ".tex not found"))
       throw new SystemExit()
       }
     }
   val line_list = f.readlines()
   f.close()
-  val getprops = False
+  var getprops = False
   //###########################################################
   //
   // Load math data from .dfs file
   //
   //###########################################################
   val new_dfs = False
+  var syntdb: synt.MD = null
+  var dfs_mtime: Int = -1
   try {
     val f = open((Arg_1 + ".dfs"), 'r')
-    val dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
-    val syntdb = pickle.load(f)
+    dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
+    syntdb = MD.fromJson(pickle.load(f))
     f.close()
     }
   catch {
-    case _ => {
+    case _ : Throwable => {
       val new_dfs = True
-      val syntdb = synt.makemathdb()
-      val getprops = True
+      syntdb = synt.makemathdb()
+       getprops = True
       }
     }
-  if (len(syntdb) < synt.MD_LEN) {
-    val syntdb = synt.makemathdb()
-    val getprops = True
+  if (syntdb == null) {
+     syntdb = synt.makemathdb()
+     getprops = True
     }
   synt.mathdb = syntdb
-  if (syntdb(synt.MD_RSFLG)) {
+  if (syntdb.MD_RSFLG) {
     val dfs_mtime = -1
     }
   //############################################################
@@ -66,8 +75,8 @@ object parse {
   //     merge revised .dfs files
   //
   //############################################################
-  for (val r <- line_list) {
-    val inputfilem = pattern.inputfile.match(r)
+  for (r <- line_list) {
+    val inputfilem = pattern.inputfile.match_(r)
     if (inputfilem) {
       val fname = inputfilem.group(1)
       val dfs_file = (inputfilem.group(2) + ".dfs")
@@ -79,13 +88,15 @@ object parse {
         throw new SystemExit()
         }
       if (os.stat(fpathname)(ST_MTIME) > dfs_mtime) {
-        for (val s <- open(fpathname)) {
-          if (pattern.directive.match(s)) {
+        for (s <- open(fpathname)) {
+          if (pattern.directive.match_(s)) {
             if (inputfilem.group(2) == Arg_1) {
-              synt.process_directive(shereditary_only=False)
+              //@@@@synt.process_directive(shereditary_only=False)
+              throw new Exception("TODO")
               }
              else {
-              synt.process_directive(s)
+              //@@@synt.process_directive(s)
+              throw new Exception("TODO")
               }
             }
           }
@@ -95,13 +106,14 @@ object parse {
         }
       if (dfs_pathname && os.stat(dfs_pathname)(ST_MTIME) > dfs_mtime) {
         val f = open(dfs_pathname)
-        val pickled_db = pickle.load(f)
+        val pickled_db = MD.fromJson(pickle.load(f))
         println("Merging " + dfs_pathname)
         synt.dbmerge(synt.mathdb, pickled_db)
         f.close()
         }
       }
     }
+  /*@@@@@@@@@@@@@@@@@
   val proppathname = getpath(syntdb(synt.MD_PFILE))
   if (! proppathname) {
     println("Can't find" + syntdb(synt.MD_PFILE))
@@ -115,7 +127,7 @@ object parse {
     synt.mathdb = synt.readprops(proppathname, synt.mathdb)
     }
   for (val s <- line_list) {
-    if (pattern.directive.match(s)) {
+    if (pattern.directive.match_(s)) {
       synt.process_directive(s)
       }
     }
@@ -155,11 +167,11 @@ object parse {
   val proofs = List()
   //
   while (linetail(0)) {
-    val infrulem = pattern.inference_rule.match(linetail(0))
-    val notem = pattern.note.match(linetail(0))
-    val thmnumm = pattern.thmnum.match(linetail(0))
-    val byem = pattern.bye.match(linetail(0))
-    val noparsem = pattern.noparse.match(linetail(0))
+    val infrulem = pattern.inference_rule.match_(linetail(0))
+    val notem = pattern.note.match_(linetail(0))
+    val thmnumm = pattern.thmnum.match_(linetail(0))
+    val byem = pattern.bye.match_(linetail(0))
+    val noparsem = pattern.noparse.match_(linetail(0))
     val TeXdollars = pattern.TeXdollar.search(linetail(0))
     if (linetail(0)(0) == '%') {
       linetail(0) = ""
@@ -175,7 +187,7 @@ object parse {
         }
       val getrul = synt.ruleparse(linetail(0))
       if (getrul) {
-        assert(! pattern.by.match(linetail(0)))
+        assert(! pattern.by.match_(linetail(0)))
         }
        else {
         println("Error line " + (str(linetail(2)) + ": ") + linetail(0))
@@ -202,14 +214,14 @@ object parse {
       linetail(0) = thmnumm.group(4)
       val getfm = synt.getformula(linetail, verbose)
       if (getfm) {
-        val bym = pattern.by.match(linetail(0))
+        val bym = pattern.by.match_(linetail(0))
         if (! bym) {
           synt.getline(linetail, verbose)
-          //				if pattern.thmnum.match(linetail[0]):
+          //				if pattern.thmnum.match_(linetail[0]):
           //					print "Leave a line between propositions."
           //					print "Line", linetail[2],":"
           //					raise SystemExit
-          val bym = pattern.by.match(linetail(0))
+          val bym = pattern.by.match_(linetail(0))
           }
         if (bym) {
           val rp = synt.refparse(bym.group(1))
@@ -290,10 +302,10 @@ object parse {
        else if (state == 4) {
         val state = 5
         }
-      val bym = pattern.by.match(linetail(0))
+      val bym = pattern.by.match_(linetail(0))
       if (! bym) {
         synt.getline(linetail, verbose)
-        val bym = pattern.by.match(linetail(0))
+        val bym = pattern.by.match_(linetail(0))
         }
       if (bym) {
         if (synt.refparse(bym.group(1)) == 0) {
@@ -482,4 +494,7 @@ object parse {
    else if (n_derivations > 1) {
     println("    " + n_derivations + "derivations")
     }
+    * @@@@@@@@@@@@
+    */
+  }
   }

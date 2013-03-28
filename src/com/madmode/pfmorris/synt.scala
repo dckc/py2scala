@@ -68,11 +68,15 @@ object synt {
   //
   //  This database is loaded from the dfs file.  It is modified by parse and mathparse
   //  but not by check.  It is initialized by resetdefs and resetprops.  
-  val mathdb: MD = null
+  var mathdb: MD = null
   case class MD(MD_SYMTYPE: SYMTYPE, MD_PRECED: PRECED, MD_DEFS: DEFS,
       MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
       MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
-      MD_PFILE: PFILE, MD_RFILE: RFILE)
+      MD_PFILE: PFILE, MD_RFILE: RFILE) {
+  }
+  object MD {
+    def fromJson(o: Any): MD = throw new Exception("TODO")
+  }
   /** Dictionary storing the type of each symbol */
   type SYMTYPE = Dict[String, Tag]
   /** Dictionary storing the precedence of each connector */
@@ -261,9 +265,10 @@ object synt {
       }
     }
   
-  implicit def test_either[Lose, Win](x: Either[Lose, Win]): Boolean = x.isRight
+  type SchematorInfo = Either[Int, (Tag, Int)]
+  implicit def test_either(x: SchematorInfo): Boolean = x.isRight
 
-  def validschemator(token: String): Either[Int, (Tag, Int)] = {
+  def validschemator(token: String): SchematorInfo = {
     implicit def win(tag_arity: (Tag, Int)) = new Right(tag_arity)
     implicit def lose(x: Int) = Left(x)
     val schemm = pattern.newschem.match_(token)
