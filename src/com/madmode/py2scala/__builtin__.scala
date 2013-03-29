@@ -3,7 +3,7 @@ package com.madmode.py2scala
 /**
  * python runtime: builtin functions
  */
-object __builtins__ {
+object __builtin__ {
   import java.io.BufferedReader
   import java.io.InputStreamReader
   import java.nio.charset.Charset
@@ -25,8 +25,8 @@ object __builtins__ {
   implicit def test_string(s: String): Boolean = s != null && !s.isEmpty
 
   def int(s: String) = s.toInt
-  def len(s: String) = s.length()
-  def len[T](a: Array[T]) = a.length
+  def len[T](s: Seq[T]) = s.length
+  implicit def test_list[T](s: Seq[T]): Boolean = s != null && !s.isEmpty
 
   implicit def as_string(c: Char): String = new String(c)
   implicit def as_py_char(c: Char): PyChar = new PyChar(c)
@@ -35,6 +35,7 @@ object __builtins__ {
     def isdigit() = Character.isDigit(c)
   }
 
+  def mod(fmt: String, v: Any*): String = TODO // s % v ; really batteries.operator.mod
   implicit def as_py_string(s: String): PyString = new PyString(s)
   class PyString(s: String) {
     def isalpha(): Boolean = s.forall(_.isalpha())
@@ -54,11 +55,31 @@ object __builtins__ {
   }
   implicit def test_dict[K, V](d: Dict[K, V]): Boolean = d != null && !d.isEmpty
 
+  def isinstance[T](o: Object, c: java.lang.Class[T]) = c.isInstance(o)
+  implicit def as_py_instance(o: Object): Instance = new Instance(o)
+  class Instance(o: Object){
+	  def __class__ = o.getClass()
+  }
+  implicit def as_py_class[T](cls: java.lang.Class[T]): Class_ [T] = new Class_ [T] (cls)
+  class Class_ [T] (cls: java.lang.Class[T]){
+	  def __name__ : String = TODO
+  }
+
   val ascii = Charset.forName("US-ASCII")
   def open(path: String, mode: String = "r") = Files.newBufferedReader(Paths.get(path), ascii)
-  import java.io.BufferedReader
-  implicit def as_py_file(fp: BufferedReader): File = new File(fp)
-  class File(fp: BufferedReader) extends Iterable[String] {
+  import java.io.{ BufferedReader, PrintStream }
+  implicit def as_py_file(fp: BufferedReader): File = new BRFile(fp)
+  implicit def as_py_file(fp: PrintStream): File = TODO
+  
+  trait File extends Iterable[String] {
+    def read(): String
+    def readline(): String
+    def readlines(): Vector[String]
+    def write(s: String): Unit
+    def close()
+  }
+
+  class BRFile(fp: BufferedReader) extends File {
     def close() = fp.close()
     def read(): String = TODO
     def readline(): String = fp.readLine()
@@ -85,6 +106,12 @@ object __builtins__ {
     }
   }
 
+  def enumerate[A](x: Iterable[A]) = for ((a, i) <- x.zipWithIndex) yield (i, a)
+
+  def with_ [T](obj: T)(blk: (T => Unit)) = {
+    blk(obj)
+  }
+  
   def raw_input(prompt: String): String = {
     import java.io.{ BufferedReader, InputStreamReader }
     val b = new BufferedReader(new InputStreamReader(System.in))
@@ -92,5 +119,6 @@ object __builtins__ {
     return b.readLine()
   }
 
+  class NotImplementedError(msg: String) extends Exception(msg)
   class SystemExit extends Exception("SystemExit")
 }

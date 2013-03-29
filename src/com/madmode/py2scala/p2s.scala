@@ -2,7 +2,7 @@ package com.madmode.py2scala
 
 import __fileinfo__._
 import com.madmode.py2scala.__builtin__._
-import com.madmode.py2scala.batteries._
+import com.madmode.py2scala.{batteries => py}
 
 /** p2s -- convert python lexical syntax to scala
 
@@ -14,133 +14,113 @@ ideas:
 
 */
 object p2s {
-  import StringIO
-  import ast
-  import logging
-  import tokenize
-  import os.path.{splitext, basename}
-  import contextlib.{contextmanager}
+  import py.ast
+  import py.tokenize
+  import py.logging
+
+  import py.os.path.{splitext, basename}
+
   val log = logging.getLogger(__name__)
   
-  def main(argv: Any, open: Any, stdout: Any, level = logging.DEBUG) = {
+  def main(argv: Array[String], open: (String => File), stdout: File, level: logging.Level.Level = logging.Level.DEBUG) {
     logging.basicConfig(level=level)
-    val List(pkg, infn) = if (List("--package") == argv.slice(1, 2)) { argv.slice(2, 4) } else { (None, argv(1)) }
+    val (pkg, infn) = if (List("--package") == argv.slice(1, 2)) { (Some(argv(2)), argv(3)) } else { (None, argv(1)) }
     convert(pkg, infn, open(infn).read(), stdout)
     }
   
-  def convert(pkg: Any, infn: Any, src: Any, out: Any) = {
-    val modname = splitext(basename(infn))(0)
+  def convert(pkg: Option[String], infn: String, src: String, out: File) = {
+    val modname = splitext(basename(infn))._1
     val t = ast.parse(src, infn)
     val tl = PyToScala.tokens_per_line(src)
-    val p2s = PyToScala(pkg, modname, out, tl)
+    val p2s = new PyToScala(pkg, modname, out, tl)
     p2s.visit(t)
     }
   
+  type LineInfo = (Int, Seq[tokenize.Token])
+  type TokenLines = Seq[LineInfo]
+
   /** 
     http://docs.python.org/2/library/ast.html
     */
-  class PyToScala extends ast.NodeVisitor {
+  class PyToScala(_pkg: Option[String], _modname: String, _out: File, _lines: TokenLines)
+  extends ast.NodeVisitor {
+    self =>
+
+    var _col = 0
+    var _line_ix = 0
+    var _node_row = 0
     
-    def __init__(self: Any, pkg: Any, modname: Any, out: Any, token_lines: Any) = {
-      val self._pkg = pkg
-      val self._modname = modname
-      val self._out = out
-      val self._col = 0
-      val self._lines = list(token_lines)
-      val self._line_ix = 0
-      val self._node_row = 0
-      }
-    
-    @classmethod
-    def tokens_per_line(cls: Any, src: Any) = {
-      val row = 1
-      val line = List()
-      val readline = StringIO.StringIO(src).readline
-      for (tok <- tokenize.generate_tokens(readline)) {
-        val (toknum, tokval, (tokrow, col), rc, l) = tok
-        if (tokrow > row) {
-          /* TODO */ yield_((row, line))
-          val line = List()
-          val row = tokrow
-          }
-        line.append(tok)
-        }
-      if (line) {
-        /* TODO */ yield_((row, line))
-        }
-      }
-    
-    def _sync(self: Any, node: Any) = {
-      val wr = self._out.write
-      if (isinstance(node, ast.expr) || isinstance(node, ast.stmt)) {
-        while (node.lineno >= self._lines(self._line_ix)(0)) {
-          for (tok <- self._lines(self._line_ix)(1)) {
-            if (tok(0) == tokenize.COMMENT) {
-              wr(("//" + tok(1).drop(1)))
+    implicit def test_option[T](o: Option[T]): Boolean = !o.isEmpty
+
+    def _sync(node: ast.AST) = {
+      val wr = self._out.write _
+      if (isinstance(node, classOf[ast.expr]) || isinstance(node, classOf[ast.stmt])) {
+        while (node.lineno >= self._lines(self._line_ix)._1) {
+          for (tok <- self._lines(self._line_ix)._2) {
+            if (tok._1 == tokenize.TokenType.COMMENT) {
+              wr(("//" + tok._2.drop(1)))
               self.newline()
               }
             }
           self._line_ix += 1
           }
         }
-      return wr
+       wr
       }
     
-    @contextmanager
-    def _block(self: Any) = {
-      val wr = self._out.write
+    //@contextmanager
+    def _block(yield_ : => Unit) = {
+      val wr = self._out.write _
       self._col += 2
       wr("{\n")
       wr((" " * self._col))
-      /* TODO */ yield_()
+      yield_
       self._col -= 2
       wr("}\n")
       wr((" " * self._col))
       }
     
-    def newline(self: Any) = {
-      val wr = self._out.write
+    def newline() = {
+      val wr = self._out.write _
       wr("\n")
       wr((" " * self._col))
       }
     
-    def visit_Module(self: Any, node: Any, py2scala = "com.madmode.py2scala") = {
-      val wr = self._out.write
+    def visit_Module(node: ast.Compound, py2scala: String = "com.madmode.py2scala"): Unit = {
+      val wr = (self._out.write _)
       if (self._pkg) {
-        wr(("package %s\n\n" % self._pkg))
+        wr(mod("package %s\n\n", self._pkg.get))
         }
       wr("import __fileinfo__._\n")
-      wr(("import %s.__builtin__._\n" % py2scala))
-      wr(("import %s.batteries._\n\n" % py2scala))
-      val (wr, body) = self._doc(node)
-      wr(("object %s " % self._modname))
+      wr(mod("import %s.__builtin__._\n", py2scala))
+      wr(mod("import %s.batteries._\n\n", py2scala))
+      val (_, body) = self._doc(node)
+      wr(mod("object %s ", self._modname))
       self._suite(body)
-      wr(("""
+      wr(mod("""
 object __fileinfo__ {
   val __name__ = "%s%s"
 }
-""" % (if (self._pkg) { (self._pkg + ".") } else { "" }, self._modname)))
+""", if (self._pkg) { (self._pkg.get + ".") } else { "" }, self._modname))
       }
     
-    def _doc(self: Any, node: Any) = {
+    def _doc(node: ast.Compound) = {
       val body = node.body
       assert(len(body) > 0)
       val wr = self._sync(node)
       val fst = body(0)
-      if (isinstance(fst, ast.Expr)) {
-        val v = fst.value
-        if (isinstance(v, ast.Str)) {
-          val doc = v.s
+      fst match {
+        case ast.Expr(ast.Str(doc)) => {
           limitation(! doc.contains("*/"))
           wr((("/** " + doc) + "*/"))
           self.newline()
-          return (wr, body.drop(1))
-          }
+          (wr, body.drop(1))
         }
-      return (wr, body)
+        case _ => (wr, body)
       }
+    }
     
-    def _suite(self: Any, body: Any) = {
+    def _suite(body: Iterable[ast.stmt]) = {
       with_ (self._block()) {
         case _ => {
           for (stmt <- body) {
@@ -150,7 +130,7 @@ object __fileinfo__ {
         }
       }
     
-    def _items(self: Any, wr: Any, items: Any, parens = False) = {
+    def _items(wr: (String => Unit), items: Iterable[ast.AST], parens: Boolean = False) = {
       if (parens) {
         wr("(")
         }
@@ -165,27 +145,27 @@ object __fileinfo__ {
         }
       }
     
-    def _opt(self: Any, wr: Any, node: Any) = {
+    def _opt(wr: (String => Unit), node: Option[ast.AST]) = {
       if (node) {
         wr(", ")
-        self.visit(node)
+        self.visit(node.get)
         }
       }
     
     /** FunctionDef(identifier name, arguments args, 
                             stmt* body, expr* decorator_list)
         */
-    def visit_FunctionDef(self: Any, node: Any) = {
+    def visit_FunctionDef(node: ast.FunctionDef) = {
       self.newline()
       val (wr, body) = self._doc(node)
       self._decorators(node)
-      wr(("def %s(" % node.name))
+      wr(mod("def %s(", node.name))
       self.visit(node.args)
       wr(") = ")
       self._suite(body)
       }
     
-    def _decorators(self: Any, node: Any) = {
+    def _decorators(node: ast.Decorated) = {
       val wr = self._sync(node)
       for (expr <- node.decorator_list) {
         wr("@")
@@ -197,11 +177,11 @@ object __fileinfo__ {
     /** ClassDef(identifier name, expr* bases, stmt* body,
                     expr* decorator_list)
         */
-    def visit_ClassDef(self: Any, node: Any) = {
+    def visit_ClassDef(node: ast.ClassDef) = {
       self.newline()
       val (wr, body) = self._doc(node)
       self._decorators(node)
-      wr(("class %s" % node.name))
+      wr(mod("class %s", node.name))
       if (node.bases) {
         wr(" extends ")
         self._items(wr, node.bases)
@@ -210,9 +190,12 @@ object __fileinfo__ {
       self._suite(body)
       }
     
+    /* TODO ... you get the idea; nothing novel
+     * in the rest of these visit_ methods ...
+
     /** Return(expr? value)
         */
-    def visit_Return(self: Any, node: Any) = {
+    def visit_Return(node: Any) = {
       val wr = self._sync(node)
       wr("return")
       if (node.value) {
@@ -224,7 +207,7 @@ object __fileinfo__ {
     
     /** Delete(expr* targets)
         */
-    def visit_Delete(self: Any, node: Any) = {
+    def visit_Delete(node: Any) = {
       for (expr <- node.targets) {
         self.visit(expr)
         }
@@ -232,7 +215,7 @@ object __fileinfo__ {
     
     /** Assign(expr* targets, expr value)
         */
-    def visit_Assign(self: Any, node: Any) = {
+    def visit_Assign(node: Any) = {
       val wr = self._sync(node)
       wr("val ")
       if (len(node.targets) > 1) {
@@ -248,7 +231,7 @@ object __fileinfo__ {
     
     /** AugAssign(expr target, operator op, expr value)
         */
-    def visit_AugAssign(self: Any, node: Any) = {
+    def visit_AugAssign(node: Any) = {
       self.visit(node.target)
       val wr = self._sync(node)
       wr(" ")
@@ -260,7 +243,7 @@ object __fileinfo__ {
     
     /** Print(expr? dest, expr* values, bool nl)
         */
-    def visit_Print(self: Any, node: Any) = {
+    def visit_Print(node: Any) = {
       limitation(! node.dest)
       val wr = self._sync(node)
       wr(if (node.nl) { "println" } else { "print" })
@@ -277,7 +260,7 @@ object __fileinfo__ {
     
     /** For(expr target, expr iter, stmt* body, stmt* orelse)
         */
-    def visit_For(self: Any, node: Any) = {
+    def visit_For(node: Any) = {
       val wr = self._sync(node)
       if (node.orelse) {
         wr("/* for ... else: */")
@@ -300,7 +283,7 @@ object __fileinfo__ {
     
     /** While(expr test, stmt* body, stmt* orelse)
         */
-    def visit_While(self: Any, node: Any) = {
+    def visit_While(node: Any) = {
       limitation(! node.orelse)
       val wr = self._sync(node)
       wr("while (")
@@ -311,7 +294,7 @@ object __fileinfo__ {
     
     /** If(expr test, stmt* body, stmt* orelse)
         */
-    def visit_If(self: Any, node: Any) = {
+    def visit_If(node: Any) = {
       val wr = self._sync(node)
       wr("if (")
       self.visit(node.test)
@@ -331,12 +314,12 @@ object __fileinfo__ {
     
     /** With(expr context_expr, expr? optional_vars, stmt* body)
         */
-    def visit_With(self: Any, node: Any) = {
+    def visit_With(node: Any) = {
       val wr = self._sync(node)
       wr("with_ (")
       self.visit(node.context_expr)
       wr(") ")
-      with_ (self._block()) {
+      with (self._block()) {
         case _ => {
           wr("case ")
           if (node.optional_vars) {
@@ -353,7 +336,7 @@ object __fileinfo__ {
     
     /** Raise(expr? type, expr? inst, expr? tback)
         */
-    def visit_Raise(self: Any, node: Any) = {
+    def visit_Raise(node: Any) = {
       limitation(! node.tback && node.type)
       val wr = self._sync(node)
       wr("throw new ")
@@ -370,12 +353,12 @@ object __fileinfo__ {
 	excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
                         attributes (int lineno, int col_offset)
         */
-    def visit_TryExcept(self: Any, node: Any) = {
+    def visit_TryExcept(node: Any) = {
       val wr = self._sync(node)
       wr("try ")
       self._suite(node.body)
       wr("catch ")
-      with_ (self._block()) {
+      with (self._block()) {
         case _ => {
           for (excepthandler <- node.handlers) {
             wr("case ")
@@ -402,7 +385,7 @@ object __fileinfo__ {
     
     /** Assert(expr test, expr? msg)
         */
-    def visit_Assert(self: Any, node: Any) = {
+    def visit_Assert(node: Any) = {
       val wr = self._sync(node)
       wr("assert(")
       self.visit(node.test)
@@ -412,7 +395,7 @@ object __fileinfo__ {
       }
     
     /** Import(alias* names)*/
-    def visit_Import(self: Any, node: Any) = {
+    def visit_Import(node: Any) = {
       val wr = self._sync(node)
       for (name <- node.names) {
         wr("import ")
@@ -422,7 +405,7 @@ object __fileinfo__ {
       }
     
     /** ImportFrom(identifier? module, alias* names, int? level)*/
-    def visit_ImportFrom(self: Any, node: Any) = {
+    def visit_ImportFrom(node: Any) = {
       val wr = self._sync(node)
       // what is that, anyway?
       limitation(node.level == 0)
@@ -437,7 +420,7 @@ object __fileinfo__ {
     
     /** Global(identifier* names)
         */
-    def visit_Global(self: Any, node: Any) = {
+    def visit_Global(node: Any) = {
       val wr = self._sync(node)
       wr("/* global ")
       wr(", ".join(node.names))
@@ -445,25 +428,25 @@ object __fileinfo__ {
       self.newline()
       }
     
-    def visit_Expr(self: Any, node: Any) = {
+    def visit_Expr(node: Any) = {
       self._sync(node)
       self.visit(node.value)
       self.newline()
       }
     
-    def visit_Pass(self: Any, node: Any) = {
+    def visit_Pass(node: Any) = {
       val wr = self._sync(node)
       wr("/* pass */")
       self.newline()
       }
     
-    def visit_Break(self: Any, node: Any) = {
+    def visit_Break(node: Any) = {
       val wr = self._sync(node)
       wr("break")
       self.newline()
       }
     
-    def visit_Continue(self: Any, node: Any) = {
+    def visit_Continue(node: Any) = {
       val wr = self._sync(node)
       wr("continue")
       self.newline()
@@ -472,9 +455,9 @@ object __fileinfo__ {
     /** BoolOp(boolop op, expr* values)
         boolop = And | Or
         */
-    def visit_BoolOp(self: Any, node: Any) = {
+    def visit_BoolOp(node: Any) = {
       val wr = self._sync(node)
-      val sym = Dict(ast.And -> "&&", ast.Or -> "||")(node.op.__class__)
+      val sym = Map(ast.And -> "&&"ast.Or -> "||")(node.op.__class__)
       val sep = ""
       for (expr <- node.values) {
         wr(sep)
@@ -482,21 +465,36 @@ object __fileinfo__ {
         val sep = ((" " + sym) + " ")
         }
       }
-    val operator = Dict(ast.Add -> "+", ast.Sub -> "-", ast.Mult -> "*", ast.Div -> "/", ast.Mod -> "%", ast.Pow -> "**", ast.LShift -> "<<", ast.RShift -> ">>", ast.BitOr -> "|", //ast.BitXor: '@@',
-    ast.BitAnd -> "&")
+	*/
     
-    //ast.FloorDiv: '@@'
-    def _op(self: Any, op: Any) = {
+    def operator = Map[Any, String](classOf[ast.Add] -> "+",
+        classOf[ast.Sub] -> "-"
+        /*@@@,
+        classOf[ast.Mult] -> "*",
+        classOf[ast.Div] -> "/",
+        classOf[ast.Mod] -> "%",
+        classOf[ast.Pow] -> "**",
+        classOf[ast.LShift] -> "<<",
+        classOf[ast.RShift] -> ">>",
+        classOf[ast.BitOr] -> "|",
+        //ast.BitXor: '@@',
+        classOf[ast.BitAnd] -> "&"
+            //ast.FloorDiv: '@@'
+        */)
+    
+
+    def _op(op: ast.operator): String = {
       val cls = op.__class__
-      limitation(self.operator.contains(cls))
+      limitation(self.operator.isDefinedAt(cls))
       return self.operator(cls)
       }
     
+    /*@@@@@
     /** BinOp(expr left, operator op, expr right)
         operator = Add | Sub | Mult | Div | Mod | Pow | LShift 
                  | RShift | BitOr | BitXor | BitAnd | FloorDiv
         */
-    def visit_BinOp(self: Any, node: Any) = {
+    def visit_BinOp(node: Any) = {
       val wr = self._sync(node)
       // parens necessary?
       wr("(")
@@ -511,7 +509,7 @@ object __fileinfo__ {
     /** UnaryOp(unaryop op, expr operand)
         unaryop = Invert | Not | UAdd | USub
         */
-    def visit_UnaryOp(self: Any, node: Any) = {
+    def visit_UnaryOp(node: Any) = {
       limitation(isinstance(node.op, ast.Not))
       val wr = self._sync(node)
       wr("! ")
@@ -520,7 +518,7 @@ object __fileinfo__ {
     
     /** IfExp(expr test, expr body, expr orelse)
         */
-    def visit_IfExp(self: Any, node: Any) = {
+    def visit_IfExp(node: Any) = {
       val wr = self._sync(node)
       wr("if (")
       self.visit(node.test)
@@ -531,13 +529,10 @@ object __fileinfo__ {
       wr(" }")
       }
     
-    def visit_Dict(self: Any, node: Any) = {
+    def visit_Dict(node: Any) = {
       val wr = self._sync(node)
-      wr("Dict(")
-      for ((ix, (k, v)) <- enumerate(zip(node.keys, node.values))) {
-        if (ix > 0) {
-          wr(", ")
-          }
+      wr("Map(")
+      for ((k, v) <- zip(node.keys, node.values)) {
         self.visit(k)
         wr(" -> ")
         self.visit(v)
@@ -547,7 +542,7 @@ object __fileinfo__ {
     
     /** Yield(expr? value)
         */
-    def visit_Yield(self: Any, node: Any) = {
+    def visit_Yield(node: Any) = {
       val wr = self._sync(node)
       wr("/* TODO */ yield_(")
       if (node.value) {
@@ -559,7 +554,7 @@ object __fileinfo__ {
     /** Compare(expr left, cmpop* ops, expr* comparators)
         compop = Eq | NotEq | Lt | LtE | Gt | GtE | Is | IsNot | In | NotIn
         */
-    def visit_Compare(self: Any, node: Any) = {
+    def visit_Compare(node: Any) = {
       val wr = self._sync(node)
       val sep = ""
       val left = node.left
@@ -575,7 +570,7 @@ object __fileinfo__ {
           wr(")")
           }
          else {
-          val sym = Dict(ast.Eq -> "==", ast.NotEq -> "!=", ast.Lt -> "<", ast.LtE -> "<=", ast.Gt -> ">", ast.GtE -> ">=", ast.Is -> "eq", ast.IsNot -> "!=")(op.__class__)
+          val sym = Map(ast.Eq -> "=="ast.NotEq -> "!="ast.Lt -> "<"ast.LtE -> "<="ast.Gt -> ">"ast.GtE -> ">="ast.Is -> "eq"ast.IsNot -> "!=")(op.__class__)
           self.visit(left)
           wr(((" " + sym) + " "))
           self.visit(expr)
@@ -588,7 +583,7 @@ object __fileinfo__ {
     /** Call(expr func, expr* args, keyword* keywords,
                 expr? starargs, expr? kwargs)
            keyword = (identifier arg, expr value)*/
-    def visit_Call(self: Any, node: Any) = {
+    def visit_Call(node: Any) = {
       limitation(! node.starargs)
       val wr = self._sync(node)
       self.visit(node.func)
@@ -616,12 +611,12 @@ object __fileinfo__ {
       wr(")")
       }
     
-    def visit_Num(self: Any, node: Any) = {
+    def visit_Num(node: Any) = {
       val wr = self._sync(node)
       wr(str(node.n))
       }
     
-    def visit_Str(self: Any, node: Any) = {
+    def visit_Str(node: Any) = {
       val wr = self._sync(node)
       val s = node.s
       //@@limitation('\\u' not in s)
@@ -638,7 +633,7 @@ object __fileinfo__ {
     
     /** Attribute(expr value, identifier attr, expr_context ctx)
         */
-    def visit_Attribute(self: Any, node: Any) = {
+    def visit_Attribute(node: Any) = {
       val wr = self._sync(node)
       self.visit(node.value)
       wr(".")
@@ -647,7 +642,7 @@ object __fileinfo__ {
     
     /** Subscript(expr value, slice slice, expr_context ctx)
         */
-    def visit_Subscript(self: Any, node: Any) = {
+    def visit_Subscript(node: Any) = {
       val wr = self._sync(node)
       self.visit(node.value)
       val slice = node.slice
@@ -690,13 +685,13 @@ object __fileinfo__ {
         }
       }
     
-    def visit_Name(self: Any, node: Any) = {
+    def visit_Name(node: Any) = {
       // hmm... ctx
       val wr = self._sync(node)
       wr(node.id)
       }
     
-    def visit_List(self: Any, node: Any) = {
+    def visit_List(node: Any) = {
       val wr = self._sync(node)
       wr("List")
       self._items(wr, node.elts, parens=True)
@@ -704,7 +699,7 @@ object __fileinfo__ {
     
     /** Tuple(expr* elts, expr_context ctx)
         */
-    def visit_Tuple(self: Any, node: Any) = {
+    def visit_Tuple(node: Any) = {
       val wr = self._sync(node)
       self._items(wr, node.elts, parens=True)
       }
@@ -712,7 +707,7 @@ object __fileinfo__ {
     /** (expr* args, identifier? vararg, 
 		     identifier? kwarg, expr* defaults)
         */
-    def visit_arguments(self: Any, node: Any) = {
+    def visit_arguments(node: Any) = {
       val wr = self._sync(node)
       for ((ix, expr) <- enumerate(node.args)) {
         if (ix > 0) {
@@ -744,7 +739,7 @@ object __fileinfo__ {
         }
       }
     
-    def visit_alias(self: Any, node: Any) = {
+    def visit_alias(node: Any) = {
       val wr = self._sync(node)
       wr(node.name)
       if (node.asname) {
@@ -752,30 +747,48 @@ object __fileinfo__ {
         wr(node.asname)
         }
       }
+    */
     
-    def generic_visit(self: Any, node: Any) = {
-      import pdb
-      pdb.set_trace()
-      throw new NotImplementedError(("need visitor for: %s %s" % (node.__class__.__name__, node)))()
+    def generic_visit(node: ast.AST) = {
+      //import pdb
+      //pdb.set_trace()
+      throw new NotImplementedError(mod("need visitor for: %s %s", (node.__class__.__name__, node)))
       }
     }
   
-  def limitation(t: Any) = {
+  def limitation(t: Boolean) = {
     if (! t) {
-      import pdb
-      pdb.set_trace()
-      throw new NotImplementedError()
+      //import pdb
+      //pdb.set_trace()
+      throw new NotImplementedError("limitation")
       }
     }
-  if (__name__ == "__main__") {
-    
+  
+  def main(args: Array[String]): Unit = {
     def _initial_caps() = {
-      import sys
-      return dict(argv=sys.argv, stdout=sys.stdout, open=open)
+      val out: File = System.out
+      def open_f(path: String): File = open(path, "r")
+      (args, open_f _, out)
       }
-    main(/* TODO kwargs */ _initial_caps())
+    val ic = _initial_caps()
+    main(ic._1, ic._2, ic._3) /* TODO kwargs using runtime reflection */ 
     }
   }
+
+object PyToScala {
+  import scala.collection.immutable.VectorBuilder
+
+  import py.tokenize
+  import py.StringIO
+
+    def tokens_per_line(src: String) = {
+      val readline = new StringIO.StringIO(src).readline _
+      val m = tokenize.generate_tokens(readline).groupBy {
+        case (toknum, tokval, (tokrow, col), rc, l) => tokrow
+      }
+      m.toSeq
+  }
+}
 
 object __fileinfo__ {
   val __name__ = "com.madmode.py2scala.p2s"
