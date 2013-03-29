@@ -103,7 +103,7 @@ class PyToScala(ast.NodeVisitor):
         self._suite(body)
         wr("""
 object __fileinfo__ {
-  val __file__ = "%s%s"
+  val __name__ = "%s%s"
 }
 """ % (self._pkg + '.' if self._pkg else '', self._modname))
 
@@ -167,7 +167,7 @@ object __fileinfo__ {
         self._decorators(node)
         wr('class %s' % node.name)
         if node.bases:
-            wr(' extends')
+            wr(' extends ')
             self._items(wr, node.bases)
         wr(' ')
         self._suite(body)
@@ -280,7 +280,7 @@ object __fileinfo__ {
         '''With(expr context_expr, expr? optional_vars, stmt* body)
         '''
         wr = self._sync(node)
-        wr('with (')
+        wr('with_ (')
         self.visit(node.context_expr)
         wr(') ')
         with self._block():
@@ -454,8 +454,9 @@ object __fileinfo__ {
 
     def visit_Dict(self, node):
         wr = self._sync(node)
-        wr('Map(')
-        for k, v in zip(node.keys, node.values):
+        wr('Dict(')
+        for ix, (k, v) in enumerate(zip(node.keys, node.values)):
+            if ix > 0: wr(', ')
             self.visit(k)
             wr(' -> ')
             self.visit(v)
@@ -537,9 +538,9 @@ object __fileinfo__ {
         if '\\' in s or '"' in s and not s.endswith('"'):
             wr('"""' + s + '"""')
         else:
-            for o, n in (('\n', r'\n'), ('\t', r'\t'),
-                         ('"', r'\"'),
-                         ('\\', r'\\')):
+            for o, n in (('\\', r'\\'),
+                         ('\n', r'\n'), ('\t', r'\t'),
+                         ('"', r'\"')):
                 s = s.replace(o, n)
             wr('"' + s + '"')
 
