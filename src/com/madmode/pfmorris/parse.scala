@@ -2,7 +2,7 @@ package com.madmode.pfmorris
 
 import com.madmode.py2scala.batteries
 
-import com.madmode.py2scala.__builtins__._
+import com.madmode.py2scala.__builtin__._
 
 /**
  * ###############################################################
