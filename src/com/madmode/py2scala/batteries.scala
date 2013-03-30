@@ -57,16 +57,21 @@ object batteries {
   }
 
   object os {
+    import java.nio.file.Files
+    import java.nio.file.Paths
     def getenv(n: String): String = TODO
 
     def name: String = TODO
 
-    def stat(path: String): Vector[Int] = TODO
+    def stat(path: String): Map[Int, Long] = {
+      import com.madmode.py2scala.{ batteries => py }
+      val mtime = Files.getLastModifiedTime(Paths.get(path))
+      /* TODO fill in other slots */
+      Map(py.stat.ST_MTIME -> mtime.toMillis())
+    }
     def popen(cmd: String): __builtin__.File = TODO
 
     object path {
-      import java.nio.file.Files
-      import java.nio.file.Paths
       def isdir(path: String): Boolean = TODO
       def isfile(filename: String): Boolean = Files.exists(Paths.get(filename))
       def join(x: String, y: String): String = Paths.get(x).resolve(Paths.get(y)).toString()
@@ -106,7 +111,7 @@ object batteries {
   }
 
   object stat {
-    lazy val ST_MTIME: Int = TODO
+    val ST_MTIME = 8
   }
 
   object StringIO {

@@ -49,7 +49,7 @@ object parse {
     //###########################################################
     var new_dfs = False
     var syntdb: synt.MD = null
-    var dfs_mtime: Int = -1
+    var dfs_mtime: Long = -1
     try {
       val f = open((Arg_1 + ".dfs"), 'r')
       dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
