@@ -57,7 +57,7 @@ object p2s {
       if (isinstance(node, classOf[ast.expr]) || isinstance(node, classOf[ast.stmt])) {
         while (node.lineno >= self._lines(self._line_ix)._1) {
           for (tok <- self._lines(self._line_ix)._2) {
-            if (tok._1 == tokenize.TokenType.COMMENT) {
+            if (tok._1 == tokenize.TokenType.COMMENT.id) {
               wr(("//" + tok._2.drop(1)))
               self.newline()
               }
