@@ -15,7 +15,15 @@ object synt {
   //
   // Each parse begins with a header.  Each header begins with a 
   // tag which is one of the following numbers.
-  //
+  sealed abstract class Parse {
+    def header: Header
+  }
+  sealed abstract class Header {
+    def tag: Tag
+  }
+  sealed abstract class Tag {
+    def id: Int
+  }
   // Tags which appear only at the top level of a complete parse:
   //
   //  1. Term Definor                 16. Left Parenthesis        
@@ -33,6 +41,7 @@ object synt {
   // 13. Predicate symbol, n-ary schemator n > 0
   // 14. Noun             (Length 1 constant term) 
   // 15. Boolean Constant (Length 1 constant formula)
+  case class TopComplete(id: Int) extends Tag
   //
   // Tags which may appear at any level of a complete parse:
   //
@@ -47,6 +56,7 @@ object synt {
   //  49. Undefined Expression (2nd level only)  
   //  50. Undefined Parade (3rd level only)  
   //  51. New  Definition
+  case class AnyComplete(id: Int) extends Tag
   // 
   // Tags which may appear only at the beginning of an incomplete parse:
   //
@@ -59,7 +69,21 @@ object synt {
   //
   //###############################################################
   //
-  type Tag = Int
+  case class BeginIncomplete(id: Int) extends Tag
+  case class NoTag() extends Tag {
+    def id = 0
+  }
+
+  implicit def toTag(id: Int): Tag = {
+    id match {
+      case 0 => NoTag()
+      case _ if (id >= 1 && id <= 23) => TopComplete(id)
+      case _ if (id >= 40 && id <= 51) => AnyComplete(id)
+      case _ if (id < 0 && id >= -12) => BeginIncomplete(id)
+      case _ => throw new IllegalArgumentException
+    }
+  }
+  implicit def test_tag(t: Tag): Boolean = t.id != 0
 
   //@@import sys
   //@@import re
@@ -74,7 +98,7 @@ object synt {
   case class MD(MD_SYMTYPE: SYMTYPE, MD_PRECED: PRECED, MD_DEFS: DEFS,
     MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
     MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
-    MD_PFILE: PFILE, MD_RFILE: RFILE) {
+    var MD_PFILE: PFILE, var MD_RFILE: RFILE) {
   }
   object MD {
     def fromJson(o: Any): MD = throw new Exception("TODO")
@@ -267,7 +291,7 @@ object synt {
   implicit def test_either(x: SchematorInfo): Boolean = x.isRight
 
   def validschemator(token: String): SchematorInfo = {
-    implicit def win(tag_arity: (Tag, Int)) = new Right(tag_arity)
+    implicit def win(tag_arity: (Int, Int)) = Right((toTag(tag_arity._1), tag_arity._2))
     implicit def lose(x: Int) = Left(x)
     val schemm = pattern.newschem.match_(token)
     if (schemm) {
@@ -396,95 +420,112 @@ object synt {
     return token.isdigit()
   }
 
-  type Tok = List[Any]
-  def tokenparse(token: String): Tok = {
+  // A basic form is either a basic term or a basic formula.
+  case class IncompleteParse() extends Parse
+  sealed abstract class BasicForm extends Parse
+  sealed abstract class BasicTerm extends BasicForm
+  sealed abstract class BasicFormula extends BasicForm
+  
+  case class Constant(s: String) extends BasicTerm
+  implicit def asConstant(c: Char): Constant = Constant(new String(c))
+  implicit def asConstant(s: String): Constant = Constant(s)
+  case class Noun(tag: Tag, s: String) extends BasicTerm
+  case class Term(tag: Tag, args: List[BasicTerm]) extends BasicTerm
+  case class SchematicTerm(tag: Tag, arity: Int) extends BasicTerm
+  case class ParadeTerm(tag: Tag, prec: Int, args: List[BasicTerm]) extends BasicTerm
+  
+  def tokenparse(token: String): BasicForm = {
     //
     val precedence = mathdb.MD_PRECED
     val defs = mathdb.MD_DEFS
     val arity = mathdb.MD_ARITY
     val n = symtype(token)
-    var x: Tok = null
-    n match {
+    n.id match {
       case 18 => {
-        //@@x = decimalparse(token)
+        decimalparse(token)
       }
       case 12 => {
-        x = List(List(-4, arity(token)), (List(n), token))
+        List(List(-4, arity(token)), (List(n), token))
       }
       case 13 => {
-        x = List(List(-5, arity(token)), List(List(n), token))
+        List(List(-5, arity(token)), List(List(n), token))
       }
       case 16 => {
-        x = List(List(-2, List()), List(List(n), token))
+        List(List(-2, List()), List(List(n), token))
       }
       case 17 => {
-        x = List(List(-1, defs(token)), List(List(n), token))
+        List(List(-1, defs(token)), List(List(n), token))
       }
       case 8 => {
-        x = List(List(-6, defs(token)), List(List(n), token))
+        List(List(-6, defs(token)), List(List(n), token))
       }
       case 9 => {
-        x = List(List(-7, defs(token)), List(List(n), token))
+        List(List(-7, defs(token)), List(List(n), token))
       }
       case _ if (List(1, 2, 3).contains(n)) => {
-        x = List(List(n), token, precedence(token))
+        List(List(n), token, precedence(token))
       }
       case _ => {
         // Even unknown constants are passed on as complete 
-        x = List(List(n), token)
+        List(List(n), token)
       }
     }
-    return x
   }
-  /*@@@@@@@@@@@@
-  def decimalparse(token: Any): Any = {
-    val precedence = mathdb(MD_PRECED)
+
+  def decimalparse(token: String): BasicTerm = {
+    val precedence = mathdb.MD_PRECED
     val n = len(token)
     if (n == 1) {
-      return List(14, token)
+      Noun(14, token)
+      } else {
+    def recur(k: Int): BasicTerm = {
+      ParadeTerm(44, precedence('+'),
+          List(ParadeTerm(44, precedence("""\cdot"""),
+              List(if (k == 1) { token(0) } else { recur(k - 1) },
+              """\cdot""", """\ten""")),
+          "+",
+          token(k)))
       }
-    val retval = token(0)
-    for (val k <- range(1, n)) {
-      val retval = List(List(44, precedence('+')), List(List(44, precedence("""\cdot""")), retval, """\cdot""", """\ten"""), '+', token(k))
-      }
-    return List(List(40, List()), '(', retval, ')')
+    Term(toTag(40), List("(", recur(n), ")"))
+  }
     }
   
-  def addtoken(tree: Any, token: Any): Any = {
+  def addtoken(tree: Parse, token: String): Option[Parse] = {
     if (symtype(token) == 23) {
-      return 1
+       Some(tree)
       }
      else {
-      return addnode(tree, tokenparse(token))
+       addnode(tree, tokenparse(token))
       }
     }
   
-  def addnode(tree: Any, item: Any): Any = {
+  case class PendingParses(ts: List[IncompleteParse]) extends Parse
+  def addnode(tree: PendingParses, item: BasicForm): Option[Parse] = {
     //tree is a list which has one entry for each pending incomplete parse tree
     //item is one complete parse
     //
-    val header = item(0)
-    val syntype = header(0)
-    val okval = 1
+    val header = item.header
+    var syntype = header.tag
+
+    //@@val okval = 1
     // An unknown symbol which appears immediately following
     // a single open parenthesis can only be the beginning
     // of a definition which makes it an introductor.
     // In this case it must be repackaged as an incomplete node.
     // A new symbol appears
-    if (syntype == 5) {
+    syntype.id match {
       //		print "New symbol:", item[1] 
-      if (len(tree) < 2) {
-        return 0
-        }
-      if (tree(0)(0)(0) != -2 || tree(1)(0)(0) != -9) {
+      case 5 if len(tree.ts) < 2 => None
+      
+      if (tree.ts(0).header.tag != toTag(-2) || tree.ts(1).header.tag != toTag(-9)) {
         return 0
         }
       if (len(tree) == 2) {
         if (len(tree(1)) == 1) {
           // Change new node to incomplete
-          val item = List(List(-3, List()), item)
-          val header = item(0)
-          val syntype = header(0)
+          item = List(List(-3, List()), item)
+          header = item(0)
+          syntype = header(0)
           }
          else {
           //				print "New Introductor"
@@ -737,8 +778,7 @@ object synt {
       }
     }
   // Change incomplete node to complete
-  
-  def promote(node: Any, newvalue: Any): Any = {
+  def promote(node: IncompleteForm, newvalue: Tag): BasicForm = {
     for (val k <- range(1, len(node))) {
       if (node(k)(0)(0) < 40) {
         node(k) = node(k)(1)
@@ -747,7 +787,7 @@ object synt {
     node(0)(0) = newvalue
     }
   
-  def nodecheck(item: Any): Any = {
+  def nodecheck(item: Any): Option[BasicForm] = {
     // 
     //item is a tree with a newly added node
     // nodecheck determines whether it should
@@ -1930,39 +1970,40 @@ object synt {
       }
     return
     }
+  @@*/
   
-  def process_directive(comment_line: Any, hereditary_only: Any = True): Any = {
-    val directivem = pattern.directive.match(comment_line)
+  def process_directive(comment_line: String, hereditary_only: Boolean = True): Tag = {
+    val directivem = pattern.directive.match_(comment_line)
     if (! directivem) {
-      return 0
+       return 0
       }
     if (directivem.group(1) == "set_precedence") {
       if (! directivem.group(4).isdigit()) {
         println("Error: Numerical precedence value needed.")
-        return -7
+         return -7
         }
-      if (mathdb(MD_PRECED).contains(directivem.group(3))) {
-        if (mathdb(MD_PRECED)(directivem.group(3)) == int(directivem.group(4))) {
+      if (mathdb.MD_PRECED.isDefinedAt(directivem.group(3))) {
+        if (mathdb.MD_PRECED(directivem.group(3)) == int(directivem.group(4))) {
           return 0
           }
          else {
-          println("Error: Precedence already defined as " + mathdb(MD_PRECED)(directivem.group(3)))
+          println("Error: Precedence already defined as " + mathdb.MD_PRECED(directivem.group(3)))
           }
         }
-      mathdb(MD_PRECED)(directivem.group(3)) = int(directivem.group(4))
-      if (List(1, 2).contains(mathdb(MD_SYMTYPE).get(directivem.group(3)))) {
+      mathdb.MD_PRECED(directivem.group(3)) = int(directivem.group(4))
+      if (List(1, 2).contains(mathdb.MD_SYMTYPE.get(directivem.group(3)))) {
         /* pass */
         }
        else {
-        mathdb(MD_SYMTYPE)(directivem.group(3)) = 3
+        mathdb.MD_SYMTYPE(directivem.group(3)) = 3
         }
       return -3
       }
      else if (directivem.group(1) == "def_symbol") {
-      mathdb(MD_MACR)(directivem.group(3).substring(1)) = directivem.group(4).substring(1).rstrip()
+      mathdb.MD_MACR(directivem.group(3).substring(1)) = directivem.group(4).drop(1).rstrip()
       }
      else if (directivem.group(1) == "external_ref" && ! hereditary_only) {
-      mathdb(MD_REFD)(directivem.group(3)) = directivem.group(4).rstrip()
+      mathdb.MD_REFD(directivem.group(3)) = directivem.group(4).rstrip()
       }
      else if (directivem.group(1) == "major_unit:") {
       // Handle this in renum.
@@ -1973,16 +2014,16 @@ object synt {
       /* pass */
       }
      else if (directivem.group(1) == "term_definor:") {
-      mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 1
+      mathdb.MD_SYMTYPE(directivem.group(2).strip()) = 1
       }
      else if (directivem.group(1) == "formula_definor:") {
-      mathdb(MD_SYMTYPE)(directivem.group(2).strip()) = 2
+      mathdb.MD_SYMTYPE(directivem.group(2).strip()) = 2
       }
      else if (directivem.group(1) == "rules_file:") {
-      mathdb(MD_RFILE) = directivem.group(2).strip()
+      mathdb.MD_RFILE = directivem.group(2).strip()
       }
      else if (directivem.group(1) == "props_file:") {
-      mathdb(MD_PFILE) = directivem.group(2).strip()
+      mathdb.MD_PFILE = directivem.group(2).strip()
       }
      else if (directivem.group(1) == "undefined_term:") {
       val tree = List()
@@ -2045,6 +2086,7 @@ object synt {
     return 0
     }
   
+  /*@@
   def mathmargin(mode: Any, linetail: Any, outfragments: Any = None): Any = {
     val newlinetail = linetail(0).lstrip()
     val trimlen = (len(linetail(0)) - len(newlinetail))
@@ -3125,8 +3167,9 @@ object synt {
       }
     return retlist
     }
-  
-  def indvlist(form: Any): Any = {
+  @@*/
+
+  def indvlist(form: BasicForm): List[] = {
     val retlist = List()
     if (type(form) != list) {
       return retlist
@@ -3137,13 +3180,13 @@ object synt {
         }
       return retlist
       }
-    for (val x <- form.substring(1)) {
+    for (val x <- form.drop(1)) {
       if (type(x) == str) {
         /* pass */
         }
        else if (x(0)(0) == 48) {
         val state = 0
-        for (val xi <- x.substring(1)) {
+        for (val xi <- x.drop(1)) {
           if (type(xi) == list) {
             if (state == 1) {
               val state = 2
@@ -3184,6 +3227,7 @@ object synt {
     return retlist
     }
   
+  /*@@
   def indvsubst(inlist: Any, outlist: Any, form: Any): Any = {
     // It is expected that outlist = indvlist(form)
     // and that inlist consists of fresh bound variables
