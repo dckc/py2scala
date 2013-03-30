@@ -4,40 +4,44 @@ package com.madmode.py2scala
  * batteries -- python standard library
  */
 object batteries {
-  import com.madmode.py2scala.{__builtin__ => b}
+  import com.madmode.py2scala.{ __builtin__ => b }
   private def TODO = throw new Exception("TODO")
 
   object ast {
-	  sealed abstract class AST {
-	    def lineno: Int
-	  }
-	  abstract class expr extends AST
-	  case class Str(s: String) extends expr
-	  abstract class stmt extends AST
-	  case class Expr(value: expr) extends stmt
-	  abstract class Compound extends stmt { // made up name
-	    def body: Seq[stmt]
-	  }
-	  abstract class Decorated extends Compound {
-	    def decorator_list: Seq[expr]
-	  }
-	  type identifier = String
-	  type arguments = AST /* TODO */
-	  case class FunctionDef(name: identifier, args: arguments, 
-                            body: Seq[stmt], decorator_list: Seq[expr]) extends Decorated
-	  case class ClassDef(name: identifier, bases: Seq[expr], body: Seq[stmt],
-                    decorator_list: Seq[expr]) extends Decorated
-	  sealed abstract class operator
-	  case class Add(left: expr, right: expr) extends operator
-	  case class Sub(left: expr, right: expr) extends operator
-	  
-	  def parse(code: String, filename: String): AST = TODO
-	  
-	  class NodeVisitor {
-	    def visit(t: AST): Unit = TODO
-	  }
+    sealed abstract class AST {
+      def lineno: Int
+    }
+    abstract class expr extends AST {
+      override def lineno = TODO
+    }
+    case class Str(s: String) extends expr
+    abstract class stmt extends AST {
+      override def lineno = TODO
+    }
+    case class Expr(value: expr) extends stmt
+    abstract class Compound extends stmt { // made up name
+      def body: Seq[stmt]
+    }
+    abstract class Decorated extends Compound {
+      def decorator_list: Seq[expr]
+    }
+    type identifier = String
+    type arguments = AST /* TODO */
+    case class FunctionDef(name: identifier, args: arguments,
+      body: Seq[stmt], decorator_list: Seq[expr]) extends Decorated
+    case class ClassDef(name: identifier, bases: Seq[expr], body: Seq[stmt],
+      decorator_list: Seq[expr]) extends Decorated
+    sealed abstract class operator
+    case class Add(left: expr, right: expr) extends operator
+    case class Sub(left: expr, right: expr) extends operator
+
+    def parse(code: String, filename: String): AST = TODO
+
+    class NodeVisitor {
+      def visit(t: AST): Unit = TODO
+    }
   }
-  
+
   object logging {
     object Level extends Enumeration {
       type Level = Value
@@ -106,14 +110,21 @@ object batteries {
   }
 
   object StringIO {
-    class StringIO(contents: String) extends b.File
+    class StringIO(contents: String) extends b.File {
+      override def read() = contents
+      override def readline() = TODO
+      override def readlines() = TODO
+      override def write(s: String) = TODO
+      override def close() {}
+      override def iterator() = TODO
+    }
+
   }
-  
+
   object tokenize {
-      type Token = (Int, String, (Int, Int), (Int, Int), String)
-      def generate_tokens(readline: (() => String)): Stream[Token] = TODO
-      
-      
+    type Token = (Int, String, (Int, Int), (Int, Int), String)
+    def generate_tokens(readline: (() => String)): Stream[Token] = TODO
+
     object TokenType extends Enumeration {
       type TokenType = Value
       val COMMENT = Value

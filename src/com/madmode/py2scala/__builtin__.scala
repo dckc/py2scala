@@ -95,6 +95,8 @@ object __builtin__ {
       b.result()
     }
 
+    def write(s: String) = TODO
+
     override def iterator(): Iterator[String] = new LinesIterator(fp.readLine())
     class LinesIterator(var line: String) extends Iterator[String] {
       override def hasNext = line != null
