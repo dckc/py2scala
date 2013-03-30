@@ -21,6 +21,7 @@ object __builtin__ {
   val False = false
 
   implicit def test_int(i: Int): Boolean = i != 0
+  def range(lo: Int, hi: Int) = lo to hi
 
   implicit def test_string(s: String): Boolean = s != null && !s.isEmpty
 
@@ -41,6 +42,7 @@ object __builtin__ {
     def isalpha(): Boolean = s.forall(_.isalpha())
     def isdigit(): Boolean = s.forall(_.isdigit())
     def strip(): String = s.trim()
+    def rstrip(): String = s.replaceAll("\\s+$", "")
     def find(needle: String) = s.indexOf(needle)
     def find(needle: Char) = s.indexOf(needle)
     def startswith(prefix: String) = s.startsWith(prefix)
