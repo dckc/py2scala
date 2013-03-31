@@ -81,8 +81,8 @@ object batteries {
   }
 
   object pickle {
-    import java.io.BufferedReader
-    def load(path: BufferedReader): Any = TODO
+    def load(path: b.File): Object = TODO
+    def dump(x: Any, f: b.File): Unit = TODO
   }
 
   object re {
