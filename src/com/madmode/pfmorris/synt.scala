@@ -99,9 +99,10 @@ object synt {
     MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
     MD_THMS: THMS, MD_REFD: REFD, MD_MACR: MACR, MD_RSFLG: RSFLG,
     var MD_PFILE: PFILE, var MD_RFILE: RFILE) {
+    def dump(fp: File): Unit = throw new Exception("TODO")
   }
   object MD {
-    def fromJson(o: Any): MD = throw new Exception("TODO")
+    def load(fp: File): MD = throw new Exception("TODO")
   }
   /** Dictionary storing the type of each symbol */
   type SYMTYPE = Dict[String, Tag]
@@ -421,7 +422,7 @@ object synt {
   }
 
   // A basic form is either a basic term or a basic formula.
-  case class IncompleteParse() extends Parse
+  case class IncompleteParse(header: Header, children: List[Parse]) extends Parse
   sealed abstract class BasicForm extends Parse
   sealed abstract class BasicTerm extends BasicForm
   sealed abstract class BasicFormula extends BasicForm
@@ -778,8 +779,14 @@ object synt {
       }
     }
   // Change incomplete node to complete
-  def promote(node: IncompleteForm, newvalue: Tag): BasicForm = {
-    for (val k <- range(1, len(node))) {
+  def promote(node: IncompleteParse, newvalue: Tag): BasicForm = {
+    val children = node.children map { ch =>
+      ch.header match {
+        case Header(TopComplete, x) => x
+        case _ => ch
+      }
+      }
+    for (k <- range(1, len(node.children))) {
       if (node(k)(0)(0) < 40) {
         node(k) = node(k)(1)
         }

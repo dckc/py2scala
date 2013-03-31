@@ -1,8 +1,14 @@
-package com.madmode.py2scala
+package com.madmode.pfmorris
+// implicit:
+//  import synt
+//  import pattern
+
+import scala.collection.mutable.{ ArrayBuffer => PyList }
+import scala.collection.generic.FilterMonadic
 
 import __fileinfo__._
 import com.madmode.py2scala.__builtin__._
-import com.madmode.py2scala.batteries._
+import com.madmode.py2scala.{ batteries => py }
 
 object resetdefs {
   //!/usr/bin/python
@@ -18,82 +24,93 @@ object resetdefs {
   //      (without the .tex extension)
   //
   //###############################################################
-  import sys
-  import pickle
-  //
-  import synt
-  import pattern
+  //import py.sys argv is passed to main rather than via sys
+  import py.pickle
   //
   //
   //
   //
-  if (len(sys.argv) < 2) {
-    println("Usage: resetdefs <file> ")
-    throw new SystemExit()
-    }
-  val filename = (sys.argv(1) + ".tex")
-  try {
-    val f = open(filename, "r")
-    }
-  catch {
-    case _ => {
-      println((filename + " not found."))
+  //
+  def with_input(argv: Seq[String])(thunk: (String, File) => Unit) = {
+    if (len(argv) < 2) {
+      println("Usage: resetdefs <file> ")
       throw new SystemExit()
+    }
+    val filename = (argv(1) + ".tex")
+    val f = try {
+      open(filename, "r")
+    } catch {
+      case _: Throwable => {
+        println((filename + " not found."))
+        throw new SystemExit()
       }
     }
-  val r = f.readlines()
-  f.close()
-  val tdf_filelist = List()
-  for (s <- r) {
-    val inputfilem = pattern.inputfile.match(s)
-    if (inputfilem) {
-      tdf_filelist.append(inputfilem.group(2))
-      }
-    }
-  if (tdf_filelist.contains(sys.argv(1))) {
-    tdf_filelist.remove(sys.argv(1))
-    }
-  if (tdf_filelist.contains("utility")) {
-    tdf_filelist.remove("utility")
-    }
-  if (tdf_filelist) {
-    print("Included files:")
-    for (x <- tdf_filelist) {
-      print(x)
-      }
-    println()
-    }
-  val mathdb = synt.makemathdb()
-  val filename = (sys.argv(1) + ".dfs")
-  try {
-    val f = open(filename, "r")
-    val x = pickle.load(f)
-    f.close()
-    val mathdb(synt.MD_TROPS) = x(synt.MD_TROPS)
-    val mathdb(synt.MD_TRMUL) = x(synt.MD_TRMUL)
-    val mathdb(synt.MD_CAOPS) = x(synt.MD_CAOPS)
-    val mathdb(synt.MD_THMS) = x(synt.MD_THMS)
-    }
-  catch {
-    case _ => {
-      println("Creating " + filename)
-      }
-    }
-  println(len(mathdb))
-  for (tdf <- tdf_filelist) {
-    val g = open((tdf + ".dfs"))
-    val db = pickle.load(g)
-    g.close()
-    if (len(db) < len(mathdb)) {
-      println("len " + tdf + " = " + len(db))
-      throw new SystemExit()
-      }
-    synt.dbmerge(mathdb, db)
-    }
-  val f = open((sys.argv(1) + ".dfs"), "w")
-  pickle.dump(mathdb, f)
-  f.close()
+    thunk(argv(1), f)
+    f.close
   }
+
+  def with_filelist(f: File, already: String)(thunk: PyList[String] => Unit) = {
+    import py.re._ // for Match -> Boolean coercion
+    val r = f.readlines()
+    f.close()
+
+    val tdf_filelist = PyList[String]()
+    for (s <- r if s != already && s != "utility") {
+      val inputfilem = pattern.inputfile.match_(s)
+      if (inputfilem) {
+        tdf_filelist += inputfilem.group(2)
+      }
+    }
+    if (tdf_filelist) {
+      print("Included files:")
+      for (x <- tdf_filelist) {
+        print(x)
+      }
+      println()
+    }
+    tdf_filelist
+  }
+
+  def main(argv: Array[String]): Unit = {
+    with_input(argv) {
+      case (infn, inf) => {
+        with_filelist(inf, infn) {
+          case tdf_filelist => {
+            val mathdb = synt.makemathdb()
+            val filename = (argv(1) + ".dfs")
+            try {
+              val f = open(filename, "r")
+              val x = synt.MD.load(f)
+              f.close()
+              val mathdb.MD_TROPS = x.MD_TROPS
+              val mathdb.MD_TRMUL = x.MD_TRMUL
+              val mathdb.MD_CAOPS = x.MD_CAOPS
+              val mathdb.MD_THMS = x.MD_THMS
+            } catch {
+              case _: Throwable => {
+                println("Creating " + filename)
+              }
+            }
+            println("@@len(mathdb)")
+            for (tdf <- tdf_filelist) {
+              val g = open((tdf + ".dfs"))
+              val db = synt.MD.load(g)
+              g.close()
+              if (False /*@@len(db) < len(mathdb)*/ ) {
+                println("len " + tdf + " =  + @@len(db)")
+                throw new SystemExit()
+              }
+              synt.dbmerge(mathdb, db)
+            }
+            val f = open((argv(1) + ".dfs"), "w")
+            pickle.dump(mathdb, f)
+            f.close()
+          }
+        }
+      }
+    }
+  }
+}
 
 object __fileinfo__ {
   val __name__ = "com.madmode.py2scala.resetdefs"
