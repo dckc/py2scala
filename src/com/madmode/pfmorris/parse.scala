@@ -53,7 +53,7 @@ object parse {
     try {
       val f = open((Arg_1 + ".dfs"), 'r')
       dfs_mtime = os.stat((Arg_1 + ".dfs"))(ST_MTIME)
-      syntdb = MD.fromJson(pickle.load(f))
+      syntdb = synt.MD.load(f)
       f.close()
     } catch {
       case _: Throwable => {
@@ -96,8 +96,7 @@ object parse {
                 //@@@@synt.process_directive(shereditary_only=False)
                 throw new Exception("TODO")
               } else {
-                //@@@synt.process_directive(s)
-                throw new Exception("TODO")
+                synt.process_directive(s)
               }
             }
           }
@@ -107,13 +106,15 @@ object parse {
         }
         if (dfs_pathname && os.stat(dfs_pathname)(ST_MTIME) > dfs_mtime) {
           val f = open(dfs_pathname)
-          val pickled_db = MD.fromJson(pickle.load(f))
+          val pickled_db = synt.MD.load(f)
           println("Merging " + dfs_pathname)
           synt.dbmerge(synt.mathdb, pickled_db)
           f.close()
         }
       }
     }
+
+    throw new Exception("TODO@@")
     /*@@@@@@@@@@@@@@@@@
   val proppathname = getpath(syntdb(synt.MD_PFILE))
   if (! proppathname) {

@@ -424,9 +424,12 @@ object synt {
   // A basic form is either a basic term or a basic formula.
   case class IncompleteParse(header: Header, children: List[Parse]) extends Parse
   sealed abstract class BasicForm extends Parse
-  sealed abstract class BasicTerm extends BasicForm
+  sealed abstract class BasicTerm extends BasicForm {
+    def header = TODO
+  }
   sealed abstract class BasicFormula extends BasicForm
   
+ 
   case class Constant(s: String) extends BasicTerm
   implicit def asConstant(c: Char): Constant = Constant(new String(c))
   implicit def asConstant(s: String): Constant = Constant(s)
@@ -435,7 +438,7 @@ object synt {
   case class SchematicTerm(tag: Tag, arity: Int) extends BasicTerm
   case class ParadeTerm(tag: Tag, prec: Int, args: List[BasicTerm]) extends BasicTerm
   
-  def tokenparse(token: String): BasicForm = {
+  def tokenparse(token: String): BasicForm = TODO /*{
     //
     val precedence = mathdb.MD_PRECED
     val defs = mathdb.MD_DEFS
@@ -445,6 +448,7 @@ object synt {
       case 18 => {
         decimalparse(token)
       }
+      /*@@
       case 12 => {
         List(List(-4, arity(token)), (List(n), token))
       }
@@ -466,12 +470,13 @@ object synt {
       case _ if (List(1, 2, 3).contains(n)) => {
         List(List(n), token, precedence(token))
       }
+      */
       case _ => {
         // Even unknown constants are passed on as complete 
-        List(List(n), token)
+        Noun(n, token)
       }
     }
-  }
+  }*/
 
   def decimalparse(token: String): BasicTerm = {
     val precedence = mathdb.MD_PRECED
@@ -492,16 +497,21 @@ object synt {
     }
   
   def addtoken(tree: Parse, token: String): Option[Parse] = {
-    if (symtype(token) == 23) {
+    if (symtype(token) == toTag(23)) {
        Some(tree)
       }
      else {
-       addnode(tree, tokenparse(token))
+       //@@addnode(tree, tokenparse(token))
+       None
       }
     }
   
-  case class PendingParses(ts: List[IncompleteParse]) extends Parse
+  case class PendingParses(ts: List[IncompleteParse]) extends Parse {
+    def header = TODO
+  }
   def addnode(tree: PendingParses, item: BasicForm): Option[Parse] = {
+    None // @@
+    /*
     //tree is a list which has one entry for each pending incomplete parse tree
     //item is one complete parse
     //
@@ -738,7 +748,7 @@ object synt {
       if (List(19, 8, 9).contains(item(-1)(0)(0))) {
         tree.append(List(List(-8, List())))
         }
-      for (val x <- tree) {
+      for ( x <- tree) {
         if (x(0)(0) > 0) {
           return 0
           }
@@ -748,7 +758,7 @@ object synt {
      else // When a complete node arrives it is added to the last incomplete
     if (tree) {
       // node, possibly completing it.  Recursion follows. 
-      for (val i <- range(len(tree))) {
+      for ( i <- range(len(tree))) {
         // Since known introductors can introduce unknown forms
         // it catches errors sooner to check for unknown forms here.
         if (tree(i)(0)(0) == -3) {
@@ -792,9 +802,12 @@ object synt {
         }
       }
     node(0)(0) = newvalue
+    */
     }
   
   def nodecheck(item: Any): Option[BasicForm] = {
+    None //@@
+    /*
     // 
     //item is a tree with a newly added node
     // nodecheck determines whether it should
@@ -1097,8 +1110,10 @@ object synt {
         }
       }
     return 0
+    */
     }
   
+  /*@@
   def deflistupdate(item: Any): Any = {
     val deflist = item(0)(1)
     //	print "Number of defs: ", len(deflist)
@@ -1979,7 +1994,7 @@ object synt {
     }
   @@*/
   
-  def process_directive(comment_line: String, hereditary_only: Boolean = True): Tag = {
+  def process_directive(comment_line: String, hereditary_only: Boolean = True): Tag = TODO /*{
     val directivem = pattern.directive.match_(comment_line)
     if (! directivem) {
        return 0
@@ -2091,7 +2106,7 @@ object synt {
         }
       }
     return 0
-    }
+    }    @@* */
   
   /*@@
   def mathmargin(mode: Any, linetail: Any, outfragments: Any = None): Any = {
@@ -3176,7 +3191,7 @@ object synt {
     }
   @@*/
 
-  def indvlist(form: BasicForm): List[] = {
+  def indvlist(form: BasicForm): List[String] = TODO /*{
     val retlist = List()
     if (type(form) != list) {
       return retlist
@@ -3232,7 +3247,7 @@ object synt {
         }
       }
     return retlist
-    }
+    }*/
   
   /*@@
   def indvsubst(inlist: Any, outlist: Any, form: Any): Any = {
