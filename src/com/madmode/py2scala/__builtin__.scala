@@ -15,7 +15,7 @@ object __builtin__ {
   import scala.collection.{ Iterable, Iterator }
   import scala.collection.mutable.{ Map, HashMap }
 
-  private def TODO = throw new Exception("TODO")
+  def TODO = throw new Exception("TODO")
 
   val True = true
   val False = false

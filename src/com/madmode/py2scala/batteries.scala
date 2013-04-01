@@ -5,7 +5,7 @@ package com.madmode.py2scala
  */
 object batteries {
   import com.madmode.py2scala.{ __builtin__ => b }
-  private def TODO = throw new Exception("TODO")
+  import com.madmode.py2scala.__builtin__.TODO
 
   object ast {
     sealed abstract class AST {
