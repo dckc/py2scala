@@ -2,6 +2,7 @@ package com.madmode.pfmorris
 
 import scala.util.parsing.combinator.{ Parsers, RegexParsers }
 import scala.annotation.tailrec
+import scala.util.matching.Regex
 
 /**
  * Uniﬁcation-Based Grammar
@@ -46,48 +47,37 @@ object basicforms {
    * schemator of arity n followed by n object variables is called a schematic
    * expression.
    */
-  sealed abstract class TerminalSymbol
-  case class Constant(name: String) extends TerminalSymbol
-  case class Variable(name: String) extends TerminalSymbol
-  abstract class Schemator extends TerminalSymbol {
-    def arity: Int
+  object SymbolKind extends Enumeration {
+    type Kind = Value
+    val C, V, P, U = Value
   }
-  case class PredicateVariable(name: String, arity: Int) extends Schemator
-  case class FunctionVariable(name: String, arity: Int) extends Schemator {
-    require(arity > 0)
-  }
-  case class SchematicExpression(s: Schemator, args: List[Variable]) {
-    // TODO: consider using static type check rather than runtime check
-    require(s.arity == args.length)
+  import SymbolKind._
+  type TerminalSymbol = (Kind, Regex)
+  case class Language(
+    symbols: Set[TerminalSymbol],
+    a: TerminalSymbol => Int) {
+
+    require(symbols forall {
+      case (P, x) => true
+      case (U, x) => a((U, x)) > 0
+      case _ => true
+    })
+
+    def schematic_expression(s: TerminalSymbol, vs: Seq[TerminalSymbol]) = {
+      s match {
+        case (P, _) | (U, _) => a(s) == vs.length
+        case _ => false
+      }
+    }
   }
 
-  sealed abstract class Form {
-    def subFor: FTV.Value
-  }
-  abstract class Signature extends Form {
-    def symbols: List[Either[Constant, FTV.Value]]
-  }
-  case class TermOrFormula(forms: List[Form]) extends Form {
-    def subFor = FTV.T
-  }
-  //TODO: consider sealed abstract class Formula extends Form
-  //TODO: consider sealed abstract class Term extends Form
-  case class Pred(p: PredicateVariable, args: List[Form]) extends Form {
-    // TODO: consider using static type check rather than runtime check
-    require(p.arity == args.length)
-        def subFor = FTV.F
-  }
-  case class Fun(u: FunctionVariable, args: List[Form]) extends Form {
-    // TODO: consider using static type check rather than runtime check
-    require(u.arity == args.length)
-    def subFor = FTV.T
-  }
-  case class Var(v: Variable) extends Form {
-    def subFor = FTV.V
-  }
-  case class Const(c: Constant) extends Form {
-    def subFor = FTV.T
-  }
+  sealed abstract class Form
+  sealed abstract class Formula extends Form
+  sealed abstract class Term extends Form
+  case class Pred(p: Symbol, args: List[Term]) extends Formula
+  case class Fun(u: Symbol, args: List[Term]) extends Term
+  case class Var(v: Symbol) extends Term
+  case class Const(c: Symbol) extends Term
 
   /**
    * 3 Grammars
@@ -101,12 +91,15 @@ object basicforms {
     type FTV = Value
     val F, T, V = Value
   }
-  abstract class G extends RegexParsers {
+  import FTV._
+  type Signature = List[Either[Symbol, FTV.Value]]
+  class UBGParser(l: Language) extends RegexParsers {
+
     /**
      * 1. S → F
      *  2. S → T
      */
-    def ntS: Parser[Form] = ntF | ntT
+    def start: Parser[Form] = formula | term
 
     /**
      * 3. F → f, for each f ∈ SF
@@ -114,24 +107,39 @@ object basicforms {
      *          nterms
      *          for each p ∈ P and where the arity of p is n
      */
-    def ntF: Parser[Form] = (formulaSignature
-      | p >> { case p => repN(p.arity, ntT) ^^ { case args => Pred(p, args) } })
-    def formulaSignature: Parser[Signature]
-    def p: Parser[PredicateVariable]
+    def formula: Parser[Formula] = (formulaSignature
+      | p >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
 
-    /*   * 5. T → t, for each t ∈ ST
-   * 6. T → u T . . . T
-   *          nterms
-   *          for each u ∈ U and where the arity of u is n
-   * 7. T → V
-   * 8. V → v, for each v ∈ V
-   */
-    def ntT: Parser[Form] = (termSignature
-      | u >> { case u => repN(u.arity, ntT) ^^ { case args => Fun(u, args) } }
-      | v ^^ { case v => Var(v) })
-    def termSignature: Parser[Signature]
-    def u: Parser[FunctionVariable]
-    def v: Parser[Variable]
+    def p = parseKind(P)
+    def formulaSignature: Parser[Formula] /* TODO */
+
+    def parseKind(target: Kind): Parser[(Symbol, Int)] = {
+      val parsers = for {
+        sym <- l.symbols
+        (k, ex) = sym if k == target
+        a = l.a(sym)
+        strparse = regex(ex)
+      } yield (strparse ^^ { case s => (Symbol(s), a) })
+
+      def or(p1: Parser[(Symbol, Int)], p2: Parser[(Symbol, Int)]) = p1 | p2
+      def lose: Parser[(Symbol, Int)] = failure("not a predicate variable")
+      parsers.foldRight(lose)(or)
+    }
+
+    /**
+     * 5. T → t, for each t ∈ ST
+     * 6. T → u T . . . T
+     *          nterms
+     *          for each u ∈ U and where the arity of u is n
+     * 7. T → V
+     * 8. V → v, for each v ∈ V
+     */
+    def term: Parser[Term] = (termSignature
+      | u >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
+      | v ^^ { case (s, _) => Var(s) })
+    def u: Parser[(Symbol, Int)] = parseKind(U)
+    def v: Parser[(Symbol, Int)] = parseKind(SymbolKind.V)
+    def termSignature: Parser[Term] /* TODO */
   }
 
   /*   
@@ -146,22 +154,23 @@ object basicforms {
    * language.
    */
 
-  /* For each signature, b with n occurrences of the non-terminals F,T,
+  /**
+   * For each signature, b with n occurrences of the non-terminals F,T,
    * and V we may form a term or formula by replacing these non-terminals
    * by formulas, terms, and variables. We may represent the resulting term
    * or formula by b(f1, . . . , fn) where each fi is a formula, term, or variable
-   * replacing the i-th occurrence in b of a non-terminal F,T, or V respectively.*/
-  def subst(b: Signature, forms: List[Form]): Option[TermOrFormula] = {
-    @tailrec
-    def recur(symbols: List[Either[Constant, FTV.Value]], forms: List[Form]): Option[List[Form]] = {
-      (symbols, forms) match {
-        case (Nil, Nil) => Some(Nil)
-        case (Left(c) :: ss, fs) => recur(ss, fs) map (Const(c) :: _)
-        case (Right(ftv) :: ss, f :: fs) if ftv == f.subFor => recur(ss, fs) map (f :: _)
-        case _ => None //TODO: consider returning Left((symbols, forms)) to show the mismatch
-      }
+   * replacing the i-th occurrence in b of a non-terminal F,T, or V respectively.
+   */
+  @tailrec
+  def subst(b: Signature, forms: List[Form]): Option[List[Form]] = {
+    (b, forms) match {
+      case (Nil, Nil) => Some(Nil)
+      case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c) :: _)
+      case (Right(F) :: ss, (f: Formula) :: fs) => subst(ss, fs) map (f :: _)
+      case (Right(T) :: ss, (t: Term) :: fs) => subst(ss, fs) map (t :: _)
+      case (Right(FTV.V) :: ss, (v: Var) :: fs) => subst(ss, fs) map (v :: _)
+      //case _ => None // consider Left(b.length) to give location of mismatch
     }
-    recur(b.symbols, forms) map (TermOrFormula(_))
   }
 
   /* We note that constants can appear at the beginning of terms and formulas
@@ -169,9 +178,12 @@ object basicforms {
    * Theorem If t is any term or formula beginning with a constant then t
    * can be represented as b(f1, . . . , fn) for some signature b and components
    * fi.
-   * 1Morse’s syntax made no distinction between terms and formulas. To describe his grammars using this formalism, we should do away with the non-terminal symbols S and F, delete
+   */
+  /* 1Morse’s syntax made no distinction between terms and formulas. To describe his grammars using this formalism, we should do away with the non-terminal symbols S and F, delete
    * the rules in 1 through 4 and make T the initial symbol.
-   * 24 Two Desirable Properties
+   */
+
+  /* 24 Two Desirable Properties
    * When a language is generated from such a grammar the distinguishing
    * features of the language result from the kinds of expressions which constitute S. For example a preﬁx (or Polish) style of syntax results if each
    * signature b ∈ S begins with a unique constant. Among the desirable
@@ -182,12 +194,38 @@ object basicforms {
    * When a language has a grammar of the type given in section 3 the
    * property of being unambiguous, which is ordinarily stated in terms of the
    * uniqueness of a leftmost derivation, can be stated as follows:
+   */
+
+  /**
    * Deﬁnition of Unambiguous If b(f1, . . . , fn) is c(g1, . . . , gm) then b is c,
    * (m = n), and fi is gi for i = 1, . . . , n.
-   * The preﬁx-free property can be stated as follows:
+   */
+  def unambiguous(g: UBGParser)(b: Signature, fi: List[Form], c: Signature, gi: List[Form]) = {
+    if (subst(b, fi) == subst(c, gi)) {
+      b == c && fi == gi
+    } else {
+      true
+    }
+  }
+
+  /* The preﬁx-free property can be stated as follows:
    * Deﬁnition of Preﬁx-Free If b(f1, . . . , fn) is an initial segment of c(g1, . . . , gm)
    * then b(f1, . . . , fn) is c(g1, . . . , gm).
-   * In [3], Morse obtained conditions on an arbitrary set of signatures
+   */
+  def prefix_free(g: UBGParser)(b: Signature, fi: List[Form], c: Signature, gi: List[Form]) = {
+    val tryb = subst(b, fi)
+    val tryc = subst(c, gi)
+    (tryb, tryc) match {
+      case (Some(bfs), Some(cfs)) => if (cfs startsWith bfs) {
+        cfs == bfs
+      } else {
+        true
+      }
+      case _ => true // hmm...
+    }
+  }
+
+  /* In [3], Morse obtained conditions on an arbitrary set of signatures
    * suﬃcient to guarantee that the resulting language would have these two
    * properties.2 We seek conditions which are necessary as well as suﬃcient.
    * 5 Conditions on the Set of Signatures
