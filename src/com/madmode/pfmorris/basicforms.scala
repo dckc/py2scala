@@ -372,7 +372,7 @@ object basicforms {
   def partial_unification(l: Language, sigs: UnificationList): Option[UnificationList] = {
     signature_matches(l, sigs) match {
       case None => None
-      case Some(sigs) => if(sigs.init forall (_.complete)) { Some(sigs) } else { None }
+      case Some(sigs) => if (sigs.init forall (_.complete)) { Some(sigs) } else { None }
     }
   }
 
@@ -380,10 +380,10 @@ object basicforms {
    * A partial-uniﬁcation list is reduced if its ﬁnal signature match is incomplete or if its length is 1.
    */
   def reduced(l: Language, sigs: UnificationList): Option[UnificationList] = {
-      signature_matches(l, sigs) match {
-        case None => None
-        case Some(sigs) => if(sigs.length == 1 || sigs.last.incomplete) { Some(sigs) } else { None }
-      }
+    signature_matches(l, sigs) match {
+      case None => None
+      case Some(sigs) => if (sigs.length == 1 || sigs.last.incomplete) { Some(sigs) } else { None }
+    }
   }
 
   def signature_matches(l: Language, sigs: UnificationList): Option[UnificationList] = {
@@ -404,132 +404,209 @@ object basicforms {
     partial_unification(l, A) match {
       case None => None
       case Some(_) => reduced(l, A) match {
-      	case Some(halt) => Some(halt)
+        case Some(halt) => Some(halt)
         case None => {
           val last_two = (A(A.length - 2), A(A.length - 1))
-          val (SignatureList(s, m1mj), _M) = last_two
-          Some((A filterNot (sig => sig == SignatureList(s, m1mj) || sig == _M)) :+ _M)
+          val (SignatureList(s, m1mj), bigm) = last_two
+          assert(bigm.incomplete)
+          Some((A filterNot (sig => sig == SignatureList(s, m1mj) || sig == bigm)) :+ bigm)
         }
       }
     }
   }
-  /* A partial uniﬁcation is an ordered pair (A, B) of partial-uniﬁcation
+
+  /**
+   * A partial uniﬁcation is an ordered pair (A, B) of partial-uniﬁcation
    * lists.
-   * 4In the following preﬁx-uniﬁcation algorithm a set X of partial uniﬁcations is maintained. X changes as the algorithm proceeds. If X becomes
+   */
+  type UnificationListPair = (UnificationList, UnificationList)
+  def partial_unification_pair(l: Language, A_B: UnificationListPair) = {
+    !partial_unification(l, A_B._1).isEmpty && !partial_unification(l, A_B._2).isEmpty
+  }
+
+  /* 4
+   */
+  /**
+   * In the following preﬁx-uniﬁcation algorithm a set X of partial uniﬁcations is maintained.
+   * X changes as the algorithm proceeds. If X becomes
    * empty, then the algorithm has shown that no uniﬁcation exists and it
    * returns 0. If a preﬁx-uniﬁcation is found then 1 is returned.
    * Using the above deﬁnitions, the algorithm may now be described.
    * The input to the algorithm consists of two signatures b and c having
    * the same initial symbol α0.
-   * Let A0 = [[b, α0]].
-   * Let B0 = [[c, α0]].
-   * Let X = {(A0, B0)}.
-   * Repeat:
-   * If X = ∅ halt the algorithm and return 0.
-   * Let Y = ∅.
-   * For each partial uniﬁcation (A, B) ∈ X,
-   * Let A
-   * 0 be the reduction of A.
-   * Let B
-   * 0 be the reduction of B.
-   * If either A
-   * 0
-   * or B
-   * 0
-   * ends with a complete signature
-   * match then halt the algorithm and return 1.
-   * Otherwise add the pair (A
-   * 0
-   * , B0
-   * ) to Y .
-   * Let X = Y .
-   * Let Y = ∅.
-   * For each partial uniﬁcation (A, B) in X,
-   * Let [s, `1, . . . , `j] be the ﬁnal signature match of A.
-   * Let [t, m1, . . . , mk] be the ﬁnal signature match of B.
-   * Let α = s[j + 1].
-   * Let β = t[k + 1].
-   * Since every symbol of a signature is one of V, T, F, or
-   * a constant, we can cover all possibilities for α and β
-   * in 16 cases. Note that the ﬁrst two numbered steps
-   * below cover 4 of the 16 cases.
-   * 1. If α = β then:
-   * Let A
-   * 0 be A with the ﬁnal signature match of
-   * A, [s, `1, . . . , `j], replaced by [s, `1, . . . , `j, α].
-   * Let B
-   * 0 be B with its ﬁnal signature match
-   * [t, m1, . . . , mk] replaced by [t, m1, . . . , mk, β].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * 2. If α, β,∈ C and α 6= β then make no change to Y
-   * since no extension is possible.
-   * 3. If α = T and β = F or α = F and β = T then
-   * make no change to Y since no extension is possible.
-   * 4. If α = V and β ∈ {F} ∪ C or β = V and
-   * α ∈ {F} ∪ C then make no change to Y since
-   * no extension is possible.
-   * 5. If α = T and β = V or α = V and β = T then:
-   * 5Let A
-   * 0 be A with the ﬁnal signature match of
-   * A, [s, `1, . . . , `j], replaced by [s, `1, . . . , `j, V ].
-   * Let B
-   * 0 be B with its ﬁnal signature match
-   * [t, m1, . . . , mk] replaced by [t, m1, . . . , mk, V ].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * 6. If α = T and β ∈ C then for each term signature
-   * u ∈ ST :
-   * If the initial symbol of u is β:
-   * Let A
-   * 0 be A with [u, β] appended.
-   * Let B
-   * 0 be B with the ﬁnal signature match
-   * replaced by [t, m1, . . . , mk, β].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * 7. If α = F and β ∈ C then for each formula signature u ∈ SF :
-   * If the initial symbol of u is β:
-   * Let A
-   * 0 be A with [u, β] appended.
-   * Let B
-   * 0 be B with the ﬁnal signature match
-   * replaced by [t, m1, . . . , mk, β].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * 8. If β = T and α ∈ C then for each term signature
-   * u ∈ ST :
-   * If the initial symbol of u is α:
-   * Let B
-   * 0 be B with [u, α] appended.
-   * Let A
-   * 0 be A with the ﬁnal signature match
-   * replaced by [s, `1, . . . , `k, α].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * 9. If β = F and α ∈ C then for each formula signature u ∈ SF :
-   * If the initial symbol of u is α:
-   * Let B
-   * 0 be B with [u, α] appended.
-   * Let A
-   * 0 be A with the ﬁnal signature match
-   * replaced by [s, `1, . . . , `k, α].
-   * Add the pair (A
-   * 0
-   * , B0
-   * ) to the set Y .
-   * Let X = Y .
-   * Clearly this algorithm terminates only under favorable conditions. We
+   */
+  def unification_exists(l: Language, b: Signature, c: Signature, a0: CSym): Boolean = {
+    /* Let A0 = [[b, α0]].
+     * Let B0 = [[c, α0]].
+     * Let X = {(A0, B0)}. 
+     */
+    val A0 = List(SignatureList(b, List(Right(Left(a0)))))
+    val B0 = List(SignatureList(c, List(Right(Left(a0)))))
+    val X: Set[UnificationListPair] = Set((A0, B0))
+
+    /* Repeat: */
+    def repeat(X: Set[UnificationListPair], Y: Set[UnificationListPair]): Boolean = {
+      /* If X = ∅ halt the algorithm and return 0. */
+      if (X.isEmpty) { false }
+      else {
+        /* Let Y = ∅.
+         * For each partial uniﬁcation (A, B) ∈ X,
+         * Let A' be the reduction of A.
+         * Let B' be the reduction of B.
+         * If either A' or B'
+         * ends with a complete signature
+         * match then halt the algorithm and return 1.
+         * Otherwise add the pair (A' , B') to Y . 
+         */
+        val Y = for {
+          (bigA, bigB) <- X
+          ap <- reduction(l, bigA)
+          bp <- reduction(l, bigB)
+        } yield (ap, bp)
+        if (Y exists { case (ap, bp) => ap.last.complete || bp.last.complete }) { true }
+        else {
+          /* Let X = Y .
+           * Let Y = ∅.
+           */
+          val nextX = Y
+          /* For each partial uniﬁcation (A, B) in X,
+             */
+          val nextY = for {
+              (a, b) <- X
+              more <- addToY(a, b)
+            } yield more
+          repeat(nextX, nextY)
+        }
+      }
+    }
+
+    def addToY(a: UnificationList, b: UnificationList): Iterable[UnificationListPair] = {
+      /* Let [s, `1, . . . , `j] be the ﬁnal signature match of A.
+       * Let [t, m1, . . . , mk] be the ﬁnal signature match of B.
+       * Let α = s[j + 1].
+       * Let β = t[k + 1].
+       */
+      val (s, l1lj, j) = (a.last.b, a.last.m1mk, a.last.k)
+      val (t, m1mk, k) = (b.last.b, b.last.m1mk, b.last.k)
+      val alpha = s(j + 1)
+      val beta = t(k + 1)
+
+      (alpha, beta) match {
+        /* Since every symbol of a signature is one of V, T, F, or
+         * a constant, we can cover all possibilities for α and β
+         * in 16 cases. Note that the ﬁrst two numbered steps
+         * below cover 4 of the 16 cases.
+         */
+
+        /* 1. If α = β then:
+         * Let A' be A with the ﬁnal signature match of
+         * A, [s, `1, . . . , `j], replaced by [s, `1, . . . , `j, α].
+         * Let B' be B with its ﬁnal signature match
+         * [t, m1, . . . , mk] replaced by [t, m1, . . . , mk, β].
+         * Add the pair (A', B') to the set Y .
+         */
+        case _ if alpha == beta => {
+          val app = a.init :+ SignatureList(s, l1lj :+ Right(alpha))
+          val bpp = b.init :+ SignatureList(t, m1mk :+ Right(beta))
+          Some((app, bpp))
+        }
+
+        /* 2. If α, β,∈ C and α 6= β then make no change to Y
+         * since no extension is possible.
+         */
+        case (Left(CSym(_, _)), Left(CSym(_, _))) => None
+
+        /* 3. If α = T and β = F or α = F and β = T then
+         * make no change to Y since no extension is possible.
+         */
+        case (Right(T), Right(F)) | (Right(F), Right(T)) => None
+
+        /* 4. If α = V and β ∈ {F} ∪ C or β = V and
+         * α ∈ {F} ∪ C then make no change to Y since
+         * no extension is possible.
+         */
+        case (Right(V), Right(F)) | (Right(V), Left(_)) => None
+        case (Right(F), Right(V)) | (Left(_), Right(V)) => None
+
+        /* 5. If α = T and β = V or α = V and β = T then:
+         *   pg 5
+         * Let A' be A with the ﬁnal signature match of
+         * A, [s, `1, . . . , `j], replaced by [s, `1, . . . , `j, V ].
+         * Let B' be B with its ﬁnal signature match
+         * [t, m1, . . . , mk] replaced by [t, m1, . . . , mk, V ].
+         * Add the pair (A', B') to the set Y .
+         */
+        case (Right(T), Right(V)) | (Right(V), Right(T)) => {
+          val ap = a.init :+ SignatureList(s, l1lj :+ Right(Right(V)))
+          val bp = b.init :+ SignatureList(t, m1mk :+ Right(Right(V)))
+          Some((ap, bp))
+        }
+        /* 6. If α = T and β ∈ C then for each term signature
+         * u ∈ ST :
+         * If the initial symbol of u is β:
+         * Let A' be A with [u, β] appended.
+         * Let B' be B with the ﬁnal signature match
+         * replaced by [t, m1, . . . , mk, β].
+         * Add the pair (A', B0) to the set Y .
+         */
+        case (Right(T), Left(c)) => {
+          for {
+            u <- l.termSignatures if u(0) == c
+            ap = a :+ SignatureList(u, List(Right(Left(c))))
+            bp = b.init :+ SignatureList(t, m1mk :+ Right(beta))
+          } yield (ap, bp)
+        }
+        /* 7. If α = F and β ∈ C then for each formula signature u ∈ SF :
+         * If the initial symbol of u is β:
+         * Let A' be A with [u, β] appended.
+         * Let B' be B with the ﬁnal signature match
+         * replaced by [t, m1, . . . , mk, β].
+         * Add the pair (A', B') to the set Y .
+         */
+        case (Right(F), Left(c)) => {
+          for {
+            u <- l.formulaSignatures if u(0) == c
+            ap = a :+ SignatureList(u, List(Right(beta)))
+            bp = b.init :+ SignatureList(t, m1mk :+ Right(beta))
+          } yield (ap, bp)
+        }
+
+        /* 8. If β = T and α ∈ C then for each term signature
+         * u ∈ ST :
+         * If the initial symbol of u is α:
+         * Let B' be B with [u, α] appended.
+         * Let A' be A with the ﬁnal signature match
+         * replaced by [s, `1, . . . , `k, α].  @@@typo?
+         * Add the pair (A', B') to the set Y .
+         */
+        case (Left(c), Right(T)) => {
+          for {
+            u <- l.termSignatures if u(0) == c
+            bp = b :+ SignatureList(u, List(Right(alpha)))
+            ap = b.init :+ SignatureList(s, l1lj :+ Right(alpha))
+          } yield (ap, bp)
+        }
+
+        /* 9. If β = F and α ∈ C then for each formula signature u ∈ SF :
+         * If the initial symbol of u is α:
+         * Let B' be B with [u, α] appended.
+         * Let A' be A with the ﬁnal signature match
+         * replaced by [s, `1, . . . , `k, α].  @@@typo
+         * Add the pair (A', B') to the set Y .
+         * Let X = Y .
+         */
+        case (Left(c), Right(F)) => {
+          for {
+            u <- l.formulaSignatures if u(0) == c
+            bp = b :+ SignatureList(u, List(Right(alpha)))
+            ap = a.init :+ SignatureList(s, l1lj :+ Right(beta))
+          } yield (ap, bp)
+        }
+      }
+    }
+    repeat(X, Set())
+  }
+  /* Clearly this algorithm terminates only under favorable conditions. We
    * seek enhancements to this algorithm, checking for repeated states, which
    * will allow more partial uniﬁcations to be discarded.
    * 7 Bound Variables
