@@ -47,25 +47,30 @@ object basicforms {
    * schemator of arity n followed by n object variables is called a schematic
    * expression.
    */
-  object SymbolKind extends Enumeration {
-    type Kind = Value
-    val C, V, P, U = Value
+  sealed abstract class TerminalSymbol {
+    def syntax: Regex
   }
-  import SymbolKind._
-  type TerminalSymbol = (Kind, Regex)
+  case class CSym(syntax: Regex, name: Symbol) extends TerminalSymbol
+  case class VSym(syntax: Regex, name: Symbol) extends TerminalSymbol
+  sealed abstract class Schemator extends TerminalSymbol
+  case class PSym(syntax: Regex) extends Schemator
+  case class USym(syntax: Regex) extends Schemator
+  
   case class Language(
     symbols: Set[TerminalSymbol],
-    a: TerminalSymbol => Int) {
+    a: TerminalSymbol => Int,
+    formulaSignatures: Set[Signature],
+    termSignatures: Set[Signature]) {
 
     require(symbols forall {
-      case (P, x) => true
-      case (U, x) => a((U, x)) > 0
+      case PSym(_) => true
+      case u: USym => a(u) > 0
       case _ => true
     })
 
     def schematic_expression(s: TerminalSymbol, vs: Seq[TerminalSymbol]) = {
       s match {
-        case (P, _) | (U, _) => a(s) == vs.length
+        case PSym(_) | USym(_) => a(s) == vs.length
         case _ => false
       }
     }
@@ -73,7 +78,9 @@ object basicforms {
 
   sealed abstract class Form
   sealed abstract class Formula extends Form
+  case class SigFormula(fs: List[Form]) extends Formula
   sealed abstract class Term extends Form
+  case class SigTerm(fs: List[Form]) extends Term
   case class Pred(p: Symbol, args: List[Term]) extends Formula
   case class Fun(u: Symbol, args: List[Term]) extends Term
   case class Var(v: Symbol) extends Term
@@ -92,12 +99,12 @@ object basicforms {
     val F, T, V = Value
   }
   import FTV._
-  type Signature = List[Either[Symbol, FTV.Value]]
+  type Signature = List[Either[CSym, FTV.Value]]
   class UBGParser(l: Language) extends RegexParsers {
 
     /**
      * 1. S → F
-     *  2. S → T
+     * 2. S → T
      */
     def start: Parser[Form] = formula | term
 
@@ -110,21 +117,9 @@ object basicforms {
     def formula: Parser[Formula] = (formulaSignature
       | p >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
 
-    def p = parseKind(P)
-    def formulaSignature: Parser[Formula] /* TODO */
-
-    def parseKind(target: Kind): Parser[(Symbol, Int)] = {
-      val parsers = for {
-        sym <- l.symbols
-        (k, ex) = sym if k == target
-        a = l.a(sym)
-        strparse = regex(ex)
-      } yield (strparse ^^ { case s => (Symbol(s), a) })
-
-      def or(p1: Parser[(Symbol, Int)], p2: Parser[(Symbol, Int)]) = p1 | p2
-      def lose: Parser[(Symbol, Int)] = failure("not a predicate variable")
-      parsers.foldRight(lose)(or)
-    }
+    def p = pickSym { case ps: PSym => ps }
+    
+    def formulaSignature: Parser[Formula] = parseSigs(l.formulaSignatures) ^^ { case fs => SigFormula(fs) }
 
     /**
      * 5. T → t, for each t ∈ ST
@@ -136,10 +131,39 @@ object basicforms {
      */
     def term: Parser[Term] = (termSignature
       | u >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
-      | v ^^ { case (s, _) => Var(s) })
-    def u: Parser[(Symbol, Int)] = parseKind(U)
-    def v: Parser[(Symbol, Int)] = parseKind(SymbolKind.V)
-    def termSignature: Parser[Term] /* TODO */
+      | v )
+    def u: Parser[(Symbol, Int)] = pickSym { case ps: USym => ps }
+    def v = pickSym { case ps: VSym => ps } ^^ { case (s, _) => Var(s) }
+    def termSignature: Parser[Term] = parseSigs(l.formulaSignatures) ^^ { case fs => SigTerm(fs) }
+    
+    def pickSym[T <: TerminalSymbol](pf: PartialFunction[TerminalSymbol, T]): Parser[(Symbol, Int)] = {
+      val parsers = for {
+        sym <- l.symbols collect pf
+        a = l.a(sym)
+        strparse = regex(sym.syntax)
+      } yield (strparse ^^ { case s => (Symbol(s), a) })
+
+      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("no such symbols in the language"))
+    }
+    
+    def parseSigs(sigs: Iterable[Signature]): Parser[List[Form]] = {
+      val parsers = sigs map sigParser
+      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("signatures in the langauge"))
+      
+    }
+    def sigParser(sig: Signature): Parser[List[Form]] = {
+    	sig match {
+    	  case Nil => failure("empty signature")
+    	  case x :: Nil => sig1Parser(x) ^^ { case f => List(f) }
+    	  case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
+    	}
+    }
+    def sig1Parser(s1: Either[CSym, FTV.Value]): Parser[Form] = s1 match {
+      case Left(c) => regex(c.syntax) ^^ { case c => Const(Symbol(c)) }
+      case Right(F) => formula
+      case Right(T) => term
+      case Right(V) => v
+    }
   }
 
   /*   
@@ -165,11 +189,11 @@ object basicforms {
   def subst(b: Signature, forms: List[Form]): Option[List[Form]] = {
     (b, forms) match {
       case (Nil, Nil) => Some(Nil)
-      case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c) :: _)
+      case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c.name) :: _)
       case (Right(F) :: ss, (f: Formula) :: fs) => subst(ss, fs) map (f :: _)
       case (Right(T) :: ss, (t: Term) :: fs) => subst(ss, fs) map (t :: _)
       case (Right(FTV.V) :: ss, (v: Var) :: fs) => subst(ss, fs) map (v :: _)
-      //case _ => None // consider Left(b.length) to give location of mismatch
+      case _ => None // consider Left(b.length) to give location of mismatch
     }
   }
 
