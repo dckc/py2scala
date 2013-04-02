@@ -50,7 +50,9 @@ object basicforms {
   sealed abstract class TerminalSymbol {
     def syntax: Regex
   }
-  case class CSym(syntax: Regex, name: Symbol) extends TerminalSymbol
+  case class CSym(name: Symbol) extends TerminalSymbol {
+    def syntax = name.toString().r
+  }
   case class VSym(syntax: Regex, name: Symbol) extends TerminalSymbol
   sealed abstract class Schemator extends TerminalSymbol
   case class PSym(syntax: Regex) extends Schemator
@@ -69,16 +71,25 @@ object basicforms {
     })
 
     def signatures = formulaSignatures union termSignatures
-
-    def schematic_expression(s: TerminalSymbol, vs: Seq[TerminalSymbol]) = {
-      s match {
-        case PSym(_) | USym(_) => a(s) == vs.length
-        case _ => false
-      }
-    }
   }
 
-  sealed abstract class Form
+  sealed abstract class Form {
+	  def schematic_expression(): Option[(Boolean, List[Var])] = { 
+	    def testAll(args: List[Term]): Option[List[Var]] = args match {
+	      case Nil => Some(Nil)
+	      case t :: ts => t match {
+	        case v: Var => testAll(ts) map { rest => v :: rest }
+	        case _ => None
+	      }
+	    }
+	    
+        this match {
+          case Pred(_, args) => testAll(args) map { vs => (true, vs) }
+          case Fun(_, args) => testAll(args) map { vs => (false, vs) }
+          case _ => None
+        }
+      }
+  }
   sealed abstract class Formula extends Form
   case class SigFormula(fs: List[Form]) extends Formula
   sealed abstract class Term extends Form
@@ -514,7 +525,7 @@ object basicforms {
         /* 2. If α, β,∈ C and α 6= β then make no change to Y
          * since no extension is possible.
          */
-        case (Left(CSym(_, _)), Left(CSym(_, _))) => None
+        case (Left(CSym(_)), Left(CSym(_))) => None
 
         /* 3. If α = T and β = F or α = F and β = T then
          * make no change to Y since no extension is possible.
@@ -714,20 +725,56 @@ object basicforms {
    * where ‘x’ and ‘y’ are free variables in the translated formula. Using this
    * rule the need for Morse’s rule A.9 disappears. The argument however is
    * important in that it justiﬁes all four of the rules stated in section 7.
-   * 8 From Basic Forms to Signatures
+   */
+  
+   /** 8 From Basic Forms to Signatures
    * In section 1 Morse’s syntax was described as a method of obtaining a
    * grammar from a set of deﬁnitions. In section 3 the process of deriving a
    * grammar from the set of signatures was described. We now describe how
    * the set of signatures is obtained from a set of deﬁnitions.
    * We begin with the left sides of all deﬁnitions. These we refer to as
    * deﬁnienda. To these we add all primitive or undeﬁned terms and formulas.
-   * The resulting set we call the set of basic forms. The indicial variables of a
+   * The resulting set we call the set of basic forms.
+   */
+  /** The indicial variables of a
    * basic form are the variables occurring in some schematic expression of the
-   * form. To obtain the signature of a basic form we replace each schematic
+   * form.
+   */
+  def indical_variables(f: Form): List[Var] = {
+    f.schematic_expression match {
+      case Some((is_fmla, vs)) => vs
+      case None => f match {
+      	case SigFormula(fs) => fs flatMap indical_variables
+      	case SigTerm(fs) => fs flatMap indical_variables
+      	case Pred(_, args) => args flatMap indical_variables
+      	case Fun(_, args) => args flatMap indical_variables
+      	case Var(_) | Const(_) => List()
+      }
+    }
+  }
+
+  
+  /** To obtain the signature of a basic form we replace each schematic
    * expression by T or F depending on whether its initial symbol is in U or
    * P. Of the remaining variables the indicial variables are replaced by V and
    * the others by T. The result is the signature.
-   * 4See page 161 of [4] or page 119 or [3].
+   */
+  def toSignature(f: Form): Signature = {
+    val ivs = indical_variables(f)
+    f.schematic_expression match {
+      case Some((is_fmla, vs)) => List(Right(if (is_fmla) { T } else { F }))
+      case None => f match {
+      	case SigFormula(fs) => fs flatMap toSignature
+      	case SigTerm(fs) => fs flatMap toSignature
+      	case Pred(_, args) => args flatMap toSignature
+      	case Fun(_, args) => args flatMap toSignature
+      	case v: Var => List(Right( if (ivs contains v) { V } else { T }))
+      	case Const(c) => List(Left(CSym(c)))
+      }
+    }
+  }
+  
+   /* 4See page 161 of [4] or page 119 or [3].
    * 89 Conclusion
    * A.P. Morse devised rules for generating an essentially context-free dynamic mathematical language, permitting the language to expand, according to common practice, through the addition of deﬁnitions. In order
    * to obtain the unambiguity and preﬁx properties of such a language, Morse
