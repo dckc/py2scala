@@ -94,12 +94,11 @@ object basicforms {
    * signatures S = SF ∪ ST ⊂ (C ∪ {F, T, V })∗, and a set R consisting of the
    * following production rules:
    */
-  object FTV extends Enumeration {
-    type FTV = Value
-    val F, T, V = Value
-  }
-  import FTV._
-  type Signature = List[Either[CSym, FTV.Value]]
+  sealed abstract class FTV
+  object F extends FTV
+  object T extends FTV
+  object V extends FTV
+  type Signature = List[Either[CSym, FTV]]
   class UBGParser(l: Language) extends RegexParsers {
 
     /**
@@ -158,7 +157,7 @@ object basicforms {
     	  case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
     	}
     }
-    def sig1Parser(s1: Either[CSym, FTV.Value]): Parser[Form] = s1 match {
+    def sig1Parser(s1: Either[CSym, FTV]): Parser[Form] = s1 match {
       case Left(c) => regex(c.syntax) ^^ { case c => Const(Symbol(c)) }
       case Right(F) => formula
       case Right(T) => term
@@ -185,14 +184,13 @@ object basicforms {
    * or formula by b(f1, . . . , fn) where each fi is a formula, term, or variable
    * replacing the i-th occurrence in b of a non-terminal F,T, or V respectively.
    */
-  @tailrec
   def subst(b: Signature, forms: List[Form]): Option[List[Form]] = {
     (b, forms) match {
       case (Nil, Nil) => Some(Nil)
       case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c.name) :: _)
       case (Right(F) :: ss, (f: Formula) :: fs) => subst(ss, fs) map (f :: _)
       case (Right(T) :: ss, (t: Term) :: fs) => subst(ss, fs) map (t :: _)
-      case (Right(FTV.V) :: ss, (v: Var) :: fs) => subst(ss, fs) map (v :: _)
+      case (Right(V) :: ss, (v: Var) :: fs) => subst(ss, fs) map (v :: _)
       case _ => None // consider Left(b.length) to give location of mismatch
     }
   }
