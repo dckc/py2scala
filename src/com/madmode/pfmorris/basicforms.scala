@@ -55,7 +55,7 @@ object basicforms {
   sealed abstract class Schemator extends TerminalSymbol
   case class PSym(syntax: Regex) extends Schemator
   case class USym(syntax: Regex) extends Schemator
-  
+
   case class Language(
     symbols: Set[TerminalSymbol],
     a: TerminalSymbol => Int,
@@ -67,6 +67,8 @@ object basicforms {
       case u: USym => a(u) > 0
       case _ => true
     })
+
+    def signatures = formulaSignatures union termSignatures
 
     def schematic_expression(s: TerminalSymbol, vs: Seq[TerminalSymbol]) = {
       s match {
@@ -117,7 +119,7 @@ object basicforms {
       | p >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
 
     def p = pickSym { case ps: PSym => ps }
-    
+
     def formulaSignature: Parser[Formula] = parseSigs(l.formulaSignatures) ^^ { case fs => SigFormula(fs) }
 
     /**
@@ -130,11 +132,11 @@ object basicforms {
      */
     def term: Parser[Term] = (termSignature
       | u >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
-      | v )
+      | v)
     def u: Parser[(Symbol, Int)] = pickSym { case ps: USym => ps }
     def v = pickSym { case ps: VSym => ps } ^^ { case (s, _) => Var(s) }
     def termSignature: Parser[Term] = parseSigs(l.formulaSignatures) ^^ { case fs => SigTerm(fs) }
-    
+
     def pickSym[T <: TerminalSymbol](pf: PartialFunction[TerminalSymbol, T]): Parser[(Symbol, Int)] = {
       val parsers = for {
         sym <- l.symbols collect pf
@@ -144,18 +146,18 @@ object basicforms {
 
       parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("no such symbols in the language"))
     }
-    
+
     def parseSigs(sigs: Iterable[Signature]): Parser[List[Form]] = {
       val parsers = sigs map sigParser
       parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("signatures in the langauge"))
-      
+
     }
     def sigParser(sig: Signature): Parser[List[Form]] = {
-    	sig match {
-    	  case Nil => failure("empty signature")
-    	  case x :: Nil => sig1Parser(x) ^^ { case f => List(f) }
-    	  case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
-    	}
+      sig match {
+        case Nil => failure("empty signature")
+        case x :: Nil => sig1Parser(x) ^^ { case f => List(f) }
+        case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
+      }
     }
     def sig1Parser(s1: Either[CSym, FTV]): Parser[Form] = s1 match {
       case Left(c) => regex(c.syntax) ^^ { case c => Const(Symbol(c)) }
@@ -253,8 +255,9 @@ object basicforms {
    * 5 Conditions on the Set of Signatures
    * We have that all signatures begin with some constant. Conversely we
    * deﬁne an introductor as a constant that occurs as the initial symbol of
-   * some signature.
-   * The following two conditions were considered by Morse:
+   * some signature.*/
+  def introductor(c: CSym, l: Language) = l.signatures exists ( _.head == Left(c) )
+  /* The following two conditions were considered by Morse:
    * 1. No signature may be the initial segment of some other signature, nor
    * is this allowed if the V ’s in the signatures are changed to T’s.
    * 2. No introductor may occur in a signature except as the initial symbol.
