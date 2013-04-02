@@ -301,15 +301,15 @@ object basicforms {
    * the list where 1 ≤ k ≤ n. If k = n, we say the signature-list is complete;
    * otherwise it is incomplete.
    */
-  case class SignatureList(b: Signature, m1mk: List[Either[SignatureList, SigItem]])
-  def with_siglist[T](s: SignatureList)(f: (Boolean, Signature, List[Either[SignatureList, SigItem]]) => Option[T]) = s match {
-    case SignatureList(b, m1mk) if b.length <= m1mk.length => {
-      val complete = b.length == m1mk.length
-      f(complete, b, m1mk)
-    }
-    case _ => None
+  case class SignatureList(b: Signature, m1mk: List[Either[SignatureList, SigItem]]) {
+    def k = m1mk.length
+    def n = b.length
+    require(1 <= k && k <= n)
+
+    def complete = k == n
+    def incomplete = !complete
   }
-  
+
   /**
    * We recursively deﬁne a signature match as a signature-list
    * [b, m1, . . . , mk], where for each i ∈ {1, . . . , k}:
@@ -323,26 +323,19 @@ object basicforms {
    * signature-list. An incomplete signature match is a signature match that
    * is an incomplete signature-list.
    */
-  def signature_match(l: Language, bm1mk: SignatureList,
-      distinguish_complete: Option[Boolean]): Boolean = {
-    with_signature_match(l, bm1mk) {
-      (complete, bm1mk) => Some(distinguish_complete.fold(true)( complete == _))
-    } match {
-      case Some(x) => x
-      case None => false
-    }
+  def signature_match(l: Language, b_m1mk: SignatureList, complete_opt: Option[Boolean]): Boolean = {
+    with_signature_match(l, b_m1mk) {
+      (complete, _) => Some(complete_opt.fold(true)(complete == _))
+    } getOrElse false
   }
   /* TODO: consider moving signature_match etc. to methods on Language */
+  /* TODO: consider changing f(SignatureList, ...) : Option[X] to PartialFunction (again) */
 
-  def with_signature_match[T](l: Language, bm1mk: SignatureList)(f: (Boolean, SignatureList) => Option[T]): Option[T] = {
-
-    def match_with_first_in(mi: SignatureList,
-      target: Set[Signature]): Option[Boolean] = with_siglist(mi) { (complete, mi_first, rest) =>
-      if (complete) {
-        with_signature_match(l, SignatureList(mi_first, rest)) { (_, mi_first_match) =>
-          if (target.contains(mi_first)) { Some(true) } else { None }
-        }
-      } else { None }
+  def with_signature_match[T](l: Language, b_m1mk: SignatureList)(f: (Boolean, SignatureList) => Option[T]): Option[T] = {
+    def match_with_first_in(mi: SignatureList, target: Set[Signature]): Option[Boolean] = {
+      with_signature_match(l, mi) { (_, mi) =>
+        if (target.contains(mi.b)) { Some(true) } else { None }
+      }
     }
 
     def each_i(bi: SigItem, mi: Either[SignatureList, SigItem]): Option[Boolean] = bi match {
@@ -366,15 +359,38 @@ object basicforms {
       }
     }
 
-    with_siglist(bm1mk) { (complete, b, m1mk) =>
-      val allok = (b zip m1mk) forall { case (bi, mi) => each_i(bi, mi) getOrElse false }
-      if (allok) { f(complete, bm1mk) } else { None }
+    val allok = (b_m1mk.b zip b_m1mk.m1mk) forall { case (bi, mi) => each_i(bi, mi) getOrElse false }
+    if (allok) { f(b_m1mk.complete, b_m1mk) } else { None }
+  }
+
+  type UnificationList = List[SignatureList]
+
+  /**
+   * A partial-uniﬁcation list is a list of signature matches each of which,
+   * except for possibly the last, is incomplete.
+   */
+  def partial_unification(l: Language, sigs: UnificationList): Option[UnificationList] = {
+    signature_matches(l, sigs) match {
+      case None => None
+      case Some(sigs) => if(sigs.init forall (_.complete)) { Some(sigs) } else { None }
     }
   }
 
-   /** A partial-uniﬁcation list is a list of signature matches each of which,
-   * except for possibly the last, is incomplete.
+  /**
    * A partial-uniﬁcation list is reduced if its ﬁnal signature match is incomplete or if its length is 1.
+   */
+  def reduced(l: Language, sigs: UnificationList): Option[UnificationList] = {
+      signature_matches(l, sigs) match {
+        case None => None
+        case Some(sigs) => if(sigs.length == 1 || sigs.last.incomplete) { Some(sigs) } else { None }
+      }
+  }
+
+  def signature_matches(l: Language, sigs: UnificationList): Option[UnificationList] = {
+    if (sigs forall { sig => signature_match(l, sig, Some(false)) }) { Some(sigs) } else { None }
+  }
+
+  /**
    * The reduction of a partial-uniﬁcation list A is the result of applying
    * the following algorithm to A:
    * Repeat:
@@ -383,7 +399,21 @@ object basicforms {
    * and M where M is a complete signature match, and remove
    * both matches from the list A and append the signature match
    * [s, m1, . . . , mj, M] to A.
-   * A partial uniﬁcation is an ordered pair (A, B) of partial-uniﬁcation
+   */
+  def reduction(l: Language, A: UnificationList): Option[UnificationList] = {
+    partial_unification(l, A) match {
+      case None => None
+      case Some(_) => reduced(l, A) match {
+      	case Some(halt) => Some(halt)
+        case None => {
+          val last_two = (A(A.length - 2), A(A.length - 1))
+          val (SignatureList(s, m1mj), _M) = last_two
+          Some((A filterNot (sig => sig == SignatureList(s, m1mj) || sig == _M)) :+ _M)
+        }
+      }
+    }
+  }
+  /* A partial uniﬁcation is an ordered pair (A, B) of partial-uniﬁcation
    * lists.
    * 4In the following preﬁx-uniﬁcation algorithm a set X of partial uniﬁcations is maintained. X changes as the algorithm proceeds. If X becomes
    * empty, then the algorithm has shown that no uniﬁcation exists and it
