@@ -96,11 +96,11 @@ object basicforms {
    * signatures S = SF ∪ ST ⊂ (C ∪ {F, T, V })∗, and a set R consisting of the
    * following production rules:
    */
-  sealed abstract class FTV
-  object F extends FTV
-  object T extends FTV
-  object V extends FTV
-  type Signature = List[Either[CSym, FTV]]
+  sealed abstract class NonTerminal
+  object F extends NonTerminal
+  object T extends NonTerminal
+  object V extends NonTerminal
+  type Signature = List[Either[CSym, NonTerminal]]
   class UBGParser(l: Language) extends RegexParsers {
 
     /**
@@ -159,7 +159,7 @@ object basicforms {
         case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
       }
     }
-    def sig1Parser(s1: Either[CSym, FTV]): Parser[Form] = s1 match {
+    def sig1Parser(s1: Either[CSym, NonTerminal]): Parser[Form] = s1 match {
       case Left(c) => regex(c.syntax) ^^ { case c => Const(Symbol(c)) }
       case Right(F) => formula
       case Right(T) => term
@@ -249,14 +249,17 @@ object basicforms {
     }
   }
 
-  /* In [3], Morse obtained conditions on an arbitrary set of signatures
+  /**
+   * In [3], Morse obtained conditions on an arbitrary set of signatures
    * suﬃcient to guarantee that the resulting language would have these two
    * properties.2 We seek conditions which are necessary as well as suﬃcient.
    * 5 Conditions on the Set of Signatures
    * We have that all signatures begin with some constant. Conversely we
    * deﬁne an introductor as a constant that occurs as the initial symbol of
-   * some signature.*/
-  def introductor(c: CSym, l: Language) = l.signatures exists ( _.head == Left(c) )
+   * some signature.
+   */
+  def introductor(c: CSym, l: Language) = l.signatures exists (_.head == Left(c))
+
   /* The following two conditions were considered by Morse:
    * 1. No signature may be the initial segment of some other signature, nor
    * is this allowed if the V ’s in the signatures are changed to T’s.
@@ -269,25 +272,44 @@ object basicforms {
    * out some rather standard usages such as that of parentheses in the power
    * set notation P(X) where, because it is an introductor, the left parenthesis
    * is disallowed from the position it occupies in this notation. More in spirit
+   * 
    * 2Morse’s constraints are given on pages 154-155 of [4] and pages 113-114 of [3]. The
    * suﬃciency of these constraints is shown in [5].
-   * 3with the rest of Morse’s work would be the determination of conditions
+   * 3
+   * 
+   * with the rest of Morse’s work would be the determination of conditions
    * only as strong as necessary.
    * Given two signatures b and c, we seek to determine whether there
    * are f1, . . . , fn and g1, . . . , gm so that b(f1, . . . , fn) is an initial segment
    * of c(g1, . . . , gm). If so we say that b preﬁx-uniﬁes with c. Almost by
    * deﬁnition then we have the following theorem.
+   * 
    * Theorem If no signature preﬁx-uniﬁes with another signature then the
    * resulting language is unambiguous and preﬁx-free.
+   * 
    * The value of the preﬁx-uniﬁcation concept depends on its eﬀective
    * determinacy.
    * 6 Preﬁx-Uniﬁcation Algorithm
    * We begin by deﬁning concepts that are used in the algorithm.
    * For any expression s of length n, we use s[k] to denote the k-th symbol
    * of s, where 1 ≤ k ≤ n.
+   */
+
+  /**
    * A signature-list is a list [b, m1, . . . , mk] whose ﬁrst element is a signature and such that if the length of b is n there are k additional entries in
    * the list where 1 ≤ k ≤ n. If k = n, we say the signature-list is complete;
    * otherwise it is incomplete.
+   */
+  case class SignatureList(b: Signature, m1mk: List[Either[SignatureList, Either[CSym, NonTerminal]]])
+  def with_siglist[T](s: SignatureList)(f: (Boolean, Signature, List[Either[SignatureList, Either[CSym, NonTerminal]]]) => Option[T]) = s match {
+    case SignatureList(b, m1mk) if b.length <= m1mk.length => {
+      val complete = b.length == m1mk.length
+      f(complete, b, m1mk)
+    }
+    case _ => None
+  }
+  
+  /**
    * We recursively deﬁne a signature match as a signature-list
    * [b, m1, . . . , mk], where for each i ∈ {1, . . . , k}:
    * 1. if b[i] = V or b[i] ∈ C then mi is b[i],
@@ -296,7 +318,54 @@ object basicforms {
    * list, and
    * 3. if b[i] = F then mi is either F or a signature match that is a complete
    * signature-list with a formula signature as the ﬁrst item of the list.
-   * A complete signature match is a signature match that is a complete
+   */
+  def signature_match(l: Language, bm1mk: SignatureList): Boolean = {
+    with_signature_match(l, bm1mk) { bm1mk => Some(true) } match {
+      case Some(x) => x
+      case None => false
+    }
+  }
+  /* TODO: consider moving signature_match etc. to methods on Language */
+
+  def with_signature_match[T](l: Language, bm1mk: SignatureList)(f: SignatureList => Option[T]): Option[T] = {
+
+    def match_with_first_in(mi: SignatureList,
+      target: Set[Signature]): Option[Boolean] = with_siglist(mi) { (complete, mi_first, rest) =>
+      if (complete) {
+        with_signature_match(l, SignatureList(mi_first, rest)) { mi_first_match =>
+          if (target.contains(mi_first)) { Some(true) } else { None }
+        }
+      } else { None }
+    }
+
+    def each_i(bi: Either[CSym, NonTerminal], mi: Either[SignatureList, Either[CSym, NonTerminal]]): Option[Boolean] = bi match {
+      case Right(V) => mi match {
+        case Right(Right(V)) => Some(true)
+        case _ => Some(false)
+      }
+      case Left(bc) => mi match {
+        case Right(Left(mic)) => Some(bc == mic)
+        case _ => Some(false)
+      }
+      case Right(T) => mi match {
+        case Right(Right(V)) | Right(Right(T)) => Some(true)
+        case Right(_) => Some(false)
+        case Left(misl) => match_with_first_in(misl, l.termSignatures)
+      }
+      case Right(F) => mi match {
+        case Right(Right(F)) => Some(true)
+        case Right(_) => Some(false)
+        case Left(misl) => match_with_first_in(misl, l.formulaSignatures)
+      }
+    }
+
+    with_siglist(bm1mk) { (complete, b, m1mk) =>
+      val allok = (b zip m1mk) forall { case (bi, mi) => each_i(bi, mi) getOrElse false }
+      if (allok) { f(bm1mk) } else { None }
+    }
+  }
+
+  /* A complete signature match is a signature match that is a complete
    * signature-list. An incomplete signature match is a signature match that
    * is an incomplete signature-list.
    * A partial-uniﬁcation list is a list of signature matches each of which,
