@@ -606,9 +606,11 @@ object basicforms {
     }
     repeat(X, Set())
   }
+
   /* Clearly this algorithm terminates only under favorable conditions. We
    * seek enhancements to this algorithm, checking for repeated states, which
    * will allow more partial uniﬁcations to be discarded.
+   * 
    * 7 Bound Variables
    * Bound variables cause a problem in creating context free grammars for
    * Morse languages because Morse’s rules require that all the bound variables
@@ -619,22 +621,13 @@ object basicforms {
    * variables used in a strict ﬁrst order language occur in quantiﬁcation and
    * these have single not multiple occurrences. Nonetheless to illustrate the
    * point suppose the following expression is used as a deﬁniendum for a triple
-   * sum: ‘Px, y, z ∈ A x B x Cu
-   * 00xyz’ In this expression ‘x’, ‘y’, and ‘z’ are
+   * sum: ‘SIGMA x, y, z ∈ A x B x Cu'' xyz’ In this expression ‘x’, ‘y’, and ‘z’ are
    * bound. So according to Morse’s treatment the expressions
-   * • ‘
-   * Pt, t, z ∈ AxB x Cu
-   * 00ttz’
-   * • ‘
-   * Pt, y, t ∈ AxB x Cu
-   * 00tyt’
-   * • ‘
-   * Px, t, t ∈ AxB x Cu
-   * 00xtt’
-   * • ‘
-   * Pt, t, t ∈ AxB x Cu
-   * 00ttt’
-   * cannot be deﬁned, whereas if ‘PV, V, V ∈ T x T x T T’ is the signature
+   * • ‘SIGMA t, t, z ∈ AxB x Cu''ttz’
+   * • ‘SIGMA t, y, t ∈ AxB x Cu''tyt’
+   * • ‘SIGMA x, t, t ∈ AxB x Cu''xtt’
+   * • ‘SIGMAt, t, t ∈ AxB x Cu''ttt’
+   * cannot be deﬁned, whereas if ‘SIGMA V, V, V ∈ T x T x T T’ is the signature
    * corresponding to the original triple sum deﬁniendum then these other
    * expressions must be deﬁned since each occurrence of V is replaced independently in a context-free grammar. We resolve this diﬃculty by requiring that these additional forms receive deﬁnitions.3 Because of the
    * way that bound variable replacement is deﬁned these additional forms
