@@ -78,6 +78,7 @@ object __builtin__ {
     def readline(): String
     def readlines(): Vector[String]
     def write(s: String): Unit
+    def flush(): Unit
     def close()
   }
 
@@ -98,7 +99,8 @@ object __builtin__ {
     }
 
     def write(s: String) = TODO
-
+    def flush() = TODO
+    
     override def iterator(): Iterator[String] = new LinesIterator(fp.readLine())
     class LinesIterator(var line: String) extends Iterator[String] {
       override def hasNext = line != null

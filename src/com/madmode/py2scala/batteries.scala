@@ -126,6 +126,9 @@ object batteries {
 
   }
 
+  object sys {
+    def stdout: b.File = TODO
+  }
   object tokenize {
     type Token = (Int, String, (Int, Int), (Int, Int), String)
     def generate_tokens(readline: (() => String)): Stream[Token] = TODO
@@ -136,7 +139,5 @@ object batteries {
     }
     import TokenType._
   }
-
-  object sys {}
 
 }
