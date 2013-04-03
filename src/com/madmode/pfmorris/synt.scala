@@ -2612,21 +2612,23 @@ object synt {
       }
     return List(fetched_tf, linetail(0), parsetree(0))
     }
+  @@*/
   
-  def getline(linetail: Any, verbose: Any = False): Any = {
+  case class LineTail(var tail: String, ix: Int, var line_num: Int, all: List[String])
+  def getline(linetail: LineTail, verbose: Boolean = False): String = {
     // linetail = [tail of first line, index into tail, line number, list of all lines] 
-    if (linetail(2) == len(linetail(3))) {
-      linetail(0) = ""
-      return linetail(0)
+    if (linetail.line_num == len(linetail.all)) {
+      linetail.tail = ""
+      return linetail.tail
       }
-    linetail(0) = linetail(3)(linetail(2))
+    linetail.tail = linetail.all(linetail.line_num)
     // line_num
-    linetail(2) = (linetail(2) + 1)
-    if (verbose && (linetail(2) % 100) == 0) {
-      print((linetail(2) / 100))
+    linetail.line_num = (linetail.line_num + 1)
+    if (verbose && (linetail.line_num % 100) == 0) {
+      print((linetail.line_num / 100))
       sys.stdout.flush()
       }
-    return linetail(0)
+    return linetail.tail
     }
   
   def varlist(pexp: Any): Any = {
@@ -2655,6 +2657,7 @@ object synt {
       }
     }
   
+  /*@@
   def norepeat_varlist(pexp: Any): Any = {
     if (type(pexp) == str) {
       if (List(10, 11, 12, 13).contains(symtype(pexp))) {
