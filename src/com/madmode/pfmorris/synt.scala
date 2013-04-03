@@ -1,8 +1,8 @@
 package com.madmode.pfmorris
 
 import com.madmode.py2scala.batteries._
-
 import com.madmode.py2scala.__builtin__._
+import scala.collection.mutable
 
 object synt {
 
@@ -16,74 +16,61 @@ object synt {
   // Each parse begins with a header.  Each header begins with a 
   // tag which is one of the following numbers.
   sealed abstract class Parse {
-    def header: Header
-  }
-  sealed abstract class Header {
-    def tag: Tag
-  }
-  sealed abstract class Tag {
-    def id: Int
-  }
-  // Tags which appear only at the top level of a complete parse:
-  //
-  //  1. Term Definor                 16. Left Parenthesis        
-  //  2. Formula Definor              17. Introductor      
-  //  3. Connector                    18. Decimal Numeration
-  //  4.                              19. Left Scope Bracket 
-  //  5. Unrecognized constant        20. Right Scope Bracket   
-  //  6. Right Parenthesis            21. Colon 
-  //  7. Other known constant         22. Semi-colon
-  //  8. Term Seeking Notarian        23. Ignore Token  (Not parsed)
-  //  9. Formula Seeking Notarian 
-  // 10. Variable
-  // 11. Sentence variable, 0-ary schemator
-  // 12. Function symbol, n-ary schemator n > 0
-  // 13. Predicate symbol, n-ary schemator n > 0
-  // 14. Noun             (Length 1 constant term) 
-  // 15. Boolean Constant (Length 1 constant formula)
-  case class TopComplete(id: Int) extends Tag
-  //
-  // Tags which may appear at any level of a complete parse:
-  //
-  //  40. Term       (Not length 1) 
-  //  41. Formula    (Not length 1) 
-  //  42. Schematic Term        
-  //  43. Schematic Formula    (Not zero-ary) 
-  //  44. Parade Term
-  //  45. Parade Formula
-  //  47. Newly  Defined Form
-  //  48. Scope 
-  //  49. Undefined Expression (2nd level only)  
-  //  50. Undefined Parade (3rd level only)  
-  //  51. New  Definition
-  case class AnyComplete(id: Int) extends Tag
-  // 
-  // Tags which may appear only at the beginning of an incomplete parse:
-  //
-  // -1. Non-Parenthetical Expression  -7. Formula Quantifying Form
-  // -2. Parenthetical Expression      -8. Scope     
-  // -3. Undefined Expression          -9. Parade
-  // -4. Schematic Term               -10. 
-  // -5. Schematic Formula            -11. New Definition     
-  // -6. Term Quantifying Form        -12. Undefined Parade 
-  //
-  //###############################################################
-  //
-  case class BeginIncomplete(id: Int) extends Tag
-  case class NoTag() extends Tag {
-    def id = 0
+    def complete: Boolean
   }
 
-  implicit def toTag(id: Int): Tag = {
-    id match {
-      case 0 => NoTag()
-      case _ if (id >= 1 && id <= 23) => TopComplete(id)
-      case _ if (id >= 40 && id <= 51) => AnyComplete(id)
-      case _ if (id < 0 && id >= -12) => BeginIncomplete(id)
-      case _ => throw new IllegalArgumentException
-    }
+  object Tag extends Enumeration {
+    def topLevel(tag: Tag) = tag >= t1 && tag <= t23
+    def complete(tag: Tag) = tag >= t1 && tag <= t51
+    def incomplete(tag: Tag) = tag <= tm1
+
+    type Tag = Value
+
+    val // Tags which may appear only at the beginning of an incomplete parse:
+    //
+    // -1. Non-Parenthetical Expression  -7. Formula Quantifying Form
+    // -2. Parenthetical Expression      -8. Scope     
+    // -3. Undefined Expression          -9. Parade
+    // -4. Schematic Term               -10. 
+    // -5. Schematic Formula            -11. New Definition     
+    // -6. Term Quantifying Form        -12. Undefined Parade 
+    tm12, tm11, tm9, tm8, tm7, tm6, tm5, tm4, tm3, tm2, tm1, // Tags which appear only at the top level of a complete parse:
+    //
+    //  1. Term Definor                 16. Left Parenthesis        
+    //  2. Formula Definor              17. Introductor      
+    //  3. Connector                    18. Decimal Numeration
+    //  4.                              19. Left Scope Bracket 
+    //  5. Unrecognized constant        20. Right Scope Bracket   
+    //  6. Right Parenthesis            21. Colon 
+    //  7. Other known constant         22. Semi-colon
+    //  8. Term Seeking Notarian        23. Ignore Token  (Not parsed)
+    //  9. Formula Seeking Notarian 
+    // 10. Variable
+    // 11. Sentence variable, 0-ary schemator
+    // 12. Function symbol, n-ary schemator n > 0
+    // 13. Predicate symbol, n-ary schemator n > 0
+    // 14. Noun             (Length 1 constant term) 
+    // 15. Boolean Constant (Length 1 constant formula)
+    t1, t2, t3, t5, t6, t7, t8, t9, t10, t11, t12, t13, t14, t15, t16, t17, t18, t19, t20, t21, t22, t23, //
+    // Tags which may appear at any level of a complete parse:
+    //
+    //  40. Term       (Not length 1) 
+    //  41. Formula    (Not length 1) 
+    //  42. Schematic Term        
+    //  43. Schematic Formula    (Not zero-ary) 
+    //  44. Parade Term
+    //  45. Parade Formula
+    //  47. Newly  Defined Form
+    //  48. Scope 
+    //  49. Undefined Expression (2nd level only)  
+    //  50. Undefined Parade (3rd level only)  
+    //  51. New  Definition
+    t40, t41, t42, t43, t44, t45, t46, t47, t48, t49, t50, t51 = Value
+
+    //###############################################################
   }
-  implicit def test_tag(t: Tag): Boolean = t.id != 0
+  import Tag._
+  implicit def test_tag_opt(tag_opt: Option[Tag]): Boolean = !tag_opt.isEmpty
 
   //@@import sys
   //@@import re
@@ -146,29 +133,29 @@ object synt {
     val precedence: PRECED = new Dict()
     val defs: DEFS = new Dict()
     val arity: ARITY = new Dict()
-    td("""\dft""") = 1
-    td("""\dff""") = 2
-    td(")") = 6
-    td("(") = 16
-    td("""\ls""") = 19
-    td("""\rs""") = 20
-    td(":") = 21
-    td(";") = 22
-    td("""\}""") = 7
-    td("""\false""") = 15
-    td("""\true""") = 15
-    td("""\Nul""") = 14
-    td("0") = 14
-    td("1") = 14
-    td("2") = 14
-    td("3") = 14
-    td("4") = 14
-    td("5") = 14
-    td("6") = 14
-    td("7") = 14
-    td("8") = 14
-    td("9") = 14
-    td("""\ten""") = 14
+    td("""\dft""") = t1
+    td("""\dff""") = t2
+    td(")") = t6
+    td("(") = t16
+    td("""\ls""") = t19
+    td("""\rs""") = t20
+    td(":") = t21
+    td(";") = t22
+    td("""\}""") = t7
+    td("""\false""") = t15
+    td("""\true""") = t15
+    td("""\Nul""") = t14
+    td("0") = t14
+    td("1") = t14
+    td("2") = t14
+    td("3") = t14
+    td("4") = t14
+    td("5") = t14
+    td("6") = t14
+    td("7") = t14
+    td("8") = t14
+    td("9") = t14
+    td("""\ten""") = t14
     //##############################
     //  
     //   Connector Symbols
@@ -195,11 +182,11 @@ object synt {
       val plist = x._2
       for (s <- plist) {
         precedence(s) = prec
-        td(s) = 3
+        td(s) = t3
       }
     }
-    td("""\ident""") = 1
-    td("""\Iff""") = 2
+    td("""\ident""") = t1
+    td("""\Iff""") = t2
     precedence("""\dff""") = 4
     precedence("""\dft""") = 6
     //######################################################
@@ -244,47 +231,36 @@ object synt {
     }
   }
 
-  def symtype(token: String): Tag = {
+  def symtype(token: String): Option[Tag] = {
     val td = mathdb.MD_SYMTYPE
     val arity = mathdb.MD_ARITY
     assert(token != null)
-    var retval = td.get(token, 0)
-    if (retval) {
-      return retval
-    } else {
-      if (pattern.ignore_token.match_(token)) {
-        td(token) = 23
-        return 23
-      }
-      if (pattern.TeX_leftdelimiter.match_(token)) {
-        return 6
-      }
-      if (pattern.TeX_rightdelimiter.match_(token)) {
-        return 16
-      }
-      val b = validschemator(token)
-      b match {
-        case Right(b) => {
-          td(token) = b._1
-          arity(token) = b._2
-          retval = b._1
-        }
-        case _ => {
-          if (validvar(token)) {
-            td(token) = 10
-            val retval = 10
-          } else {
-            if (validnum(token)) {
-              td(token) = 18
-              val retval = 18
+    def save(t: Tag) = { td(token) = t; Some(t) }
+    val retval = td.get(token)
+    retval match {
+      case Some(_) => retval
+      case None => token match {
+        case pattern.ignore_token => save(t23)
+        case pattern.TeX_leftdelimiter => Some(t6)
+        case pattern.TeX_rightdelimiter => Some(t16)
+        case _ => validschemator(token) match {
+          case Right((t, a)) => {
+            arity(token) = a
+            save(t)
+          }
+          case _ => {
+            if (validvar(token)) {
+              save(t10)
             } else {
-              td(token) = 5
-              val retval = 5
+              if (validnum(token)) {
+                save(t18)
+              } else {
+                save(t5)
+              }
             }
           }
         }
       }
-      return retval
     }
   }
 
@@ -292,18 +268,18 @@ object synt {
   implicit def test_either(x: SchematorInfo): Boolean = x.isRight
 
   def validschemator(token: String): SchematorInfo = {
-    implicit def win(tag_arity: (Int, Int)) = Right((toTag(tag_arity._1), tag_arity._2))
+    implicit def win(tag_arity: (Tag, Int)) = Right((tag_arity._1, tag_arity._2))
     implicit def lose(x: Int) = Left(x)
     val schemm = pattern.newschem.match_(token)
     if (schemm) {
       val arity = int(schemm.group(1))
       if (token(1) == 'w') {
-        return (12, arity)
+        return (t12, arity)
       } else {
         if (arity == 0) {
-          return (11, arity)
+          return (t11, arity)
         } else {
-          return (13, arity)
+          return (t13, arity)
         }
       }
     }
@@ -312,14 +288,14 @@ object synt {
       val arity = (len(genschemm.group(2)) + 1)
       val sym2 = genschemm.group(1)(0)
       if (List('p', 'q', 'r').contains(sym2)) {
-        return (13, arity)
+        return (t13, arity)
       } else {
-        return (12, arity)
+        return (t12, arity)
       }
     }
     val gensentm = pattern.gensent.match_(token)
     if (gensentm) {
-      return (11, 0)
+      return (t11, 0)
     }
     if (len(token) < 5) {
       return 0
@@ -340,14 +316,14 @@ object synt {
       if (!List('p', 'q', 'r', 's', 't').contains(token(2))) {
         return 0
       }
-      return (11, 0)
+      return (t11, 0)
     }
     if (token.substring(3, 5) != "ar") {
       return 0
     }
     if (token(2) == 'v') {
       if (List('o', 'p', 'q', 'r', 's', 't').contains(token(1)) && len(token) == 5) {
-        return (11, 0)
+        return (t11, 0)
       } else {
         return 0
       }
@@ -363,9 +339,9 @@ object synt {
     val lt = len(tail)
     if (tail.count(_ == 'p') == lt) {
       if (List('p', 'q', 'r').contains(token(1))) {
-        return (13, (1 + lt))
+        return (t13, (1 + lt))
       } else {
-        return (12, (1 + lt))
+        return (t12, (1 + lt))
       }
     } else {
       return 0
@@ -422,22 +398,8 @@ object synt {
   }
 
   // A basic form is either a basic term or a basic formula.
-  case class IncompleteParse(header: Header, children: List[Parse]) extends Parse
-  sealed abstract class BasicForm extends Parse
-  sealed abstract class BasicTerm extends BasicForm {
-    def header = TODO
-  }
-  sealed abstract class BasicFormula extends BasicForm
-  
- 
-  case class Constant(s: String) extends BasicTerm
-  implicit def asConstant(c: Char): Constant = Constant(new String(c))
-  implicit def asConstant(s: String): Constant = Constant(s)
-  case class Noun(tag: Tag, s: String) extends BasicTerm
-  case class Term(tag: Tag, args: List[BasicTerm]) extends BasicTerm
-  case class SchematicTerm(tag: Tag, arity: Int) extends BasicTerm
-  case class ParadeTerm(tag: Tag, prec: Int, args: List[BasicTerm]) extends BasicTerm
-  
+  import basicforms.{ Form => BasicForm, Term => BasicTerm, Formula, SigTerm, Const }
+
   def tokenparse(token: String): BasicForm = TODO /*{
     //
     val precedence = mathdb.MD_PRECED
@@ -478,36 +440,41 @@ object synt {
     }
   }*/
 
+  class ParadeTerm(prec: Int, args: BasicTerm*) extends SigTerm(args toList)
+
   def decimalparse(token: String): BasicTerm = {
     val precedence = mathdb.MD_PRECED
     val n = len(token)
+
+    def noun(s: String) = Const(Symbol(s))
+    implicit def as_term(sym: String): BasicTerm = Const(Symbol(sym))
+
     if (n == 1) {
-      Noun(14, token)
-      } else {
-    def recur(k: Int): BasicTerm = {
-      ParadeTerm(44, precedence('+'),
-          List(ParadeTerm(44, precedence("""\cdot"""),
-              List(if (k == 1) { token(0) } else { recur(k - 1) },
-              """\cdot""", """\ten""")),
+      noun(token)
+    } else {
+      def recur(k: Int): BasicTerm = {
+        val tens: BasicTerm = if (k == 1) { token.slice(0, 1) } else { recur(k - 1) }
+        new ParadeTerm(precedence('+'),
+          new ParadeTerm(precedence("""\cdot"""),
+            tens, """\cdot""", """\ten"""),
           "+",
-          token(k)))
+          token.slice(k - 1, k))
       }
-    Term(toTag(40), List("(", recur(n), ")"))
+      SigTerm(List("(", recur(n), ")"))
+    }
   }
-    }
-  
+
   def addtoken(tree: Parse, token: String): Option[Parse] = {
-    if (symtype(token) == toTag(23)) {
-       Some(tree)
-      }
-     else {
-       //@@addnode(tree, tokenparse(token))
-       None
-      }
+    if (symtype(token) == Some(t23)) {
+      Some(tree)
+    } else {
+      //@@addnode(tree, tokenparse(token))
+      None
     }
-  
-  case class PendingParses(ts: List[IncompleteParse]) extends Parse {
-    def header = TODO
+  }
+
+  case class PendingParses(ts: List[Parse]) extends Parse {
+    def complete = TODO
   }
   def addnode(tree: PendingParses, item: BasicForm): Option[Parse] = {
     None // @@
@@ -803,8 +770,8 @@ object synt {
       }
     node(0)(0) = newvalue
     */
-    }
-  
+  }
+
   def nodecheck(item: Any): Option[BasicForm] = {
     None //@@
     /*
@@ -1111,8 +1078,8 @@ object synt {
       }
     return 0
     */
-    }
-  
+  }
+
   /*@@
   def deflistupdate(item: Any): Any = {
     val deflist = item(0)(1)
@@ -1941,7 +1908,19 @@ object synt {
         }
       }
     }
-  
+  */
+
+  object ModeNum extends Enumeration {
+    type ModeCode = Value
+    val m1, // text
+    m2, // math
+    m3, // margin
+    m4, // error
+    m5 /* end */ = Value
+  }
+  import ModeNum._
+
+  /*
   def intext(mode: Any, linetail: Any, outfragments: Any = None): Any = {
     val TeXdollars = pattern.TeXdollar.search(linetail(0))
     val Noparsem = pattern.Noparse.search(linetail(0))
@@ -1993,7 +1972,7 @@ object synt {
     return
     }
   @@*/
-  
+
   def process_directive(comment_line: String, hereditary_only: Boolean = True): Tag = TODO /*{
     val directivem = pattern.directive.match_(comment_line)
     if (! directivem) {
@@ -2107,9 +2086,8 @@ object synt {
       }
     return 0
     }    @@* */
-  
-  /*@@
-  def mathmargin(mode: Any, linetail: Any, outfragments: Any = None): Any = {
+
+  def mathmargin(mode: mutable.Seq[ModeCode], linetail: LineTail, outfragments: Option[Any] = None): Any = TODO /*{
     val newlinetail = linetail(0).lstrip()
     val trimlen = (len(linetail(0)) - len(newlinetail))
     if (trimlen) {
@@ -2165,9 +2143,9 @@ object synt {
         }
       }
     return
-    }
-  
-  def notemargin(mode: Any, linetail: Any): Any = {
+    }@@*/
+
+  def notemargin(mode: mutable.Seq[ModeCode], linetail: LineTail): Unit = TODO /*@@{
     if (! linetail(0)) {
       return
       }
@@ -2229,29 +2207,31 @@ object synt {
     mathparse(mode, linetail, parsetree)
     return parsetree(0)
     }
-  
-  def mathparse(mode: Any, linetail: Any, tree: Any, outfragments: Any = None, pfcdict: Any = None): Any = {
-    if (len(linetail) == 1) {
-      val currentpos = 0
+  */
+
+  def mathparse(mode: mutable.Seq[ModeCode], linetail: LineTail, tree: Any, outfragments: Any = None,
+    pfcdict: Dict[String, String] = null): Unit = TODO /*{
+    val currentpos = if (linetail.all == null) {
+       0
       }
      else {
-      val currentpos = linetail(1)
+      linetail.ix
       }
-    if (mode(0) == 4) {
+    if (mode(0) == m4) {
       return
       }
-    val currentline = linetail(0)
+    val currentline = linetail.tail
     val lenline = len(currentline)
-    val blanklinem = pattern.blankline.match(currentline, currentpos)
+    val blanklinem = pattern.blankline.match_(currentline, currentpos)
     if (blanklinem) {
       // If the parse is done
       if (tree(0)(0)(0) > 0) {
         // Change to text mode
-        mode(0) = 1
+        mode(0) = m1
         }
        else {
         // Change to Margin mode
-        mode(0) = 3
+        mode(0) = m3
         }
       val currentpos = blanklinem.end(2)
       if (type(outfragments) == list) {
@@ -2351,7 +2331,9 @@ object synt {
       }
     return
     }
-  
+  */
+
+  /*
   def refparse(ref: Any): Any = {
     val reflast = False
     val reflist = List()
@@ -2572,65 +2554,68 @@ object synt {
       }
     return retlist
     }
-  
-  def getformula(linetail: Any, verbose: Any = True): Any = {
-    val mode = List(2)
+  */
+
+  def getformula(linetail: LineTail, verbose: Boolean = True): Any = {
+    val mode = mutable.ArraySeq() :+ m2
     val parsetree = List()
-    val fetched_tf = ""
-    while (linetail(0) && mode(0) == 2 || mode(0) == 3) {
+    var fetched_tf = ""
+    var stuff = ""
+    while (linetail.tail && mode(0) == m2 || mode(0) == m3) {
       if (mode(0) == 2) {
-        val TeXdollars = pattern.TeXdollar.search(linetail(0))
+        val TeXdollars = pattern.TeXdollar.search(linetail.tail)
         if (TeXdollars) {
-          val stuff = linetail(0).substring(0, TeXdollars.start(1))
-          }
-         else {
-          val stuff = linetail(0).strip()
-          }
-        val fetched_tf = ((fetched_tf + ' ') + stuff)
+          stuff = linetail.tail.substring(0, TeXdollars.start(1))
+        } else {
+          stuff = linetail.tail.strip()
+        }
+        fetched_tf = ((fetched_tf + ' ') + stuff)
         mathparse(mode, linetail, parsetree)
-        }
-       else if (mode(0) == 3) {
+      } else if (mode(0) == m3) {
         mathmargin(mode, linetail)
-        }
-      if (! linetail(0)) {
+      }
+      if (!linetail.tail) {
         getline(linetail, verbose)
-        while (linetail(0)(0) == '%') {
+        while (linetail.tail(0) == '%') {
           getline(linetail, verbose)
-          }
         }
       }
-    if (mode(0) == 4) {
+    }
+    if (mode(0) == m4) {
       return List()
-      }
-    if (mode(0) == 5) {
+    }
+    if (mode(0) == m5) {
       println("Error: At most one term or formula allowed.")
       return List()
-      }
-    val catch = parsetree(0)(0)(0)
+    }
+    TODO /*@@
+     val catch_ = parsetree(0)(0)(0)
     if (List(10, 11).contains(parsetree(0)(0)(0))) {
       return List(fetched_tf, linetail(0), parsetree(0)(1))
       }
     return List(fetched_tf, linetail(0), parsetree(0))
-    }
-  @@*/
-  
+    * 
+    */
+  }
+
   case class LineTail(var tail: String, ix: Int, var line_num: Int, all: List[String])
   def getline(linetail: LineTail, verbose: Boolean = False): String = {
     // linetail = [tail of first line, index into tail, line number, list of all lines] 
     if (linetail.line_num == len(linetail.all)) {
       linetail.tail = ""
       return linetail.tail
-      }
+    }
     linetail.tail = linetail.all(linetail.line_num)
     // line_num
     linetail.line_num = (linetail.line_num + 1)
     if (verbose && (linetail.line_num % 100) == 0) {
       print((linetail.line_num / 100))
       sys.stdout.flush()
-      }
-    return linetail.tail
     }
-  
+    return linetail.tail
+  }
+
+  /*@@
   def varlist(pexp: Any): Any = {
     if (type(pexp) == str) {
       if (List(10, 11, 12, 13).contains(symtype(pexp))) {
@@ -2657,7 +2642,6 @@ object synt {
       }
     }
   
-  /*@@
   def norepeat_varlist(pexp: Any): Any = {
     if (type(pexp) == str) {
       if (List(10, 11, 12, 13).contains(symtype(pexp))) {
@@ -3251,7 +3235,7 @@ object synt {
       }
     return retlist
     }*/
-  
+
   /*@@
   def indvsubst(inlist: Any, outlist: Any, form: Any): Any = {
     // It is expected that outlist = indvlist(form)
