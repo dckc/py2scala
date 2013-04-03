@@ -1,5 +1,6 @@
 package com.madmode.py2scala
 
+
 /**
  * batteries -- python standard library
  */
@@ -86,28 +87,48 @@ object batteries {
   }
 
   object re {
-    import scala.util.matching.Regex
+    import scala.util.matching
     import java.util.regex.Matcher
 
     def compile(s: String): RegexObject = {
       new RegexObject(s)
     }
 
-    class RegexObject(regex: String) extends Regex(regex) {
+    class RegexObject(regex: String) extends matching.Regex(regex) {
       def match_(s: String): Match = {
         val m = this.pattern matcher s
         runMatcher(m)
-        new Match(m)
+        new JavaMatch(m)
+      }
+      def match_(s: String, offset: Int): Match = match_(s.drop(offset))
+      
+      def search(s: String): Match = {
+        new ScalaMatch(this.findFirstMatchIn(s))
       }
     }
 
-    class Match(impl: Matcher) {
+    trait Match {
+      def test(): Boolean
+      def group(i: Int): String
+      def start(i: Int): Int
+      def groups(): Seq[String]
+    }
+    implicit def test_matcher(m: Match): Boolean = m != null && m.test()
+
+    class JavaMatch(impl: Matcher) extends Match {
       def test() = impl.matches()
       def group(i: Int) = impl.group(i)
       def groups() = 1 to impl.groupCount map impl.group
     }
-    implicit def test_matcher(m: Match): Boolean = m.test()
 
+    class ScalaMatch(impl: Option[matching.Regex.Match]) extends Match {
+      def test() = !impl.isEmpty
+      def group(i: Int) = impl.get.group(i)
+      def groups() = {
+        val m = impl.get
+        1 to m.groupCount map m.group
+      }
+    }
   }
 
   object stat {
