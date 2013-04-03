@@ -13,7 +13,6 @@ import com.madmode.py2scala.__builtin__._
  */
 object parse {
 
-  import batteries.sys
   import batteries.pickle
   import batteries.os
   import getpath.{ getpath }
@@ -114,17 +113,18 @@ object parse {
       }
     }
 
-    throw new Exception("TODO@@")
-    /*@@@@@@@@@@@@@@@@@
-  val proppathname = getpath(syntdb(synt.MD_PFILE))
+
+  val proppathname = getpath(syntdb.MD_PFILE)
   if (! proppathname) {
-    println("Can't find" + syntdb(synt.MD_PFILE))
+    println("Can't find" + syntdb.MD_PFILE)
     throw new SystemExit()
     }
   if (dfs_mtime != -1 && os.stat(proppathname)(ST_MTIME) > dfs_mtime) {
     val getprops = True
-    println("Warning: Properties file, " + syntdb(synt.MD_PFILE) + "has changed!")
+    println("Warning: Properties file, " + syntdb.MD_PFILE + "has changed!")
     }
+      throw new Exception("TODO@@")
+    /*@@@@@@@@@@@@@@@@@
   if (getprops) {
     synt.mathdb = synt.readprops(proppathname, synt.mathdb)
     }
