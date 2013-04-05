@@ -43,9 +43,7 @@ object basicforms {
    * 1The elements of P ∪ U are also referred to as schemators. We further
    * assume that there is an arity function a : P ∪ U → N, which assigns a
    * natural number to each schemator. The arity of a schemator p may be
-   * zero only if p ∈ P and in this case p is called a sentence variable. A
-   * schemator of arity n followed by n object variables is called a schematic
-   * expression.
+   * zero only if p ∈ P and in this case p is called a sentence variable.
    */
   sealed abstract class TerminalSymbol {
     def syntax: Regex
@@ -74,21 +72,25 @@ object basicforms {
   }
 
   sealed abstract class Form {
-	  def schematic_expression(): Option[(Boolean, List[Var])] = { 
-	    def testAll(args: List[Term]): Option[List[Var]] = args match {
-	      case Nil => Some(Nil)
-	      case t :: ts => t match {
-	        case v: Var => testAll(ts) map { rest => v :: rest }
-	        case _ => None
-	      }
-	    }
-	    
-        this match {
-          case Pred(_, args) => testAll(args) map { vs => (true, vs) }
-          case Fun(_, args) => testAll(args) map { vs => (false, vs) }
+    /**
+     * A schemator of arity n followed by n object variables is called a schematic
+     * expression.
+     */
+    def schematic_expression(): Option[(Boolean, List[Var])] = {
+      def testAll(args: List[Term]): Option[List[Var]] = args match {
+        case Nil => Some(Nil)
+        case t :: ts => t match {
+          case v: Var => testAll(ts) map { rest => v :: rest }
           case _ => None
         }
       }
+
+      this match {
+        case Pred(_, args) => testAll(args) map { vs => (true, vs) }
+        case Fun(_, args) => testAll(args) map { vs => (false, vs) }
+        case _ => None
+      }
+    }
   }
   sealed abstract class Formula extends Form
   case class SigFormula(fs: List[Form]) extends Formula
@@ -483,9 +485,9 @@ object basicforms {
           /* For each partial uniﬁcation (A, B) in X,
              */
           val nextY = for {
-              (a, b) <- X
-              more <- addToY(a, b)
-            } yield more
+            (a, b) <- X
+            more <- addToY(a, b)
+          } yield more
           repeat(nextX, nextY)
         }
       }
@@ -726,8 +728,9 @@ object basicforms {
    * rule the need for Morse’s rule A.9 disappears. The argument however is
    * important in that it justiﬁes all four of the rules stated in section 7.
    */
-  
-   /** 8 From Basic Forms to Signatures
+
+  /**
+   * 8 From Basic Forms to Signatures
    * In section 1 Morse’s syntax was described as a method of obtaining a
    * grammar from a set of deﬁnitions. In section 3 the process of deriving a
    * grammar from the set of signatures was described. We now describe how
@@ -736,7 +739,8 @@ object basicforms {
    * deﬁnienda. To these we add all primitive or undeﬁned terms and formulas.
    * The resulting set we call the set of basic forms.
    */
-  /** The indicial variables of a
+  /**
+   * The indicial variables of a
    * basic form are the variables occurring in some schematic expression of the
    * form.
    */
@@ -744,17 +748,17 @@ object basicforms {
     f.schematic_expression match {
       case Some((is_fmla, vs)) => vs
       case None => f match {
-      	case SigFormula(fs) => fs flatMap indical_variables
-      	case SigTerm(fs) => fs flatMap indical_variables
-      	case Pred(_, args) => args flatMap indical_variables
-      	case Fun(_, args) => args flatMap indical_variables
-      	case Var(_) | Const(_) => List()
+        case SigFormula(fs) => fs flatMap indical_variables
+        case SigTerm(fs) => fs flatMap indical_variables
+        case Pred(_, args) => args flatMap indical_variables
+        case Fun(_, args) => args flatMap indical_variables
+        case Var(_) | Const(_) => List()
       }
     }
   }
 
-  
-  /** To obtain the signature of a basic form we replace each schematic
+  /**
+   * To obtain the signature of a basic form we replace each schematic
    * expression by T or F depending on whether its initial symbol is in U or
    * P. Of the remaining variables the indicial variables are replaced by V and
    * the others by T. The result is the signature.
@@ -764,17 +768,17 @@ object basicforms {
     f.schematic_expression match {
       case Some((is_fmla, vs)) => List(Right(if (is_fmla) { T } else { F }))
       case None => f match {
-      	case SigFormula(fs) => fs flatMap toSignature
-      	case SigTerm(fs) => fs flatMap toSignature
-      	case Pred(_, args) => args flatMap toSignature
-      	case Fun(_, args) => args flatMap toSignature
-      	case v: Var => List(Right( if (ivs contains v) { V } else { T }))
-      	case Const(c) => List(Left(CSym(c)))
+        case SigFormula(fs) => fs flatMap toSignature
+        case SigTerm(fs) => fs flatMap toSignature
+        case Pred(_, args) => args flatMap toSignature
+        case Fun(_, args) => args flatMap toSignature
+        case v: Var => List(Right(if (ivs contains v) { V } else { T }))
+        case Const(c) => List(Left(CSym(c)))
       }
     }
   }
-  
-   /* 4See page 161 of [4] or page 119 or [3].
+
+  /* 4See page 161 of [4] or page 119 or [3].
    * 89 Conclusion
    * A.P. Morse devised rules for generating an essentially context-free dynamic mathematical language, permitting the language to expand, according to common practice, through the addition of deﬁnitions. In order
    * to obtain the unambiguity and preﬁx properties of such a language, Morse
