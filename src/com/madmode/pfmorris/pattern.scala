@@ -42,10 +42,10 @@ object pattern {
   val Noparse = compile(s)
   s = """(?<!\\)(%)"""
   val TeXcomment = compile(s)
+  // s = """(?<!\\)(\$+)"""
+  // var TeXdollar = compile(s)
   s = """(?<!\\)(\$+)"""
-  var TeXdollar = compile(s)
-  s = """(?<!\\)(\$+)"""
-  TeXdollar = compile(s)
+  val TeXdollar = compile(s)
   val blankline = compile("""(\s*)(\$+)""")
   val ref = compile("""\A((\d*)(\.\d+)+)([a-z]*)(.*)""")
   val outfileref = compile("""\A((\d+)(\.\d+)+)([a-z]+)(.*)""")
