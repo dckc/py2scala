@@ -49,7 +49,7 @@ object basicforms {
     def syntax: Regex
   }
   case class CSym(name: Symbol) extends TerminalSymbol {
-    def syntax = name.toString().r
+    def syntax = name.name.r
   }
   case class VSym(syntax: Regex, name: Symbol) extends TerminalSymbol
   sealed abstract class Schemator extends TerminalSymbol
@@ -129,12 +129,12 @@ object basicforms {
      *          nterms
      *          for each p ∈ P and where the arity of p is n
      */
-    def formula: Parser[Formula] = (formulaSignature
-      | p >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
+    def formula: Parser[Formula] = (log(formulaSignature)("formulaSignature")
+      | log(p)("p") >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
 
-    def p = pickSym { case ps: PSym => ps }
+    def p = pickSym({ case ps: PSym => ps }, "no pred")
 
-    def formulaSignature: Parser[Formula] = parseSigs(l.formulaSignatures) ^^ { case fs => SigFormula(fs) }
+    def formulaSignature: Parser[Formula] = parseSigs(l.formulaSignatures, "no formula sigs") ^^ { case fs => SigFormula(fs) }
 
     /**
      * 5. T → t, for each t ∈ ST
@@ -144,37 +144,37 @@ object basicforms {
      * 7. T → V
      * 8. V → v, for each v ∈ V
      */
-    def term: Parser[Term] = (termSignature
-      | u >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
-      | v)
-    def u: Parser[(Symbol, Int)] = pickSym { case ps: USym => ps }
-    def v = pickSym { case ps: VSym => ps } ^^ { case (s, _) => Var(s) }
-    def termSignature: Parser[Term] = parseSigs(l.formulaSignatures) ^^ { case fs => SigTerm(fs) }
+    def term: Parser[Term] = (log(termSignature)("termSignature")
+      | log(u)("u") >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
+      | log(v)("v"))
+    def u: Parser[(Symbol, Int)] = pickSym({ case ps: USym => ps }, "no u")
+    def v = pickSym({ case ps: VSym => ps }, "no variables in language's symbol set") ^^ { case (s, _) => Var(s) }
+    def termSignature: Parser[Term] = parseSigs(l.termSignatures, "no term sigs") ^^ { case fs => SigTerm(fs) }
 
-    def pickSym[T <: TerminalSymbol](pf: PartialFunction[TerminalSymbol, T]): Parser[(Symbol, Int)] = {
+    def pickSym[T <: TerminalSymbol](filter: PartialFunction[TerminalSymbol, T], msg: String): Parser[(Symbol, Int)] = {
       val parsers = for {
-        sym <- l.symbols collect pf
+        sym <- l.symbols collect filter
         a = l.a(sym)
         strparse = regex(sym.syntax)
       } yield (strparse ^^ { case s => (Symbol(s), a) })
 
-      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("no such symbols in the language"))
+      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure(msg))
     }
 
-    def parseSigs(sigs: Iterable[Signature]): Parser[List[Form]] = {
+    def parseSigs(sigs: Iterable[Signature], msg: String): Parser[List[Form]] = {
       val parsers = sigs map sigParser
-      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure("signatures in the langauge"))
+      parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure(msg))
 
     }
     def sigParser(sig: Signature): Parser[List[Form]] = {
       sig match {
         case Nil => failure("empty signature")
-        case x :: Nil => sig1Parser(x) ^^ { case f => List(f) }
-        case x :: ps => sig1Parser(x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
+        case x :: Nil => log(sig1Parser(x))("last sig:" + x) ^^ { case f => List(f) }
+        case x :: ps => log(sig1Parser(x))("nth sig:" + x) ~ sigParser(ps) ^^ { case f1 ~ fs => f1 :: fs }
       }
     }
     def sig1Parser(s1: SigItem): Parser[Form] = s1 match {
-      case Left(c) => regex(c.syntax) ^^ { case c => Const(Symbol(c)) }
+      case Left(c) => log(regex(c.syntax))("const: " + c.syntax) ^^ { case c => Const(Symbol(c)) }
       case Right(F) => formula
       case Right(T) => term
       case Right(V) => v
