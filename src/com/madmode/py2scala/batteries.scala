@@ -117,6 +117,7 @@ object batteries {
 
     class JavaMatch(impl: Matcher) extends Match {
       def test() = impl.matches()
+      def start(i: Int) = TODO
       def group(i: Int) = impl.group(i)
       def groups() = 1 to impl.groupCount map impl.group
     }
@@ -124,6 +125,7 @@ object batteries {
     class ScalaMatch(impl: Option[matching.Regex.Match]) extends Match {
       def test() = !impl.isEmpty
       def group(i: Int) = impl.get.group(i)
+      def start(i: Int) = TODO
       def groups() = {
         val m = impl.get
         1 to m.groupCount map m.group
@@ -141,6 +143,7 @@ object batteries {
       override def readline() = TODO
       override def readlines() = TODO
       override def write(s: String) = TODO
+      override def flush() = {}
       override def close() {}
       override def iterator() = TODO
     }
