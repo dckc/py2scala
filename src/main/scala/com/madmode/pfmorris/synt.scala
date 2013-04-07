@@ -4,17 +4,20 @@ import com.madmode.py2scala.batteries._
 import com.madmode.py2scala.__builtin__._
 import scala.collection.mutable
 
+/**
+ * ##############################################################
+ *
+ *            Code for various parsing applications including
+ *            code for parsing one term or formula
+ *
+ * *###############################################################
+ */
 object synt {
 
-  //###############################################################
-  //
-  //           Code for various parsing applications including
-  //           code for parsing one term or formula 
-  //
-  //###############################################################
-  //
-  // Each parse begins with a header.  Each header begins with a 
-  // tag which is one of the following numbers.
+  /**
+   * Each parse begins with a header.  Each header begins with a
+   * tag which is one of the following numbers.
+   */
   sealed abstract class Parse {
     def complete: Boolean
   }
@@ -77,10 +80,10 @@ object synt {
 
   //@@ import pattern
 
-  //
-  //
-  //  This database is loaded from the dfs file.  It is modified by parse and mathparse
-  //  but not by check.  It is initialized by resetdefs and resetprops.  
+  /**
+   * This database is loaded from the dfs file.  It is modified by parse and mathparse
+   *   but not by check.  It is initialized by resetdefs and resetprops.
+   */
   var mathdb: MD = null
   case class MD(MD_SYMTYPE: SYMTYPE, MD_PRECED: PRECED, MD_DEFS: DEFS,
     MD_ARITY: ARITY, MD_TROPS: TROPS, MD_TRMUL: TRMUL, MD_CAOPS: CAOPS,
@@ -348,40 +351,41 @@ object synt {
     }
   }
 
-  def validvar(token: String): Boolean = {
+  def validvar(token: String) = {
     if (token(0).isalpha()) {
-      return True
+      True
     } else {
       if (token(0) == '{') {
         val x = token.substring(1, -1).strip()
 
         if (x.isalpha()) {
-          return True
+          True
         } else {
           if (x(0) == '\\') {
             val y = x.find(' ')
             if (y == -1) {
-              return False
+              False
             } else {
               if (x.substring(1, y) == "cal" && x.substring(y).strip().isalpha()) {
-                return True
+                True
               } else {
-                return False
+                False
               }
             }
           } else {
-            return False
+            False
           }
         }
       } else {
         val tokenm = pattern.token.match_(token)
         if (allowed_variables.contains(tokenm.group(3))) {
-          return True
+          True
         }
-        return False
+        False
       }
     }
   }
+
   val allowed_variables = List("""\alpha""", """\beta""", """\gamma""",
     """\delta""", """\epsilon""", """\varepsilon""",
     """\zeta""", """\eta""", """\theta""", """\vartheta""",
@@ -398,7 +402,7 @@ object synt {
   }
 
   // A basic form is either a basic term or a basic formula.
-  import basicforms.{ Form => BasicForm, Term => BasicTerm, Formula, SigTerm, Const }
+  import basicforms.{ Form => BasicForm, SigFormula, Term => BasicTerm, Formula, SigTerm, Const, Var, Fun }
 
   def tokenparse(token: String): BasicForm = TODO /*{
     //
@@ -1101,29 +1105,45 @@ object synt {
     item(0)(1) = a
     return len(a)
     }
-  
-  def definitioncheck(item: Any): Any = {
-    val definiendum = item(1)
-    val definor = item(2)
-    val definiens = item(3)
+  */
+
+  def isTermDefinor(f: BasicForm) = f match {
+    case Const(txt, c) => symtype(c.name) == t1
+    case _ => false
+  }
+  def isTerm(f: BasicForm) = f match {
+    //10. Variable
+    case x: Var => true
+    // 14. Noun
+    case x: Const => true
+    // 40. Term
+    case x: SigTerm => true
+    // 42. Schematic Term
+    case x: Fun => true
+    case _ => false
+  }
+  def definitioncheck(item: SigFormula): Either[String, DEFS] = {
+    val definiendum = item.fs(0)
+    val definor = item.fs(1)
+    val definiens = item.fs(2)
     //	print definiendum, definor, definiens
-    if (definor(0)(0) == 1) {
+    if (isTermDefinor(definor)) {
       // A Term
-      if (! List(10, 14, 40, 42).contains(definiens(0)(0))) {
+      if (!List(10, 14, 40, 42).contains(definiens(0)(0))) {
         println("Error: Type mismatch, term expected")
         return 0
-        }
       }
-     else if (definor(0)(0) == 2) {
+    } else if (definor(0)(0) == 2) {
       // A formula 
-      if (! List(11, 15, 41, 43).contains(definiens(0)(0))) {
+      if (!List(11, 15, 41, 43).contains(definiens(0)(0))) {
         println("Error: Type mismatch, formula expected")
         return 0
-        }
       }
-    return register_definiendum(definiendum, definor(0)(0))
     }
-  
+    return register_definiendum(definiendum, definor(0)(0))
+  }
+
+  /*
   def paradecrop(item: Any, reducedmax: Any): Any = {
     val header = item(0)
     //compare with parade's max
@@ -1599,8 +1619,9 @@ object synt {
       }
     return 0
     }
+  @@*/
   
-  def register_definiendum(definiendum: Any, termorformula: Any): Any = {
+  def register_definiendum(definiendum: BasicForm, termorformula: BasicForm): Either[String, DEFS] = TODO /* {
     val td = mathdb(MD_SYMTYPE)
     val precedence = mathdb(MD_PRECED)
     val defs = mathdb(MD_DEFS)
