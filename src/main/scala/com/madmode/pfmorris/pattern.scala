@@ -64,40 +64,42 @@ object pattern {
   val gensent = compile(s)
   s = """\A\\([pqr]+|[uvw]+)bar(p*)"""
   val genschem = compile(s)
-  // A Token consists of 
-  //
-  //Either:
-  //    1. a sequence of digits
-  //OR
-  //    2. One of the following punctuation marks:
-  //         .  <  >  ;  /  :  [  ]  (  +  )  =  -  * ,
-  //OR
-  //    3. One of these slashed TeX symbols:
-  //         \{  \}  \.   \_  \&  \%  \# \, \> \; \!
-  //OR
-  //    4. Either:
-  //            a.  A single letter
-  //OR 
-  //            b.  A pair of braces { } enclosing non-brace characters
-  //OR
-  //            c.  An alphabetic control sequence, a backslash followed by letters
-  //
-  //       optionally followed by
-  //            d.  A prime sequence, a backslash followed by a sequence of p's not
-  //                followed by a letter
-  //
-  //       optionally followed by any number of sequences consisting of:
-  //            e.  A TeX superscript ^ or subscript _
-  //      
-  //            followed by
-  //            Either
-  //                i) a pair of braces { } enclosing non-brace characters
-  //            OR 
-  //                ii) an alphabetic control sequence, a backslash followed by letters
-  //            OR
-  //                iii) any single non-slash character
-  s = """(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)"""
-  val token = compile(s)
+  
+  /** A Token consists of 
+  *
+  * Either:
+  *     1. a sequence of digits
+  * OR
+  *     2. One of the following punctuation marks:
+  *          .  <  >  ;  /  :  [  ]  (  +  )  =  -  * ,
+  * OR
+  *     3. One of these slashed TeX symbols:
+  *          \{  \}  \.   \_  \&  \%  \# \, \> \; \!
+  * OR
+  *     4. Either:
+  *             a.  A single letter
+  * OR 
+  *             b.  A pair of braces { } enclosing non-brace characters
+  * OR
+  *             c.  An alphabetic control sequence, a backslash followed by letters
+  * 
+  *        optionally followed by
+  *             d.  A prime sequence, a backslash followed by a sequence of p's not
+  *                 followed by a letter
+  * 
+  *        optionally followed by any number of sequences consisting of:
+  *             e.  A TeX superscript ^ or subscript _
+  *       
+  *             followed by
+  *             Either
+  *                 i) a pair of braces { } enclosing non-brace characters
+  *             OR 
+  *                 ii) an alphabetic control sequence, a backslash followed by letters
+  *             OR
+  *                 iii) any single non-slash character
+  */
+  val token = compile("""(\s*)(\d+|[\.<>;/:\[\]\(\+\)=\-\*\,]|\\[\{\._\}\&\%\,<;\!]|([A-Za-z]|\{[^\{]*\}|\\[A-Za-z]+)(?:\\p+(?![A-Za-z]))?(?:[\^_](?:\{[^\{]*\}|\\[A-Za-z]+|[^\\]))*)(\s*)""")
+  
   // token = pattern.token.match.group(2) 
   // variable stripped of decoration = pattern.token.match.group(3)
   s = """\A\s*(\$[^\$]?\$\s*[;:\(\)\+\-]*\s*)*\\C\s*(\$[^\$]+\$)\s*\Z"""
