@@ -48,8 +48,8 @@ object basicforms {
   sealed abstract class TerminalSymbol {
     def syntax: Regex
   }
-  case class CSym(name: Symbol) extends TerminalSymbol {
-    def syntax = name.name.r
+  case class CSym(name: String) extends TerminalSymbol {
+    def syntax = name.r
   }
   case class VSym(syntax: Regex, name: Symbol) extends TerminalSymbol
   sealed abstract class Schemator extends TerminalSymbol
@@ -58,7 +58,7 @@ object basicforms {
 
   case class Language(
     symbols: Set[TerminalSymbol],
-    a: TerminalSymbol => Int,
+    a: Schemator => Int,
     formulaSignatures: Set[Signature],
     termSignatures: Set[Signature]) {
 
@@ -86,8 +86,8 @@ object basicforms {
       }
 
       this match {
-        case Pred(_, args) => testAll(args) map { vs => (true, vs) }
-        case Fun(_, args) => testAll(args) map { vs => (false, vs) }
+        case Pred(_, _, args) => testAll(args) map { vs => (true, vs) }
+        case Fun(_, _, args) => testAll(args) map { vs => (false, vs) }
         case _ => None
       }
     }
@@ -96,10 +96,10 @@ object basicforms {
   case class SigFormula(fs: List[Form]) extends Formula
   sealed abstract class Term extends Form
   case class SigTerm(fs: List[Form]) extends Term
-  case class Pred(p: Symbol, args: List[Term]) extends Formula
-  case class Fun(u: Symbol, args: List[Term]) extends Term
-  case class Var(v: Symbol) extends Term
-  case class Const(c: Symbol) extends Term
+  case class Pred(txt: String, p: PSym, args: List[Term]) extends Formula
+  case class Fun(txt: String, u: USym, args: List[Term]) extends Term
+  case class Var(txt: String, v: VSym) extends Term
+  case class Const(txt: String, c: CSym) extends Term
 
   /**
    * 3 Grammars
@@ -130,7 +130,7 @@ object basicforms {
      *          for each p ∈ P and where the arity of p is n
      */
     def formula: Parser[Formula] = (log(formulaSignature)("formulaSignature")
-      | log(p)("p") >> { case (s, a) => repN(a, term) ^^ { case args => Pred(s, args) } })
+      | log(p)("p") >> { case (txt, sym) => repN(l.a(sym), term) ^^ { case args => Pred(txt, sym, args) } })
 
     def p = pickSym({ case ps: PSym => ps }, "no pred")
 
@@ -145,18 +145,17 @@ object basicforms {
      * 8. V → v, for each v ∈ V
      */
     def term: Parser[Term] = (log(termSignature)("termSignature")
-      | log(u)("u") >> { case (s, a) => repN(a, term) ^^ { case args => Fun(s, args) } }
+      | log(u)("u") >> { case (txt, sym) => repN(l.a(sym), term) ^^ { case args => Fun(txt, sym, args) } }
       | log(v)("v"))
-    def u: Parser[(Symbol, Int)] = pickSym({ case ps: USym => ps }, "no u")
-    def v = pickSym({ case ps: VSym => ps }, "no variables in language's symbol set") ^^ { case (s, _) => Var(s) }
+    def u: Parser[(String, USym)] = pickSym({ case ps: USym => ps }, "no u")
+    def v = pickSym({ case ps: VSym => ps }, "no variables in language's symbol set") ^^ { case (txt, sym) => Var(txt, sym) }
     def termSignature: Parser[Term] = parseSigs(l.termSignatures, "no term sigs") ^^ { case fs => SigTerm(fs) }
 
-    def pickSym[T <: TerminalSymbol](filter: PartialFunction[TerminalSymbol, T], msg: String): Parser[(Symbol, Int)] = {
+    def pickSym[T <: TerminalSymbol](filter: PartialFunction[TerminalSymbol, T], msg: String): Parser[(String, T)] = {
       val parsers = for {
         sym <- l.symbols collect filter
-        a = l.a(sym)
         strparse = regex(sym.syntax)
-      } yield (strparse ^^ { case s => (Symbol(s), a) })
+      } yield (strparse ^^ { case s => (s, sym) })
 
       parsers.reduceOption((p1, p2) => p1 | p2).getOrElse(failure(msg))
     }
@@ -174,7 +173,7 @@ object basicforms {
       }
     }
     def sig1Parser(s1: SigItem): Parser[Form] = s1 match {
-      case Left(c) => log(regex(c.syntax))("const: " + c.syntax) ^^ { case c => Const(Symbol(c)) }
+      case Left(c) => log(regex(c.syntax))("const: " + c.syntax) ^^ { case txt => Const(txt, c) }
       case Right(F) => formula
       case Right(T) => term
       case Right(V) => v
@@ -203,7 +202,7 @@ object basicforms {
   def subst(b: Signature, forms: List[Form]): Option[List[Form]] = {
     (b, forms) match {
       case (Nil, Nil) => Some(Nil)
-      case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c.name) :: _)
+      case (Left(c) :: ss, fs) => subst(ss, fs) map (Const(c.name, c) :: _)
       case (Right(F) :: ss, (f: Formula) :: fs) => subst(ss, fs) map (f :: _)
       case (Right(T) :: ss, (t: Term) :: fs) => subst(ss, fs) map (t :: _)
       case (Right(V) :: ss, (v: Var) :: fs) => subst(ss, fs) map (v :: _)
@@ -750,9 +749,9 @@ object basicforms {
       case None => f match {
         case SigFormula(fs) => fs flatMap indical_variables
         case SigTerm(fs) => fs flatMap indical_variables
-        case Pred(_, args) => args flatMap indical_variables
-        case Fun(_, args) => args flatMap indical_variables
-        case Var(_) | Const(_) => List()
+        case Pred(_, _, args) => args flatMap indical_variables
+        case Fun(_, _, args) => args flatMap indical_variables
+        case Var(_, _) | Const(_, _) => List()
       }
     }
   }
@@ -770,10 +769,10 @@ object basicforms {
       case None => f match {
         case SigFormula(fs) => fs flatMap toSignature
         case SigTerm(fs) => fs flatMap toSignature
-        case Pred(_, args) => args flatMap toSignature
-        case Fun(_, args) => args flatMap toSignature
+        case Pred(_, _, args) => args flatMap toSignature
+        case Fun(_, _, args) => args flatMap toSignature
         case v: Var => List(Right(if (ivs contains v) { V } else { T }))
-        case Const(c) => List(Left(CSym(c)))
+        case c: Const => List(Left(c.c))
       }
     }
   }
