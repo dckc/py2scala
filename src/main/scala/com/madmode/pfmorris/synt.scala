@@ -402,7 +402,18 @@ object synt {
   }
 
   // A basic form is either a basic term or a basic formula.
-  import basicforms.{ Form => BasicForm, SigFormula, Term => BasicTerm, Formula, SigTerm, Const, Var, Fun }
+  import basicforms.{
+    Form => BasicForm,
+    SigFormula,
+    Term => BasicTerm,
+    Formula,
+    SigTerm,
+    Const,
+    Var,
+    Fun,
+    Pred,
+    CSym
+  }
 
   def tokenparse(token: String): BasicForm = TODO /*{
     //
@@ -450,8 +461,8 @@ object synt {
     val precedence = mathdb.MD_PRECED
     val n = len(token)
 
-    def noun(s: String) = Const(Symbol(s))
-    implicit def as_term(sym: String): BasicTerm = Const(Symbol(sym))
+    def noun(s: String) = Const(s, CSym(s))
+    implicit def as_term(sym: String): BasicTerm = Const(sym, CSym(sym))
 
     if (n == 1) {
       noun(token)
@@ -1111,17 +1122,38 @@ object synt {
     case Const(txt, c) => symtype(c.name) == t1
     case _ => false
   }
-  def isTerm(f: BasicForm) = f match {
-    //10. Variable
-    case x: Var => true
-    // 14. Noun
-    case x: Const => true
-    // 40. Term
-    case x: SigTerm => true
-    // 42. Schematic Term
-    case x: Fun => true
+  def isFormulaDefinor(f: BasicForm) = f match {
+    case Const(txt, c) => symtype(c.name) == t2
     case _ => false
   }
+  def isTerm(f: BasicForm) = f match {
+    case t: BasicTerm => t match {
+      //10. Variable
+      case x: Var => true
+      // 14. Noun
+      case x: Const => true
+      // 40. Term
+      case x: SigTerm => true
+      // 42. Schematic Term
+      case x: Fun => true
+    }
+    case _ => false
+  }
+
+  def isFormula(f: BasicForm) = f match {
+    case x: Formula => x match {
+      // 11. Sentence variable
+      case Pred(_, _, List()) => true
+      // 15. Boolean Constant
+      case SigFormula(List(Const(_, _))) => true
+      // 41. Formula
+      case x: SigFormula => true
+      // 43. Schematic Formula
+      case x: Pred => true
+    }
+    case _ => false
+  }
+
   def definitioncheck(item: SigFormula): Either[String, DEFS] = {
     val definiendum = item.fs(0)
     val definor = item.fs(1)
@@ -1129,18 +1161,16 @@ object synt {
     //	print definiendum, definor, definiens
     if (isTermDefinor(definor)) {
       // A Term
-      if (!List(10, 14, 40, 42).contains(definiens(0)(0))) {
-        println("Error: Type mismatch, term expected")
-        return 0
+      if (!isTerm(definiens)) {
+        Left("Error: Type mismatch, term expected")
       }
-    } else if (definor(0)(0) == 2) {
+    } else if (isFormulaDefinor(definor)) {
       // A formula 
-      if (!List(11, 15, 41, 43).contains(definiens(0)(0))) {
-        println("Error: Type mismatch, formula expected")
-        return 0
+      if (!isFormula(definiens)) {
+        Left("Error: Type mismatch, formula expected")
       }
     }
-    return register_definiendum(definiendum, definor(0)(0))
+    register_definiendum(definiendum, isTermDefinor(definor))
   }
 
   /*
@@ -1620,8 +1650,8 @@ object synt {
     return 0
     }
   @@*/
-  
-  def register_definiendum(definiendum: BasicForm, termorformula: BasicForm): Either[String, DEFS] = TODO /* {
+
+  def register_definiendum(definiendum: BasicForm, termorformula: Boolean): Either[String, DEFS] = TODO /* {
     val td = mathdb(MD_SYMTYPE)
     val precedence = mathdb(MD_PRECED)
     val defs = mathdb(MD_DEFS)

@@ -8,12 +8,12 @@ import org.scalatest.junit.JUnitRunner
 @RunWith(classOf[JUnitRunner])
 class basicformtest extends FunSpec with ShouldMatchers {
   import com.madmode.pfmorris.basicforms
-  import basicforms.{ CSym, PSym, Language, T, UBGParser }
+  import basicforms.{ CSym, PSym, Language, T, UBGParser, SigTerm, Const }
 
-  val leftparen = CSym(Symbol("<"))
-  val one = CSym(Symbol("1"))
-  val plus = CSym(Symbol("plus"))
-  val rightparen = CSym(Symbol(">"))
+  val leftparen = CSym("<")
+  val one = CSym("1")
+  val plus = CSym("plus")
+  val rightparen = CSym(">")
   val sum = List(Left(leftparen), Right(T), Left(plus), Right(T), Left(rightparen))
   val one_t = List(Left(one))
 
@@ -34,14 +34,15 @@ class basicformtest extends FunSpec with ShouldMatchers {
       val p = new UBGParser(simple)
 
       val fr = p.parseAll(p.start, doc)
-      (fr match {
-        case p.Success(f, _) => f.toString()
-        case x: p.Failure => x.toString()
-        case x: p.Error => x.toString()
-      }) should equal(
-        "SigTerm(List(Const('1)))" )
+      
+      fr match {
+        case p.Success(f, _) => { f should equal (SigTerm(List(Const("1",CSym("1"))))) }
+        case p.Failure(msg, _) => msg should equal (null)
+        case p.Error(msg, _) => msg should equal (null)
+      }
     }
   }
+
 
   describe("Simple unification based grammar parser") {
     val doc = """< 1 plus 1 >"""
@@ -54,7 +55,7 @@ class basicformtest extends FunSpec with ShouldMatchers {
         case x: p.Failure => x.toString()
         case x: p.Error => x.toString()
       }) should equal(
-        "SigTerm(List(Const('<), SigTerm(List(Const('1))), Const('plus), SigTerm(List(Const('1))), Const('>)))")
+        "SigTerm(List(Const(<,CSym(<)), SigTerm(List(Const(1,CSym(1)))), Const(plus,CSym(plus)), SigTerm(List(Const(1,CSym(1)))), Const(>,CSym(>))))")
     }
 
     /*@@
