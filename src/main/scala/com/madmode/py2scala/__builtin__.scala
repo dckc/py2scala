@@ -109,7 +109,7 @@ object __builtin__ {
     }
   }
 
-  def enumerate[A](x: Iterable[A]) = for ((a, i) <- x.zipWithIndex) yield (i, a)
+  def enumerate[A](x: Iterable[A]): Iterable[(Int, A)] = x.zipWithIndex.map(_.swap)
 
   def with_ [T](obj: T)(blk: (T => Unit)) = {
     blk(obj)
