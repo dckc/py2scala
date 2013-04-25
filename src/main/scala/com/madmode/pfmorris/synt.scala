@@ -1961,15 +1961,16 @@ object synt {
     }
   */
 
-  object ModeNum extends Enumeration {
-    type ModeCode = Value
-    val m1, // text
-    m2, // math
-    m3, // margin
-    m4, // error
-    m5 /* end */ = Value
+  sealed abstract class Mode {
+    def isError = false
   }
-  import ModeNum._
+  object TextMode extends Mode
+  object MathMode extends Mode
+  object MarginMode extends Mode
+  case class ErrorMode(msg: String) extends Mode {
+    override def isError = true
+  }
+  object EndMode extends Mode
 
   /*
   def intext(mode: Any, linetail: Any, outfragments: Any = None): Any = {
@@ -2138,7 +2139,7 @@ object synt {
     return 0
     }    @@* */
 
-  def mathmargin(mode: mutable.Seq[ModeCode], linetail: LineTail, outfragments: Option[Any] = None): Any = TODO /*{
+  def mathmargin(mode: Mode, linetail: LineTail, outfragments: Option[Any] = None): Any = TODO /*{
     val newlinetail = linetail(0).lstrip()
     val trimlen = (len(linetail(0)) - len(newlinetail))
     if (trimlen) {
@@ -2196,7 +2197,7 @@ object synt {
     return
     }@@*/
 
-  def notemargin(mode: mutable.Seq[ModeCode], linetail: LineTail): Unit = TODO /*@@{
+  def notemargin(mode: Mode, linetail: LineTail): Unit = TODO /*@@{
     if (! linetail(0)) {
       return
       }
@@ -2260,129 +2261,111 @@ object synt {
     }
   */
 
-  def mathparse(mode: mutable.Seq[ModeCode], linetail: LineTail, tree: Any, outfragments: Any = None,
-    pfcdict: Dict[String, String] = null): Unit = TODO /*{
-    val currentpos = if (linetail.all == null) {
-       0
-      }
-     else {
-      linetail.ix
-      }
-    if (mode(0) == m4) {
-      return
-      }
-    val currentline = linetail.tail
-    val lenline = len(currentline)
-    val blanklinem = pattern.blankline.match_(currentline, currentpos)
-    if (blanklinem) {
-      // If the parse is done
-      if (tree(0)(0)(0) > 0) {
-        // Change to text mode
-        mode(0) = m1
-        }
-       else {
-        // Change to Margin mode
-        mode(0) = m3
-        }
-      val currentpos = blanklinem.end(2)
-      if (type(outfragments) == list) {
-        outfragments.append(currentline.substring(0, currentpos))
-        }
-      linetail(0) = currentline.substring(currentpos)
-      return
-      }
-    val tokenm = pattern.token.match(currentline, currentpos)
-    if (! tokenm) {
-      println("Error: Line empty following TeX dollar sign")
-      mode(0) = 4
-      return
-      }
-    if (tokenm.group(1)) {
-      if (type(outfragments) == list) {
-        outfragments.append(tokenm.group(1))
-        }
-      val currentpos = tokenm.end(1)
-      }
-    while (currentpos < lenline) {
-      val TeXdollarm = pattern.TeXdollar.match(currentline, currentpos)
-      if (TeXdollarm) {
+  // TODO replace linetail, tree, outfragments mutable args with return values
+  def mathparse(mode: Mode, linetail: LineTail, tree: Parse, outfragments: Option[mutable.ArrayBuffer[String]] = None,
+    pfcdict: Dict[String, String] = null): Mode = {
+    implicit def test_opt[T](x: Option[T]) = !x.isEmpty
+
+    var currentpos = if (linetail.all == null) { 0 } else { linetail.ix }
+    if (mode.isError) {
+      return mode
+    } else {
+      val currentline = linetail.tail
+      val lenline = len(currentline)
+
+      val blanklinem = pattern.blankline.match_(currentline, currentpos)
+      if (blanklinem) {
         // If the parse is done
-        if (tree(0)(0)(0) > 0) {
+        val outMode = if (tree.complete) {
           // Change to text mode
-          mode(0) = 1
-          }
-         else {
+          TextMode
+        } else {
           // Change to Margin mode
-          mode(0) = 3
-          }
-        if (type(outfragments) == list) {
-          outfragments.append(currentline(currentpos))
-          }
-        val currentpos = TeXdollarm.end(1)
-        linetail(0) = currentline.substring(currentpos)
-        return
+          MarginMode
         }
-      // If the parse is done
-      if (tree != List() && tree(0)(0)(0) > 0) {
-        // Change to end mode
-        mode(0) = 5
-        linetail(0) = currentline.substring(currentpos)
-        return
-        }
-      val tokenm = pattern.token.match(currentline, currentpos)
-      if (! tokenm) {
-        mode(0) = 4
-        return
-        }
+        val currentpos = blanklinem.end(2)
+        outfragments.map(_ += currentline.substring(0, currentpos))
+        linetail.tail = currentline.substring(currentpos)
+        return mode
+      }
+
+      var tokenm = pattern.token.match_(currentline, currentpos)
+      if (!tokenm) {
+        return (ErrorMode("Error: Line empty following TeX dollar sign"))
+      }
       if (tokenm.group(1)) {
-        if (type(outfragments) == list) {
-          outfragments.append(tokenm.group(1))
+        outfragments.map(_ += tokenm.group(1))
+        currentpos = tokenm.end(1)
+      }
+      while (currentpos < lenline) {
+        val TeXdollarm = pattern.TeXdollar.match_(currentline, currentpos)
+        if (TeXdollarm) {
+          // If the parse is done
+          val newmode = if (tree.complete) {
+            // Change to text mode
+            TextMode
+          } else {
+            // Change to Margin mode
+            MarginMode
           }
+          outfragments.map(_ += currentline(currentpos))
+          currentpos = TeXdollarm.end(1)
+          linetail.tail = currentline.substring(currentpos)
+          return newmode
         }
-      val token = tokenm.group(2)
-      if (pfcdict == None || len(token) == 1) {
-        val pfctoken = token
+        // If the parse is done
+        if (tree.complete) {
+          // Change to end mode
+          linetail.tail = currentline.substring(currentpos)
+          return EndMode
         }
-       else if (pfcdict.contains(token.substring(1))) {
-        val pfctoken = ('\\' + pfcdict(token.substring(1)))
+        tokenm = pattern.token.match_(currentline, currentpos)
+        if (!tokenm) {
+          return ErrorMode("")
         }
-       else {
-        val pfctoken = token
+        if (tokenm.group(1)) {
+          outfragments.map(_ += tokenm.group(1))
         }
-      val ck = addtoken(tree, pfctoken)
-      if (tokenm.group(1)) {
-        outfragments.append(tokenm.group(1))
+        val token = tokenm.group(2)
+        var pfctoken = ""
+        if (pfcdict == None || len(token) == 1) {
+          pfctoken = token
+        } else if (pfcdict.contains(token.substring(1))) {
+          pfctoken = ('\\' + pfcdict(token.substring(1)))
+        } else {
+          pfctoken = token
         }
-      val currentpos = tokenm.end(0)
-      linetail(0) = currentline.substring(currentpos)
-      if (! ck) {
-        mode(0) = 4
-        linetail(0) = currentline.substring(currentpos)
-        return
+        val ck = addtoken(tree, pfctoken)
+        if (tokenm.group(1)) {
+          outfragments.map(_ += tokenm.group(1))
         }
-      if (type(outfragments) == list) {
-        if (ck == 1) {
-          outfragments.append(token)
-          }
-         else if (ck == 2) {
-          outfragments.append(('\\' + pattern.skipstring))
-          outfragments.append(token)
-          }
-         else if (ck == 3) {
-          outfragments.append(token)
-          outfragments.append(('\\' + pattern.skipstring))
-          }
-         else {
-          outfragments.append(token)
-          }
-        if (tokenm.group(4)) {
-          outfragments.append(tokenm.group(4))
-          }
+        currentpos = tokenm.end(0)
+        linetail.tail = currentline.substring(currentpos)
+        if (!ck) {
+          linetail.tail = currentline.substring(currentpos)
+          return ErrorMode("@@")
+        }
+        outfragments match {
+          case Some(outfragments) =>
+            if (ck == 1) {
+              outfragments.append(token)
+            } else if (ck == 2) {
+              outfragments.append(('\\' + pattern.skipstring))
+              outfragments.append(token)
+            } else if (ck == 3) {
+              outfragments.append(token)
+              outfragments.append(('\\' + pattern.skipstring))
+            } else {
+              outfragments.append(token)
+            }
+            if (tokenm.group(4)) {
+              outfragments.append(tokenm.group(4))
+            }
         }
       }
-    return
     }
-  */
+    return mode
+  }
 
   /*
   def refparse(ref: Any): Any = {
@@ -2608,12 +2591,12 @@ object synt {
   */
 
   def getformula(linetail: LineTail, verbose: Boolean = True): Any = {
-    val mode = mutable.ArraySeq() :+ m2
-    val parsetree = List()
+    var mode = MathMode
+    var parsetree: Parse = TODO
     var fetched_tf = ""
     var stuff = ""
-    while (linetail.tail && mode(0) == m2 || mode(0) == m3) {
-      if (mode(0) == 2) {
+    while (linetail.tail && mode == MathMode || mode == MarginMode) {
+      if (mode == MathMode) {
         val TeXdollars = pattern.TeXdollar.search(linetail.tail)
         if (TeXdollars) {
           stuff = linetail.tail.substring(0, TeXdollars.start(1))
@@ -2622,7 +2605,7 @@ object synt {
         }
         fetched_tf = ((fetched_tf + ' ') + stuff)
         mathparse(mode, linetail, parsetree)
-      } else if (mode(0) == m3) {
+      } else if (mode == MarginMode) {
         mathmargin(mode, linetail)
       }
       if (!linetail.tail) {
@@ -2632,10 +2615,10 @@ object synt {
         }
       }
     }
-    if (mode(0) == m4) {
+    if (mode == ErrorMode) {
       return List()
     }
-    if (mode(0) == m5) {
+    if (mode == EndMode) {
       println("Error: At most one term or formula allowed.")
       return List()
     }
