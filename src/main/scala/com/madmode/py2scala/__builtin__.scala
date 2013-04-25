@@ -6,9 +6,7 @@ package com.madmode.py2scala
 object __builtin__ {
   import java.io.BufferedReader
   import java.io.InputStreamReader
-  import java.nio.charset.Charset
-  import java.nio.file.Files
-  import java.nio.file.Paths
+  import java.io
 
   import scala.annotation.tailrec
   import scala.collection.immutable.VectorBuilder
@@ -67,10 +65,9 @@ object __builtin__ {
 	  def __name__ : String = TODO
   }
 
-  val ascii = Charset.forName("US-ASCII")
-  def open(path: String, mode: String = "r") = Files.newBufferedReader(Paths.get(path), ascii)
+  def open(path: String, mode: String = "r") = new io.BufferedReader(new io.FileReader(new io.File(path)))
   import java.io.{ BufferedReader, PrintStream }
-  implicit def as_py_file(fp: BufferedReader): File = new BRFile(fp)
+  implicit def as_py_file(fp: io.BufferedReader): File = new FRFile(fp)
   implicit def as_py_file(fp: PrintStream): File = TODO
   
   trait File extends Iterable[String] {
@@ -82,7 +79,7 @@ object __builtin__ {
     def close()
   }
 
-  class BRFile(fp: BufferedReader) extends File {
+  class FRFile(fp: BufferedReader) extends File {
     def close() = fp.close()
     def read(): String = TODO
     def readline(): String = fp.readLine()
