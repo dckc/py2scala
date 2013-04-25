@@ -111,6 +111,7 @@ object batteries {
       def test(): Boolean
       def group(i: Int): String
       def start(i: Int): Int
+      def end(i: Int): Int
       def groups(): Seq[String]
     }
     implicit def test_matcher(m: Match): Boolean = m != null && m.test()
@@ -118,6 +119,7 @@ object batteries {
     class JavaMatch(impl: Matcher) extends Match {
       def test() = impl.matches()
       def start(i: Int) = TODO
+      def end(i: Int) = TODO
       def group(i: Int) = impl.group(i)
       def groups() = 1 to impl.groupCount map impl.group
     }
@@ -126,6 +128,7 @@ object batteries {
       def test() = !impl.isEmpty
       def group(i: Int) = impl.get.group(i)
       def start(i: Int) = TODO
+      def end(i: Int) = TODO
       def groups() = {
         val m = impl.get
         1 to m.groupCount map m.group
