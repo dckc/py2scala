@@ -407,7 +407,7 @@ object basicforms {
    * the following algorithm to A:
    * Repeat:
    * If A is reduced, then halt the algorithm and return A.
-   * Otherwise, let the last two signature matches ofAbe [s, m1, . . . , mj]
+   * Otherwise, let the last two signature matches of A be [s, m1, . . . , mj]
    * and M where M is a complete signature match, and remove
    * both matches from the list A and append the signature match
    * [s, m1, . . . , mj, M] to A.
@@ -416,12 +416,12 @@ object basicforms {
     partial_unification(l, A) match {
       case None => None
       case Some(_) => reduced(l, A) match {
-        case Some(halt) => Some(halt)
+        case Some(a) => Some(a)
         case None => {
           val last_two = (A(A.length - 2), A(A.length - 1))
-          val (SignatureList(s, m1mj), bigm) = last_two
-          assert(bigm.incomplete)
-          Some((A filterNot (sig => sig == SignatureList(s, m1mj) || sig == bigm)) :+ bigm)
+          val (s_m1mj, bigM) = last_two
+          assert(bigM.complete)
+          Some((A filterNot (sig => sig == s_m1mj || sig == bigM)) :+ bigM)
         }
       }
     }
@@ -765,13 +765,13 @@ object basicforms {
   def toSignature(f: Form): Signature = {
     val ivs = indical_variables(f)
     f.schematic_expression match {
-      case Some((is_fmla, vs)) => List(Right(if (is_fmla) { T } else { F }))
+      case Some((is_fmla, vs)) => List(Right(if (is_fmla) T else F))
       case None => f match {
         case SigFormula(fs) => fs flatMap toSignature
         case SigTerm(fs) => fs flatMap toSignature
         case Pred(_, _, args) => args flatMap toSignature
         case Fun(_, _, args) => args flatMap toSignature
-        case v: Var => List(Right(if (ivs contains v) { V } else { T }))
+        case v: Var => List(Right(if (ivs contains v) V else T))
         case c: Const => List(Left(c.c))
       }
     }
