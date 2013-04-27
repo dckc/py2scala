@@ -119,7 +119,7 @@ object batteries {
     class JavaMatch(impl: Matcher) extends Match {
       def test() = impl.matches()
       def start(i: Int) = TODO
-      def end(i: Int) = TODO
+      def end(i: Int) = impl.end(i)
       def group(i: Int) = impl.group(i)
       def groups() = 1 to impl.groupCount map impl.group
     }
