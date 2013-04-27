@@ -68,4 +68,17 @@ class basicformtest extends FunSpec with ShouldMatchers {
     * 
     */
   }
+
+  describe("synt.mathparse") {
+    it("should grok a simple expression") {
+	  import com.madmode.pfmorris.synt
+	  
+	  synt.mathdb = synt.makemathdb()
+	  val mode = synt.MathMode
+	  val linetail = new synt.LineTail("x", 0, 0, List())
+	  val tree = synt.PendingParses(List())
+	  synt.mathparse(mode, linetail, tree) should equal ("@@")
+    }
+  }
+
 }

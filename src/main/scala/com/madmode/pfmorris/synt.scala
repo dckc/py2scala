@@ -13,6 +13,19 @@ import scala.collection.mutable
  * *###############################################################
  */
 object synt {
+  // A basic form is either a basic term or a basic formula.
+  import basicforms.{
+    Form => BasicForm,
+    SigFormula,
+    Term => BasicTerm,
+    Formula,
+    SigTerm,
+    Const,
+    Var,
+    Fun,
+    Pred,
+    CSym, VSym
+  }
 
   /**
    * Each parse begins with a header.  Each header begins with a
@@ -75,6 +88,12 @@ object synt {
   import Tag._
   implicit def test_tag_opt(tag_opt: Option[Tag]): Boolean = !tag_opt.isEmpty
 
+  class UnrecognizedConstant(txt: String, c: CSym) extends Const(txt, c) {
+    def tag = t5
+  }
+  class RightParenthesis() extends Const(")", CSym(")")) {
+    def tag = t6
+  }
   //@@import sys
   //@@import re
 
@@ -401,28 +420,13 @@ object synt {
     return token.isdigit()
   }
 
-  // A basic form is either a basic term or a basic formula.
-  import basicforms.{
-    Form => BasicForm,
-    SigFormula,
-    Term => BasicTerm,
-    Formula,
-    SigTerm,
-    Const,
-    Var,
-    Fun,
-    Pred,
-    CSym
-  }
-
-  def tokenparse(token: String): BasicForm = TODO /*{
-    //
+  def tokenparse(token: String): BasicForm = {
     val precedence = mathdb.MD_PRECED
     val defs = mathdb.MD_DEFS
     val arity = mathdb.MD_ARITY
     val n = symtype(token)
-    n.id match {
-      case 18 => {
+    n match {
+      case Some(t18) => {
         decimalparse(token)
       }
       /*@@
@@ -447,13 +451,14 @@ object synt {
       case _ if (List(1, 2, 3).contains(n)) => {
         List(List(n), token, precedence(token))
       }
-      */
       case _ => {
         // Even unknown constants are passed on as complete 
         Noun(n, token)
-      }
+      }      */
+      case Some(t10) => Var(token, VSym("@@".r, Symbol(token)))
+      case _ => TODO
     }
-  }*/
+  }
 
   class ParadeTerm(prec: Int, args: BasicTerm*) extends SigTerm(args toList)
 
@@ -479,26 +484,40 @@ object synt {
     }
   }
 
-  def addtoken(tree: Parse, token: String): Option[Parse] = {
+  sealed abstract class CheckParse
+  object Error0 extends CheckParse
+  sealed abstract class OK extends CheckParse {
+    def p: Parse
+  }
+  case class OK1(p: Parse) extends OK
+  case class OK2(p: Parse) extends OK
+  case class OK3(p: Parse) extends OK
+  implicit def test_checkParse(ck: CheckParse): Boolean = ck match {
+    case Error0 => False
+    case _ => True
+  }
+  def addtoken(tree: PendingParses, token: String): CheckParse = {
     if (symtype(token) == Some(t23)) {
-      Some(tree)
+      OK1(tree)
     } else {
-      //@@addnode(tree, tokenparse(token))
-      None
+      addnode(tree, tokenparse(token))
     }
   }
 
   case class PendingParses(ts: List[Parse]) extends Parse {
-    def complete = TODO
+    def complete = False
   }
-  def addnode(tree: PendingParses, item: BasicForm): Option[Parse] = {
-    None // @@
-    /*
+  case class FormParse(f: BasicForm) extends Parse {
+    def complete = True
+  }
+
+  def addnode(tree: PendingParses, item: BasicForm): CheckParse = {
+
     //tree is a list which has one entry for each pending incomplete parse tree
     //item is one complete parse
     //
-    val header = item.header
-    var syntype = header.tag
+    //@@val header = item.header
+    //@@var syntype = header.tag
 
     //@@val okval = 1
     // An unknown symbol which appears immediately following
@@ -506,9 +525,11 @@ object synt {
     // of a definition which makes it an introductor.
     // In this case it must be repackaged as an incomplete node.
     // A new symbol appears
-    syntype.id match {
+    item match {
       //		print "New symbol:", item[1] 
-      case 5 if len(tree.ts) < 2 => None
+      case _: UnrecognizedConstant => TODO
+      /*@@
+        if (len(tree.ts) < 2) None
       
       if (tree.ts(0).header.tag != toTag(-2) || tree.ts(1).header.tag != toTag(-9)) {
         return 0
@@ -554,9 +575,10 @@ object synt {
        else {
         return 0
         }
-      }
-    // Recognize the end of a parade or a definition
-    if (syntype == 6) {
+      }*/
+      // Recognize the end of a parade or a definition
+      case _: RightParenthesis => TODO
+      /*@@
       if (len(tree) == 0) {
         println("Error: Extra right paren")
         return 0
@@ -596,6 +618,8 @@ object synt {
         throw new SystemExit()
         }
       }
+      */
+      /*@@
     if (List(1, 2).contains(syntype)) {
       if (len(tree) < 2) {
         return 0
@@ -714,7 +738,10 @@ object synt {
           return 0
           }
         }
-      }
+      }*/
+      case _ =>
+    }
+    /*
     //###############################################################
     //
     //    Main Algorithm 
@@ -765,13 +792,18 @@ object synt {
       return max(adn, ndc)
       }
      else {
-      // If no incomplete nodes are left we are done.
-      tree.append(item)
-      return okval
-      }
-    }
-  // Change incomplete node to complete
-  def promote(node: IncompleteParse, newvalue: Tag): BasicForm = {
+     */
+    // If no incomplete nodes are left we are done.
+    OK1(PendingParses(tree.ts ++ List(FormParse(item))))
+    /*@@}*/
+  }
+
+  /**
+   * Change incomplete node to complete
+   */
+  def promote(node: PendingParses, newvalue: Tag): BasicForm = {
+    TODO
+    /*
     val children = node.children map { ch =>
       ch.header match {
         case Header(TopComplete, x) => x
@@ -788,7 +820,7 @@ object synt {
   }
 
   def nodecheck(item: Any): Option[BasicForm] = {
-    None //@@
+    TODO //@@
     /*
     // 
     //item is a tree with a newly added node
@@ -1507,8 +1539,11 @@ object synt {
       }
     return 1
     }
-  
-  def mixcheck(item: Any): Any = {
+
+  def mixcheck(item: BasicForm): Boolean = {
+    item match {
+      case 
+    }
     val n = len(item)
     if (n < 3) {
       return 0
@@ -1518,7 +1553,7 @@ object synt {
         return 0
         }
       }
-    for (val i <- range(1, (n - 2))) {
+    for (i <- range(1, (n - 2))) {
       if (List(10, 14, 40, 42, 44).contains(item(i)(0)(0))) {
         if (item((i + 1))(0)(0) != 3) {
           return 0
@@ -1533,7 +1568,7 @@ object synt {
       }
     return 1
     }
-  
+
   def binarycheck(item: Any, tf_flag: Any = 0): Any = {
     val n = len(item)
     if (n != 4) {
@@ -2262,13 +2297,14 @@ object synt {
   */
 
   // TODO replace linetail, tree, outfragments mutable args with return values
-  def mathparse(mode: Mode, linetail: LineTail, tree: Parse, outfragments: Option[mutable.ArrayBuffer[String]] = None,
-    pfcdict: Dict[String, String] = null): Mode = {
+  def mathparse(mode: Mode, linetail: LineTail, tree: PendingParses,
+    outfragments: Option[mutable.ArrayBuffer[String]] = None,
+    pfcdict: Option[Dict[String, String]] = None): (Mode, Option[Parse]) = {
     implicit def test_opt[T](x: Option[T]) = !x.isEmpty
 
     var currentpos = if (linetail.all == null) { 0 } else { linetail.ix }
     if (mode.isError) {
-      return mode
+      return (mode, None)
     } else {
       val currentline = linetail.tail
       val lenline = len(currentline)
@@ -2283,59 +2319,65 @@ object synt {
           // Change to Margin mode
           MarginMode
         }
-        val currentpos = blanklinem.end(2)
-        outfragments.map(_ += currentline.substring(0, currentpos))
-        linetail.tail = currentline.substring(currentpos)
-        return mode
+        currentpos = blanklinem.end(2)
+        outfragments.map(_ += currentline.take(currentpos))
+        linetail.tail = currentline.drop(currentpos)
+        return (mode, None)
       }
 
-      var tokenm = pattern.token.match_(currentline, currentpos)
+      val tokenm = pattern.token.match_(currentline, currentpos)
       if (!tokenm) {
-        return (ErrorMode("Error: Line empty following TeX dollar sign"))
+        return (ErrorMode("Error: Line empty following TeX dollar sign"), None)
       }
+
       if (tokenm.group(1)) {
         outfragments.map(_ += tokenm.group(1))
         currentpos = tokenm.end(1)
       }
+      var tree_ : Parse = tree
       while (currentpos < lenline) {
         val TeXdollarm = pattern.TeXdollar.match_(currentline, currentpos)
         if (TeXdollarm) {
           // If the parse is done
-          val newmode = if (tree.complete) {
+          val newmode = if (tree_.complete) {
             // Change to text mode
             TextMode
           } else {
             // Change to Margin mode
             MarginMode
           }
-          outfragments.map(_ += currentline(currentpos))
+          outfragments.map(_ += currentline.take(currentpos))
           currentpos = TeXdollarm.end(1)
-          linetail.tail = currentline.substring(currentpos)
-          return newmode
+          linetail.tail = currentline.drop(currentpos)
+          return (newmode, Some(tree))
         }
         // If the parse is done
-        if (tree.complete) {
+        if (tree_.complete) {
           // Change to end mode
           linetail.tail = currentline.substring(currentpos)
-          return EndMode
+          return (EndMode, Some(tree))
         }
-        tokenm = pattern.token.match_(currentline, currentpos)
+        val tokenm = pattern.token.match_(currentline, currentpos)
         if (!tokenm) {
-          return ErrorMode("")
+          return (ErrorMode(""), None)
         }
         if (tokenm.group(1)) {
           outfragments.map(_ += tokenm.group(1))
         }
         val token = tokenm.group(2)
-        var pfctoken = ""
-        if (pfcdict == None || len(token) == 1) {
-          pfctoken = token
-        } else if (pfcdict.contains(token.substring(1))) {
-          pfctoken = ('\\' + pfcdict(token.substring(1)))
-        } else {
-          pfctoken = token
+        var pfctoken = token
+        pfcdict match {
+          case Some(d) => d.get(token.drop(1)) match {
+            case Some(t) => pfctoken = ('\\' + t)
+            case None =>
+          }
+          case None =>
         }
         val ck = addtoken(tree, pfctoken)
+        ck match {
+          case ok: OK => tree_ = ok.p
+          case _ =>
+        }
         if (tokenm.group(1)) {
           outfragments.map(_ += tokenm.group(1))
         }
@@ -2343,28 +2385,34 @@ object synt {
         linetail.tail = currentline.substring(currentpos)
         if (!ck) {
           linetail.tail = currentline.substring(currentpos)
-          return ErrorMode("@@")
+          return (ErrorMode("@@"), None)
         }
         outfragments match {
+          case None =>
           case Some(outfragments) =>
-            if (ck == 1) {
-              outfragments.append(token)
-            } else if (ck == 2) {
-              outfragments.append(('\\' + pattern.skipstring))
-              outfragments.append(token)
-            } else if (ck == 3) {
-              outfragments.append(token)
-              outfragments.append(('\\' + pattern.skipstring))
-            } else {
-              outfragments.append(token)
+            ck match {
+              case _: OK1 => {
+                outfragments.append(token)
+              }
+              case _: OK2 => {
+                outfragments.append(('\\' + pattern.skipstring))
+                outfragments.append(token)
+              }
+              case _: OK3 => {
+                outfragments.append(token)
+                outfragments.append(('\\' + pattern.skipstring))
+              }
+              case _ => {
+                outfragments.append(token)
+              }
             }
             if (tokenm.group(4)) {
               outfragments.append(tokenm.group(4))
             }
         }
       }
+      return (mode, Some(tree))
     }
-    return mode
   }
 
   /*
@@ -2591,22 +2639,34 @@ object synt {
   */
 
   def getformula(linetail: LineTail, verbose: Boolean = True): Any = {
-    var mode = MathMode
-    var parsetree: Parse = TODO
+    var mode: Mode = MathMode
+    var parsetree: PendingParses = TODO
     var fetched_tf = ""
     var stuff = ""
     while (linetail.tail && mode == MathMode || mode == MarginMode) {
-      if (mode == MathMode) {
-        val TeXdollars = pattern.TeXdollar.search(linetail.tail)
-        if (TeXdollars) {
-          stuff = linetail.tail.substring(0, TeXdollars.start(1))
-        } else {
-          stuff = linetail.tail.strip()
+      mode match {
+        case MathMode => {
+          val TeXdollars = pattern.TeXdollar.search(linetail.tail)
+          if (TeXdollars) {
+            stuff = linetail.tail.substring(0, TeXdollars.start(1))
+          } else {
+            stuff = linetail.tail.strip()
+          }
+          fetched_tf = ((fetched_tf + ' ') + stuff)
+          mathparse(mode, linetail, parsetree) match {
+            case (m, op) => {
+              mode = m
+              op match {
+                case Some(pp: PendingParses) => parsetree = pp
+                case _ =>
+              }
+            }
+          }
         }
-        fetched_tf = ((fetched_tf + ' ') + stuff)
-        mathparse(mode, linetail, parsetree)
-      } else if (mode == MarginMode) {
-        mathmargin(mode, linetail)
+        case MarginMode => {
+          mathmargin(mode, linetail)
+        }
+        case _ =>
       }
       if (!linetail.tail) {
         getline(linetail, verbose)
@@ -2615,12 +2675,13 @@ object synt {
         }
       }
     }
-    if (mode == ErrorMode) {
-      return List()
-    }
-    if (mode == EndMode) {
-      println("Error: At most one term or formula allowed.")
-      return List()
+    mode match {
+      case ErrorMode(_) => return List()
+      case EndMode => {
+        println("Error: At most one term or formula allowed.")
+        return List()
+      }
+      case _ =>
     }
     TODO /*@@
      val catch_ = parsetree(0)(0)(0)
@@ -2632,7 +2693,11 @@ object synt {
     */
   }
 
-  case class LineTail(var tail: String, ix: Int, var line_num: Int, all: List[String])
+  case class LineTail(var tail: String, ix: Int, var line_num: Int, all: List[String]) {
+    def currentpos = if (this.all.isEmpty) 0 else this.ix
+    def currentline = this.tail
+    def match_(pat: re.RegexObject) = pat.match_(this.currentline, this.currentpos)
+  }
   def getline(linetail: LineTail, verbose: Boolean = False): String = {
     // linetail = [tail of first line, index into tail, line number, list of all lines] 
     if (linetail.line_num == len(linetail.all)) {
