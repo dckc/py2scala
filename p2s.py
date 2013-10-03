@@ -295,19 +295,23 @@ object __fileinfo__ {
     def visit_Raise(self, node):
         '''Raise(expr? type, expr? inst, expr? tback)
         '''
-        limitation(not node.tback and node.type)
+        limitation(not node.tback)
 
         wr = self._sync(node)
-        wr('throw new ')
-        self.visit(node.type)
-        wr('(')
-        if node.inst:
-            self.visit(node.inst)
-        wr(')')
+        if node.type:
+            wr('throw new ')
+            self.visit(node.type)
+            wr('(')
+            if node.inst:
+                self.visit(node.inst)
+            wr(')')
+        else:
+            wr('throw _ex')  # KLUDGE
         self.newline()
 
     def visit_TryExcept(self, node):
         ''' TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
+
 	excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
                         attributes (int lineno, int col_offset)
         '''
@@ -321,7 +325,7 @@ object __fileinfo__ {
                 if excepthandler.name:
                     self.visit(excepthandler.name)
                 else:
-                    wr('_')
+                    wr('_ex')  # KLUDGE
                 if excepthandler.type:
                     wr(': ')
                     self.visit(excepthandler.type)
@@ -329,8 +333,19 @@ object __fileinfo__ {
                 self._suite(excepthandler.body)
             if node.orelse:
                 wr('case _ =>')
-                self._suite(excepthandler.orelse)
-                
+                self._suite(node.orelse)
+
+    def visit_TryFinally(self, node):
+        ''' TryFinally(stmt* body, stmt* finalbody)
+        '''
+        wr = self._sync(node)
+        wr('try ')
+        with self._block():
+            self._suite(node.body)
+        wr(' finally ')
+        with self._block():
+            self._suite(node.finalbody)
+
     def visit_Assert(self, node):
         '''Assert(expr test, expr? msg)
         '''
@@ -463,6 +478,10 @@ object __fileinfo__ {
         wr(')')
 
     def visit_ListComp(self, node):
+        '''ListComp(expr elt, comprehension* generators)
+
+        comprehension = (expr target, expr iter, expr* ifs)
+        '''
         wr = self._sync(node)
         wr('(')
         self.newline()
