@@ -141,7 +141,7 @@ object batteries {
   }
 
   object StringIO {
-    class StringIO(contents: String) extends b.File {
+    case class StringIO(contents: String) extends b.File {
       override def read() = contents
       override def readline() = TODO
       override def readlines() = TODO
@@ -154,6 +154,7 @@ object batteries {
   }
 
   object sys {
+    def argv: Vector[String] = TODO
     def stdout: b.File = TODO
   }
   object tokenize {

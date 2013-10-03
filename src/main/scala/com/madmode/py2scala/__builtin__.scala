@@ -20,6 +20,7 @@ object __builtin__ {
 
   implicit def test_int(i: Int): Boolean = i != 0
   def range(lo: Int, hi: Int) = lo to hi
+  def sum(xs: Iterable[Int]) = xs.reduce(_ + _)
 
   implicit def test_string(s: String): Boolean = s != null && !s.isEmpty
 
@@ -75,6 +76,7 @@ object __builtin__ {
     def readline(): String
     def readlines(): Vector[String]
     def write(s: String): Unit
+    def println(s: String): Unit /* KLUDGE */
     def flush(): Unit
     def close()
   }
@@ -124,4 +126,5 @@ object __builtin__ {
 
   class NotImplementedError(msg: String) extends Exception(msg)
   class SystemExit extends Exception("SystemExit")
+  class IOError(msg: String) extends Exception(msg)
 }
