@@ -216,8 +216,10 @@ object __fileinfo__ {
     def visit_Print(self, node):
         '''Print(expr? dest, expr* values, bool nl)
         '''
-        limitation(not node.dest)
         wr = self._sync(node)
+        if node.dest:
+            self.visit(node.dest)
+            wr('.')
         wr('println' if node.nl else 'print')
         wr('(')
         sep = ''
@@ -483,22 +485,23 @@ object __fileinfo__ {
         comprehension = (expr target, expr iter, expr* ifs)
         '''
         wr = self._sync(node)
-        wr('(')
-        self.newline()
-        wr('for ')
-        with self._block():
-            for gen in node.generators:
-                self.visit(gen.target)
-                wr(' <- ')
-                self.visit(gen.iter)
-                if gen.ifs:
-                    limitation(len(gen.ifs) == 1)
-                    wr(' if ')
-                    self.visit(gen.ifs[0])
-                self.newline()
-        wr(' yield ')
+        wr('for (')
+        first = True
+        for gen in node.generators:
+            if not first:
+                wr('; ')
+            else:
+                first = False
+            self.visit(gen.target)
+            wr(' <- ')
+            self.visit(gen.iter)
+            if gen.ifs:
+                limitation(len(gen.ifs) == 1)
+                wr(' if ')
+                self.visit(gen.ifs[0])
+
+        wr(') yield ')
         self.visit(node.elt)
-        wr(')')
 
     def visit_Yield(self, node):
         '''Yield(expr? value)
@@ -619,9 +622,11 @@ object __fileinfo__ {
                 lower0()
                 wr(', ')
                 self.visit(slice.upper)
-            else:
+            elif slice.lower:
                 wr('.drop(')
                 self.visit(slice.lower)
+            else:
+                wr('.clone(')
             wr(')')
         else:
             limitation(True)
