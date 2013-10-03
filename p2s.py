@@ -462,6 +462,25 @@ object __fileinfo__ {
             self.visit(v)
         wr(')')
 
+    def visit_ListComp(self, node):
+        wr = self._sync(node)
+        wr('(')
+        self.newline()
+        wr('for ')
+        with self._block():
+            for gen in node.generators:
+                self.visit(gen.target)
+                wr(' <- ')
+                self.visit(gen.iter)
+                if gen.ifs:
+                    limitation(len(gen.ifs) == 1)
+                    wr(' if ')
+                    self.visit(gen.ifs[0])
+                self.newline()
+        wr(' yield ')
+        self.visit(node.elt)
+        wr(')')
+
     def visit_Yield(self, node):
         '''Yield(expr? value)
         '''
