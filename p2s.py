@@ -8,12 +8,13 @@ ideas:
 
 '''
 
+from contextlib import contextmanager
+from os.path import splitext, basename
 import StringIO
 import ast
 import logging
+import re
 import tokenize
-from os.path import splitext, basename
-from contextlib import contextmanager
 
 log = logging.getLogger(__name__)
 
@@ -146,13 +147,39 @@ object __fileinfo__ {
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
         '''
+        arg_types, rtype = None, None
+        doc = self.docstring(node.body)
+        if doc:
+            arg_types, rtype = DocString.parse_types(doc)
+
         self.newline()
         wr, body = self._doc(node)
         self._decorators(node)
         wr('def %s(' % node.name)
-        self.visit(node.args)
-        wr(') = ')
-        self._suite(body)
+        self.visit_arguments(node.args, types=arg_types)
+        if rtype:
+            wr('): %s = ' % rtype)
+            self._suite(body)
+        else:
+            wr(') = ')
+            # change Return to Expr if there is no rtype
+            if (len(body) > 0 and
+                isinstance(body[-1], ast.Return) and
+                body[-1].value):
+                stmts, ret = body[:-1], body[-1]
+                expr = ast.Expr(ret.value,
+                                lineno=ret.lineno, col_offset=ret.col_offset)
+                self._suite(stmts + [expr])
+            else:
+                self._suite(body)
+
+    @classmethod
+    def docstring(cls, suite):
+        if len(suite) > 0:
+            s0 = suite[0]
+            if isinstance(s0, ast.Expr) and isinstance(s0.value, ast.Str):
+                return s0.value.s
+        return None
 
     def _decorators(self, node):
         wr = self._sync(node)
@@ -170,8 +197,12 @@ object __fileinfo__ {
         self._decorators(node)
         wr('class %s' % node.name)
         if node.bases:
-            wr(' extends ')
-            self._items(wr, node.bases)
+            notObject = [b for b in node.bases
+                         if not (isinstance(b, ast.Name)
+                                 and b.id == 'object')]
+            if notObject:
+                wr(' extends ')
+                self._items(wr, notObject)
         wr(' ')
         self._suite(body)
 
@@ -653,11 +684,12 @@ object __fileinfo__ {
         wr = self._sync(node)
         self._items(wr, node.elts, parens=True)
 
-    def visit_arguments(self, node):
+    def visit_arguments(self, node, types=None):
         '''(expr* args, identifier? vararg,
             identifier? kwarg, expr* defaults)
         '''
         wr = self._sync(node)
+        types = dict(types) if types else {}
 
         for ix, expr in enumerate(node.args):
             if ix > 0:
@@ -668,7 +700,10 @@ object __fileinfo__ {
                 wr(' = ')
                 self.visit(node.defaults[dx])
             else:
-                wr(': Any')
+                if isinstance(expr, ast.Name) and expr.id in types:
+                    wr(': ' + types[expr.id])
+                else:
+                    wr(': Any')
         if node.vararg:
             if ix > 0:
                 wr(', ')
@@ -698,6 +733,13 @@ def limitation(t):
         import pdb; pdb.set_trace()
         raise NotImplementedError
 
+
+class DocString(object):
+    @classmethod
+    def parse_types(cls, txt):
+        arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
+        rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
+        return arg_types, rtypes[0] if rtypes else None
 
 if __name__ == '__main__':
     def _initial_caps():
