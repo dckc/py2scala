@@ -97,7 +97,7 @@ class PyToScala(ast.NodeVisitor):
         wr('import __fileinfo__._\n')
         wr('import %s.__builtin__._\n' % py2scala)
         wr('import %s.batteries._\n\n' % py2scala)
-        
+
         wr, body = self._doc(node)
         wr('object %s ' % self._modname)
         self._suite(body)
@@ -128,11 +128,14 @@ object __fileinfo__ {
                 self.visit(stmt)
 
     def _items(self, wr, items, parens=False):
-        if parens: wr('(')
+        if parens:
+            wr('(')
         for ix, i in enumerate(items):
-            if ix > 0: wr(', ')
+            if ix > 0:
+                wr(', ')
             self.visit(i)
-        if parens: wr(')')
+        if parens:
+            wr(')')
 
     def _opt(self, wr, node):
         if node:
@@ -140,7 +143,7 @@ object __fileinfo__ {
             self.visit(node)
 
     def visit_FunctionDef(self, node):
-        '''FunctionDef(identifier name, arguments args, 
+        '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
         '''
         self.newline()
@@ -314,7 +317,7 @@ object __fileinfo__ {
     def visit_TryExcept(self, node):
         ''' TryExcept(stmt* body, excepthandler* handlers, stmt* orelse)
 
-	excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
+        excepthandler = ExceptHandler(expr? type, expr? name, stmt* body)
                         attributes (int lineno, int col_offset)
         '''
         wr = self._sync(node)
@@ -435,7 +438,7 @@ object __fileinfo__ {
 
     def visit_BinOp(self, node):
         '''BinOp(expr left, operator op, expr right)
-        operator = Add | Sub | Mult | Div | Mod | Pow | LShift 
+        operator = Add | Sub | Mult | Div | Mod | Pow | LShift
                  | RShift | BitOr | BitXor | BitAnd | FloorDiv
         '''
         wr = self._sync(node)
@@ -473,7 +476,8 @@ object __fileinfo__ {
         wr = self._sync(node)
         wr('Dict(')
         for ix, (k, v) in enumerate(zip(node.keys, node.values)):
-            if ix > 0: wr(', ')
+            if ix > 0:
+                wr(', ')
             self.visit(k)
             wr(' -> ')
             self.visit(v)
@@ -557,12 +561,14 @@ object __fileinfo__ {
         kx = 0
         if node.keywords:
             for kx, keyword in enumerate(node.keywords):
-                if ax + kx > 0: wr(', ')
+                if ax + kx > 0:
+                    wr(', ')
                 wr(keyword.arg)
                 wr('=')
                 self.visit(keyword.value)
         if node.kwargs:
-            if ax + kx > 0: wr(', ')
+            if ax + kx > 0:
+                wr(', ')
             wr('/* TODO kwargs */ ')
             self.visit(node.kwargs)
         wr(')')
@@ -648,13 +654,14 @@ object __fileinfo__ {
         self._items(wr, node.elts, parens=True)
 
     def visit_arguments(self, node):
-        '''(expr* args, identifier? vararg, 
-		     identifier? kwarg, expr* defaults)
+        '''(expr* args, identifier? vararg,
+            identifier? kwarg, expr* defaults)
         '''
         wr = self._sync(node)
 
         for ix, expr in enumerate(node.args):
-            if ix > 0: wr(', ')
+            if ix > 0:
+                wr(', ')
             self.visit(expr)
             dx = ix - (len(node.args) - len(node.defaults))
             if dx >= 0:
@@ -663,12 +670,14 @@ object __fileinfo__ {
             else:
                 wr(': Any')
         if node.vararg:
-            if ix > 0: wr(', ')
+            if ix > 0:
+                wr(', ')
             self.visit(node.vararg)
             wr(' : _*')
             ix += 1
         if node.kwarg:
-            if ix > 0: wr(', ')
+            if ix > 0:
+                wr(', ')
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
 
     def visit_alias(self, node):
