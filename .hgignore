@@ -3,6 +3,11 @@ syntax: glob
 *.class
 *~
 *.pyc
+
 target/
 .project
 .classpath
+
+out/
+.idea
+
