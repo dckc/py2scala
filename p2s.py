@@ -95,9 +95,10 @@ class PyToScala(ast.NodeVisitor):
         wr = self._out.write
         if self._pkg:
             wr('package %s\n\n' % self._pkg)
+        wr('import scala.collection.mutable\n')
         wr('import __fileinfo__._\n')
         wr('import %s.__builtin__._\n' % py2scala)
-        wr('import %s.batteries._\n\n' % py2scala)
+        wr('import %s.{batteries => py}\n\n' % py2scala)
 
         wr, body = self._doc(node)
         wr('object %s ' % self._modname)
@@ -109,22 +110,21 @@ object __fileinfo__ {
 """ % (self._pkg + '.' if self._pkg else '', self._modname))
 
     def _doc(self, node):
-        body = node.body
-        assert(len(body) > 0)
         wr = self._sync(node)
-        fst = body[0]
-        if isinstance(fst, ast.Expr):
-            v = fst.value
-            if isinstance(v, ast.Str):
-                doc = v.s
-                limitation('*/' not in doc)
-                wr('/** ' + doc + '*/')
-                self.newline()
-                return wr, body[1:]
-        return wr, body
+        doc = ast.get_docstring(node)
+        if doc:
+            limitation('*/' not in doc)
+            wr('/** ' + doc + '*/')
+            self.newline()
+            return wr, node.body[1:]
+        return wr, node.body
 
-    def _suite(self, body):
+    def _suite(self, body, wr=None, prefix=None):
         with self._block():
+            if prefix:
+                for line in prefix:
+                    wr(line)
+                    self.newline()
             for stmt in body:
                 self.visit(stmt)
 
@@ -148,7 +148,7 @@ object __fileinfo__ {
                             stmt* body, expr* decorator_list)
         '''
         arg_types, rtype = None, None
-        doc = self.docstring(node.body)
+        doc = ast.get_docstring(node)
         if doc:
             arg_types, rtype = DocString.parse_types(doc)
 
@@ -167,19 +167,10 @@ object __fileinfo__ {
                 isinstance(body[-1], ast.Return) and
                 body[-1].value):
                 stmts, ret = body[:-1], body[-1]
-                expr = ast.Expr(ret.value,
-                                lineno=ret.lineno, col_offset=ret.col_offset)
+                expr = ast.copy_location(ast.Expr(ret.value), ret)
                 self._suite(stmts + [expr])
             else:
                 self._suite(body)
-
-    @classmethod
-    def docstring(cls, suite):
-        if len(suite) > 0:
-            s0 = suite[0]
-            if isinstance(s0, ast.Expr) and isinstance(s0.value, ast.Str):
-                return s0.value.s
-        return None
 
     def _decorators(self, node):
         wr = self._sync(node)
@@ -188,7 +179,7 @@ object __fileinfo__ {
             self.visit(expr)
             self.newline()
 
-    def visit_ClassDef(self, node):
+    def visit_ClassDef(self, node, this='self'):
         '''ClassDef(identifier name, expr* bases, stmt* body,
                     expr* decorator_list)
         '''
@@ -204,7 +195,7 @@ object __fileinfo__ {
                 wr(' extends ')
                 self._items(wr, notObject)
         wr(' ')
-        self._suite(body)
+        self._suite(body, wr, prefix=['%s =>' % this])
 
     def visit_Return(self, node):
         '''Return(expr? value)
@@ -251,16 +242,15 @@ object __fileinfo__ {
         '''Print(expr? dest, expr* values, bool nl)
         '''
         wr = self._sync(node)
+        wr('print(')
         if node.dest:
             self.visit(node.dest)
-            wr('.')
-        wr('println' if node.nl else 'print')
-        wr('(')
+            wr(', ')
         sep = ''
         for expr in node.values:
             wr(sep)
             self.visit(expr)
-            sep = ' + '
+            sep = ', '
         wr(')')
         self.newline()
 
@@ -331,16 +321,12 @@ object __fileinfo__ {
     def visit_Raise(self, node):
         '''Raise(expr? type, expr? inst, expr? tback)
         '''
-        limitation(not node.tback)
+        limitation(not node.inst and not node.tback)
 
         wr = self._sync(node)
         if node.type:
             wr('throw new ')
             self.visit(node.type)
-            wr('(')
-            if node.inst:
-                self.visit(node.inst)
-            wr(')')
         else:
             wr('throw _ex')  # KLUDGE
         self.newline()
@@ -392,25 +378,35 @@ object __fileinfo__ {
         wr(')')
         self.newline()
 
-    def visit_Import(self, node):
+    def visit_Import(self, node,
+                     # a bit of a KLUDGE...
+                     root='py.'):
         """Import(alias* names)"""
         wr = self._sync(node)
         for name in node.names:
             wr('import ')
-            self.visit(name)
+            self.visit_alias(name, prefix=root)
             self.newline()
 
-    def visit_ImportFrom(self, node):
+    def visit_ImportFrom(self, node, root='py.'):
         """ImportFrom(identifier? module, alias* names, int? level)"""
         wr = self._sync(node)
         limitation(node.level == 0)  # what is that, anyway?
         limitation(node.module)
-        wr('import ')
-        wr(node.module)
-        wr('.{')
-        self._items(wr, node.names)
-        wr('}')
-        self.newline()
+
+        # skip: from functools import partial as pf_
+        if tmatch(node, ast.ImportFrom(module='functools',
+                                       names=[ast.alias(name='partial',
+                                                        asname='pf_')],
+                                       level=0)):
+            pass
+        else:
+            wr('import %s' % root)
+            wr(node.module)
+            wr('.{')
+            self._items(wr, node.names)
+            wr('}')
+            self.newline()
 
     def visit_Global(self, node):
         '''Global(identifier* names)
@@ -585,6 +581,15 @@ object __fileinfo__ {
 
         limitation(not node.starargs)
         wr = self._sync(node)
+
+        # partially applied function KLUDGE
+        if tmatch(node, ast.Call(func=ast.Name(id='pf_', ctx=None),
+                                 args=[None], keywords=[], starargs=None,
+                                 kwargs=None)):
+            self.visit(node.args[0])
+            wr(' _')
+            return
+
         self.visit(node.func)
         wr('(')
         ax = len(node.args)
@@ -663,7 +668,7 @@ object __fileinfo__ {
                 wr('.drop(')
                 self.visit(slice.lower)
             else:
-                wr('.clone(')
+                wr('.drop(0')
             wr(')')
         else:
             limitation(True)
@@ -675,7 +680,7 @@ object __fileinfo__ {
 
     def visit_List(self, node):
         wr = self._sync(node)
-        wr('List')
+        wr('mutable.IndexedSeq')
         self._items(wr, node.elts, parens=True)
 
     def visit_Tuple(self, node):
@@ -715,8 +720,9 @@ object __fileinfo__ {
                 wr(', ')
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
 
-    def visit_alias(self, node):
+    def visit_alias(self, node, prefix=''):
         wr = self._sync(node)
+        wr(prefix)
         wr(node.name)
         if node.asname:
             wr(' as ')
@@ -727,6 +733,24 @@ object __fileinfo__ {
         raise NotImplementedError('need visitor for: %s %s' %
                                   (node.__class__.__name__, node))
 
+
+def tmatch(candidate, pattern):
+    if pattern == None:
+        return True
+    if type(pattern) in (type(0), type(''), type(True)):
+        return candidate == pattern
+    if type(pattern) == type([]):
+        if type(candidate) != type([]):
+            return False
+        return not [1 for (c, p) in zip(candidate, pattern)
+                    if not tmatch(c, p)]
+    if not isinstance(candidate, type(pattern)):
+        return False
+    if not candidate._fields == pattern._fields:
+        return False
+    return not [n for n in pattern._fields
+        if not tmatch(getattr(candidate, n), getattr(pattern, n))]
+        
 
 def limitation(t):
     if not t:
