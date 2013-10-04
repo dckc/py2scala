@@ -5,7 +5,7 @@ package com.madmode.py2scala
  * batteries -- python standard library
  */
 object batteries {
-  import com.madmode.py2scala.{ __builtin__ => b }
+  import com.madmode.py2scala.{__builtin__ => b }
   import com.madmode.py2scala.__builtin__.TODO
 
   object ast {
@@ -70,7 +70,7 @@ object batteries {
       /* TODO fill in other slots */
       Map(py.stat.ST_MTIME -> mtime.toMillis())
     }
-    def popen(cmd: String): __builtin__.File = TODO
+    def popen(cmd: String): b.File = TODO
 
     object path {
       def isdir(path: String): Boolean = TODO
