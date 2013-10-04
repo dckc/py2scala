@@ -141,7 +141,7 @@ object batteries {
   }
 
   object StringIO {
-    case class StringIO(contents: String) extends b.File {
+    case class StringIO(contents: String = "") extends b.File {
       override def read() = contents
       override def readline() = TODO
       override def readlines() = TODO

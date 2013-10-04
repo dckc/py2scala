@@ -102,9 +102,14 @@ object __builtin__ {
   def open(path: String, mode: String = "r") = new FRFile(
     new io.BufferedReader(new io.FileReader(new io.File(path))))
 
+  def print(target: File, items: Any*) = target.write(items.mkString("", " ", "\n"))
+  def print(items: Any*) = println(items.mkString(" "))
+
   implicit def as_py_file(fp: io.BufferedReader): File = new FRFile(fp)
 
   implicit def as_py_file(fp: io.PrintStream): File = TODO
+
+  class IOError(msg: String = "") extends Exception(msg)
 
   class FRFile(fp: io.BufferedReader) extends File {
     def close() = fp.close()
@@ -175,7 +180,4 @@ object __builtin__ {
   class NotImplementedError(msg: String) extends Exception(msg)
 
   class SystemExit extends Exception("SystemExit")
-
-  class IOError(msg: String) extends Exception(msg)
-
 }
