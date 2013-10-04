@@ -1,15 +1,16 @@
 import StringIO
+from functools import partial as pf_
 
 
-def main(argv, open_arg, stdout):
+def main(argv, stdout, open_arg):
     r'''
-    >>> caps = Mock.caps()
-    >>> main(**caps)
-    >>> caps['stdout'].getvalue()
+    >>> world = Mock()
+    >>> _, stdout = world.with_caps(main)
+    >>> stdout.getvalue()
     '3 f1\n'
 
     :type argv: IndexedSeq[String]
-    :type open_arg: String => File
+    :type open_arg: String => Iterable[String]
     :type stdout: File
     '''
     for filename in argv[1:]:
@@ -19,8 +20,10 @@ def main(argv, open_arg, stdout):
 
 
 class Mock(object):
-    @classmethod
-    def caps(cls):
+    def with_caps(self, f):
+        '''
+        :type f: (IndexedSeq[String], File, String => Iterable[String]) => Unit
+        '''
         argv = ['prog', 'f1']
 
         def open_arg(x):
@@ -31,11 +34,14 @@ class Mock(object):
 
         out = StringIO.StringIO()
 
-        return dict(argv=argv[:], stdout=out, open_arg=open_arg)
+        return f(argv[:], out, pf_(open_arg)), out
 
 
 if __name__ == '__main__':
-    def _with_caps():
+    def _with_caps(main):
+        '''
+        :type main: (IndexedSeq[String], File, String => Iterable[String]) => Unit
+        '''
         from sys import argv, stdout
 
         def open_arg(arg):
@@ -45,12 +51,6 @@ if __name__ == '__main__':
                     'only paths given as arguments can be opened')
             return open(arg)
 
-        def with_caps(main):
-            '''
-            :type main: (IndexedSeq[String], File, String => File) => Unit
-            '''
-            return main(argv=argv[:], stdout=stdout, open_arg=open_arg)
+        return main(argv[:], stdout, open_arg)
 
-        return with_caps
-
-    _with_caps(main)
+    _with_caps(pf_(main))
