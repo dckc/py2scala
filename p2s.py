@@ -158,10 +158,11 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''
         scala_rt = ['scala.collection.mutable']
         py_rt = self._py_rt_imports
-        aux_import = ['__fileinfo__._']
+        aux_obj = self._modname + '_fileinfo'
+        aux_import = ['%s._' % aux_obj]
 
         mod_name = (self._pkg + '.' if self._pkg else '') + self._modname
-        aux_obj = '\n'.join(['object __fileinfo__ {',
+        aux_obj = '\n'.join(['object %s {' % aux_obj,
                              '  val __name__ = "%s"',
                              '  }',
                              '']) % mod_name
@@ -355,8 +356,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''For(expr target, expr iter, stmt* body, stmt* orelse)
         '''
         wr = self._sync(node)
-        elsevar_ = ['any_iter%s' % id(n)
-                    for n in option(node.orelse)]
+        elsevar_ = ['any_iter%s' % id(s)
+                    for s in [node.orelse] if node.orelse]
 
         for elsevar in elsevar_:
             wr('var %s = false' % elsevar)
