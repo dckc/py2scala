@@ -2,22 +2,7 @@ from StringIO import StringIO
 import pkg_resources as pkg
 import unittest
 
-
-def _fix_path():
-    '''Fix sys.path to find the py2scala package (without installing it).
-
-    TODO: study python community norms for organizing sources for packages
-    and tests.
-    '''
-    import sys
-    from os import path
-    for pth in ['../']:
-        sys.path.insert(0, path.join(
-            path.dirname(path.abspath(__file__)), pth))
-
-_fix_path()
-
-from py2scala import p2s
+from .. import p2s
 
 
 class TestWithCaps(unittest.TestCase):
@@ -33,8 +18,8 @@ class TestWithCaps(unittest.TestCase):
                                                  sys_path)
 
         here = os_path.dirname(__file__)
-        target = os_path.join(here, '..', 'target', scala_version)
-        scala_src = os_path.join(here, '..',
+        target = os_path.join(here, '..', '..', 'target', scala_version)
+        scala_src = os_path.join(here, '..', '..',
                                  'src', 'main', 'scala')
         self._run_scalac = mk_run_scalac(check_call, target, scala_src)
 
@@ -55,7 +40,7 @@ def mk_run_scalac(check_call, target, scala_src, fsc_path='fsc'):
 def mk_save_scala_fp(open, os_path):
     def scala_save_fp(fn, err=False):
         here = os_path.dirname(__file__)
-        src = os_path.join(here, '..', 'src', 'main',
+        src = os_path.join(here, '..', '..', 'src', 'main',
                            'scala-err' if err else 'scala',
                            fn)
         return open(src, 'w')
