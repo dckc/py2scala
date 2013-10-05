@@ -44,3 +44,11 @@ class ConvertTerminates(TestWithCaps):
 
     def test_for_else(self, res='for_else.py'):
         self.convert_res(res)
+
+    def test_distant(self, res='distant_types.py'):
+        self.convert_res(res)
+
+
+class WellTyped(TestWithCaps):
+    # TODO
+    pass
