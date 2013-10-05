@@ -162,7 +162,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 self.newline()
             wr('*/')
             self.newline()
-            return wr, node.body[1:]
+            return wr, node.body[1:], doc
         return wr, node.body, doc
 
     def _suite(self, body, wr=None, prefix=None):
@@ -211,7 +211,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''change Return to Expr if there is no rtype
         '''
         suite = (body[:-1] + [ast.copy_location(ast.Expr(ret.value), ret)
-                              for ret in body[-1]]
+                              for ret in [body[-1]]]
                  if (not rtype_opt and
                      len(body) > 0 and
                      isinstance(body[-1], ast.Return) and
@@ -231,7 +231,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                     expr* decorator_list)
         '''
         self.newline()
-        wr, body = self._doc(node)
+        wr, body, _ = self._doc(node)
         self._decorators(node)
         wr('class %s' % node.name)
         if node.bases:
