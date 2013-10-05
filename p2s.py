@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 
 
 def main(argv, open, stdout,
-         level=logging.DEBUG):
-    logging.basicConfig(level=level)
+         level=logging.INFO):
+    logging.basicConfig(level=logging.DEBUG if '--debug' in argv else level)
     [pkg, infn] = (argv[2:4] if ['--package'] == argv[1:2]
                    else (None, argv[1]))
     convert(pkg, infn, open(infn).read(), stdout)
@@ -35,21 +35,19 @@ def convert(pkg, infn, src, out):
     p2s.visit(t)
 
 
-class PyToScala(ast.NodeVisitor):
-    '''
-    http://docs.python.org/2/library/ast.html
-    '''
-    def __init__(self, pkg, modname, out, token_lines):
-        self._pkg = pkg
-        self._modname = modname
+class LineSyntax(object):
+    def __init__(self, out, token_lines):
         self._out = out
-        self._col = 0
         self._lines = list(token_lines)
+        self._col = 0
         self._line_ix = 0
-        self._node_row = 0
 
     @classmethod
     def tokens_per_line(cls, src):
+        '''Enumerate lines and the tokens they contain.
+
+        :rtype: Iterator[(Int, Seq[Token])]
+        '''
         row = 1
         line = []
         readline = StringIO.StringIO(src).readline
@@ -90,34 +88,82 @@ class PyToScala(ast.NodeVisitor):
         wr('\n')
         wr(' ' * self._col)
 
-    def visit_Module(self, node,
-                     py2scala='com.madmode.py2scala'):
-        wr = self._out.write
-        if self._pkg:
-            wr('package %s\n\n' % self._pkg)
-        wr('import scala.collection.mutable\n')
-        wr('import __fileinfo__._\n')
-        wr('import %s.__builtin__._\n' % py2scala)
-        wr('import %s.{batteries => py}\n\n' % py2scala)
 
-        wr, body = self._doc(node)
+def option(x):
+    '''Facilitate well-typed iteration with None.
+
+    TODO: move this to an fp module.
+    '''
+    return () if x is None else [x]
+
+def option_fold(opt_a, f, b):
+    return b if opt_a is None else f(opt_a)
+
+
+class PyToScala(ast.NodeVisitor, LineSyntax):
+    '''
+    http://docs.python.org/2/library/ast.html
+    '''
+    def __init__(self, pkg, modname, out, token_lines,
+                 py2scala='com.madmode.py2scala'):
+        LineSyntax.__init__(self, out, token_lines)
+        self._pkg = pkg
+        self._modname = modname
+        self._py_rt_imports = [
+            '%s.{batteries => py}' % py2scala,
+            '%s.__builtin__._' % py2scala]
+
+    def visit_Module(self, node):
+        '''Module(stmt* body)
+        '''
+        wr = self._out.write
+
+        for pkg in option(self._pkg):
+            wr('package %s\n' % pkg)
+            self.newline()
+
+        imports, aux_obj = self._imports()
+        for target in imports:
+            wr('import %s\n' % target)
+        self.newline()
+
+        _, body, _ = self._doc(node)
         wr('object %s ' % self._modname)
+
         self._suite(body)
-        wr("""
-object __fileinfo__ {
-  val __name__ = "%s%s"
-}
-""" % (self._pkg + '.' if self._pkg else '', self._modname))
+
+        self.newline()
+        wr(aux_obj)
+
+    def _imports(self):
+        '''Get list of scala and python runtime imports, aux object
+        for __file__ support.
+        '''
+        scala_rt = ['scala.collection.mutable']
+        py_rt = self._py_rt_imports
+        aux_import = ['__fileinfo__._']
+
+        mod_name = (self._pkg + '.' if self._pkg else '') + self._modname
+        aux_obj = '\n'.join(['object __fileinfo__ {',
+                             '  val __name__ = "%s"',
+                             '}']) % mod_name
+
+        return scala_rt + py_rt + aux_import, aux_obj
 
     def _doc(self, node):
         wr = self._sync(node)
         doc = ast.get_docstring(node)
         if doc:
             limitation('*/' not in doc)
-            wr('/** ' + doc + '*/')
+            wr('/**')
+            self.newline()
+            for line in doc.split('\n'):
+                wr(line)
+                self.newline()
+            wr('*/')
             self.newline()
             return wr, node.body[1:]
-        return wr, node.body
+        return wr, node.body, doc
 
     def _suite(self, body, wr=None, prefix=None):
         with self._block():
@@ -147,30 +193,31 @@ object __fileinfo__ {
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
         '''
-        arg_types, rtype = None, None
-        doc = ast.get_docstring(node)
-        if doc:
-            arg_types, rtype = DocString.parse_types(doc)
-
         self.newline()
-        wr, body = self._doc(node)
+
+        wr, body, doc = self._doc(node)
+
+        arg_types, rtype = option_fold(doc, DocString.parse_types, (None, None))
+
         self._decorators(node)
         wr('def %s(' % node.name)
         self.visit_arguments(node.args, types=arg_types)
-        if rtype:
-            wr('): %s = ' % rtype)
-            self._suite(body)
-        else:
-            wr(') = ')
-            # change Return to Expr if there is no rtype
-            if (len(body) > 0 and
-                isinstance(body[-1], ast.Return) and
-                body[-1].value):
-                stmts, ret = body[:-1], body[-1]
-                expr = ast.copy_location(ast.Expr(ret.value), ret)
-                self._suite(stmts + [expr])
-            else:
-                self._suite(body)
+
+        rtypedecl, suite = self._fun_parts(body, rtype)
+        wr(')%s = ' % rtypedecl)
+        self._suite(body)
+
+    def _fun_parts(self, body, rtype_opt):
+        '''change Return to Expr if there is no rtype
+        '''
+        suite = (body[:-1] + [ast.copy_location(ast.Expr(ret.value), ret)
+                              for ret in body[-1]]
+                 if (not rtype_opt and
+                     len(body) > 0 and
+                     isinstance(body[-1], ast.Return) and
+                     body[-1].value)
+                 else body)
+        return option_fold(rtype_opt, lambda rtype: ': ' + rtype, ''), suite
 
     def _decorators(self, node):
         wr = self._sync(node)
@@ -712,8 +759,7 @@ object __fileinfo__ {
         if node.vararg:
             if ix > 0:
                 wr(', ')
-            self.visit(node.vararg)
-            wr(' : _*')
+            wr('/* TODO vararg */ %s : Seq[Any]' % node.vararg)
             ix += 1
         if node.kwarg:
             if ix > 0:
