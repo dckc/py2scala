@@ -117,6 +117,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         self._py_rt_imports = [
             '%s.{batteries => %s}' % (py2scala, batteries_pfx),
             '%s.__builtin__._' % py2scala]
+        self._def_stack = []
 
     def visit_Module(self, node):
         '''Module(stmt* body)
@@ -202,15 +203,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
         wr, body, doc = self._doc(node)
 
-        arg_types, rtype = option_fold(doc, DocString.parse_types, (None, None))
+        arg_types, rtype, foralls = option_fold(doc,
+                                                DocString.parse_types,
+                                                (None, None, ''))
 
         self._decorators(node)
-        wr('def %s(' % node.name)
+        wr('def %s%s(' % (node.name, foralls))
         self.visit_arguments(node.args, types=arg_types)
 
         rtypedecl, suite = self._fun_parts(body, rtype)
         wr(')%s = ' % rtypedecl)
+
+        self._def_stack.append('FunctionDef')
         self._suite(body)
+        self._def_stack.pop()
 
     def _fun_parts(self, body, rtype_opt):
         '''change Return to Expr if there is no rtype
@@ -236,9 +242,15 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                     expr* decorator_list)
         '''
         self.newline()
-        wr, body, _ = self._doc(node)
+        wr, body, doc = self._doc(node)
         self._decorators(node)
         wr('class %s' % node.name)
+
+        # TODO: argtypes
+        _, _, foralls = option_fold(doc, DocString.parse_types,
+                                    (None, None, ''))
+        wr(foralls)
+
         if node.bases:
             notObject = [b for b in node.bases
                          if not (isinstance(b, ast.Name)
@@ -247,7 +259,9 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 wr(' extends ')
                 self._items(wr, notObject)
         wr(' ')
+        self._def_stack.append('ClassDef')
         self._suite(body, wr, prefix=['%s =>' % this])
+        self._def_stack.pop()
 
     def visit_Return(self, node):
         '''Return(expr? value)
@@ -746,13 +760,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         types = dict(types) if types else {}
 
+        first = 0
         for ix, expr in enumerate(node.args):
-            if ix > 0:
+            # Skip 1st argument inside class def
+            if ix == 0 and ['ClassDef'] == self._def_stack[-1:]:
+                first = 1
+                continue
+
+            if ix > first:
                 wr(', ')
+
             self.visit(expr)
             dx = ix - (len(node.args) - len(node.defaults))
             if dx >= 0:
-                wr(' = ')
+                wr('=')
                 self.visit(node.defaults[dx])
             else:
                 if isinstance(expr, ast.Name) and expr.id in types:
@@ -819,7 +840,10 @@ class DocString(object):
     def parse_types(cls, txt):
         arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
         rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
-        return arg_types, rtypes[0] if rtypes else None
+        foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
+        return (arg_types,
+                rtypes[0] if rtypes else None,
+                '[' + foralls[0] + ']' if foralls else '')
 
 
 def mk_find_package(find_module, path_split, sys_path):
