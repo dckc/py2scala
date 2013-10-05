@@ -890,6 +890,9 @@ def mk_find_package(find_module, path_split, sys_path):
     std_base, _ = path_split(std_fn)
 
     def find_package(mod_file, pkg_name):
+        if pkg_name == 'sys':
+            return True, False, ['sys']
+
         base, _ = path_split(mod_file)
         _, pkg_path, _ = find_module(pkg_name, [base] + sys_path[1:])
         pkg_dir, pkg_fn = path_split(pkg_path)
