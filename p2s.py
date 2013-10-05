@@ -94,7 +94,7 @@ def option(x):
 
     TODO: move this to an fp module.
     '''
-    return () if x is None else [x]
+    return [] if x is None else [x]
 
 def option_fold(opt_a, f, b):
     return b if opt_a is None else f(opt_a)
@@ -288,39 +288,34 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_Print(self, node):
         '''Print(expr? dest, expr* values, bool nl)
         '''
+        limitation(node.nl)
         wr = self._sync(node)
-        wr('print(')
-        if node.dest:
-            self.visit(node.dest)
-            wr(', ')
-        sep = ''
-        for expr in node.values:
-            wr(sep)
-            self.visit(expr)
-            sep = ', '
-        wr(')')
+        wr('print')
+        self._items(wr, option(node.dest) + node.values, parens=True) 
         self.newline()
 
     def visit_For(self, node):
         '''For(expr target, expr iter, stmt* body, stmt* orelse)
         '''
         wr = self._sync(node)
-        if node.orelse:
-            wr('/* for ... else: */')
+        elsevar_ = ['any_iter%s' % id(n)
+                    for n in option(node.orelse)]
+
+        for elsevar in elsevar_:
+            wr('var %s = false' % elsevar)
             self.newline()
-            wr('if (!(')
-            self.visit(node.iter)
-            wr(').isEmpty) {')
 
         wr('for (')
         self.visit(node.target)
         wr(' <- ')
         self.visit(node.iter)
         wr(') ')
-        self._suite(node.body)
+        self._suite(node.body,
+                    wr=wr, prefix=['%s = true' % elsevar
+                                   for elsevar in elsevar_])
 
-        if node.orelse:
-            wr('} else ')
+        for elsevar in elsevar_:
+            wr('if (! %s)' % elsevar)
             self._suite(node.orelse)
 
     def visit_While(self, node):
