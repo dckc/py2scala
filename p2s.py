@@ -97,8 +97,19 @@ def option(x):
     '''
     return [] if x is None else [x]
 
+
 def option_fold(opt_a, f, b):
     return b if opt_a is None else f(opt_a)
+
+
+def option_orelse(opt_a, a):
+    return a if opt_a is None else opt_a
+
+
+def partition(l, pred):
+    which = [(pred(item), item) for item in l]
+    return ([item for (test, item) in which if test],
+            [item for (test, item) in which if not test])
 
 
 class PyToScala(ast.NodeVisitor, LineSyntax):
@@ -152,7 +163,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         mod_name = (self._pkg + '.' if self._pkg else '') + self._modname
         aux_obj = '\n'.join(['object __fileinfo__ {',
                              '  val __name__ = "%s"',
-                             '}']) % mod_name
+                             '  }',
+                             '']) % mod_name
 
         return scala_rt + py_rt + aux_import, aux_obj
 
@@ -215,14 +227,14 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr(')%s = ' % rtypedecl)
 
         self._def_stack.append('FunctionDef')
-        self._suite(body)
+        self._suite(suite)
         self._def_stack.pop()
 
-    def _fun_parts(self, body, rtype_opt):
-        '''change Return to Expr if there is no rtype
+    def _fun_parts(self, body, rtype_opt, elide=False):
+        '''Find trailing Return and modify/elide based on context.
         '''
         suite = (body[:-1] + [ast.copy_location(ast.Expr(ret.value), ret)
-                              for ret in [body[-1]]]
+                              for ret in [body[-1]] if not elide]
                  if (not rtype_opt and
                      len(body) > 0 and
                      isinstance(body[-1], ast.Return) and
@@ -242,14 +254,29 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                     expr* decorator_list)
         '''
         self.newline()
-        wr, body, doc = self._doc(node)
+        wr, body, doc1 = self._doc(node)
         self._decorators(node)
-        wr('class %s' % node.name)
+        wr('case class %s' % node.name)
 
-        # TODO: argtypes
-        _, _, foralls = option_fold(doc, DocString.parse_types,
-                                    (None, None, ''))
+        # do we have a def __new__(...)?
+        new_def_, body = self._find_new(body)
+
+        # Combine its doc with class's doc for getting types.
+        doc = ''.join(
+            option(doc1)
+            + [s for new_def in new_def_
+               for s in option(ast.get_docstring(new_def))])
+        arg_types, _, foralls = option_fold(doc, DocString.parse_types,
+                                            (None, None, ''))
         wr(foralls)
+
+        self._def_stack.append('ClassDef')
+
+        # use __new__() args as scala class args
+        wr('(')
+        for new_def in new_def_:
+            self.visit_arguments(new_def.args, types=arg_types)
+        wr(')')
 
         if node.bases:
             notObject = [b for b in node.bases
@@ -259,9 +286,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 wr(' extends ')
                 self._items(wr, notObject)
         wr(' ')
-        self._def_stack.append('ClassDef')
+
+        for new_def in new_def_:
+            _, new_body = self._fun_parts(new_def.body, None, elide=True)
+            body = body + new_body
+
         self._suite(body, wr, prefix=['%s =>' % this])
         self._def_stack.pop()
+
+    def _find_new(self, suite):
+        return partition(
+            suite,
+            lambda stmt: tmatch(stmt, ast.FunctionDef(
+                name='__new__', args=None, body=None, decorator_list=[])))
+
 
     def visit_Return(self, node):
         '''Return(expr? value)
