@@ -76,6 +76,8 @@ object __builtin__ {
     def find(needle: Char) = s.indexOf(needle)
 
     def startswith(prefix: String) = s.startsWith(prefix)
+
+    def %(fmt: String, items: Any*): String = TODO
   }
 
   implicit def test_dict[K, V](d: Dict[K, V]): Boolean = d != null && !d.isEmpty
@@ -177,7 +179,8 @@ object __builtin__ {
 
   def enumerate[A](x: Iterable[A]): Iterable[(Int, A)] = x.zipWithIndex.map(_.swap)
 
-  class NotImplementedError(msg: String) extends Exception(msg)
+  class NotImplementedError(msg: String="") extends Exception(msg)
 
   class SystemExit extends Exception("SystemExit")
+  class TypeError(msg: String="") extends Exception(msg)
 }
