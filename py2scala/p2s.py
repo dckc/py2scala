@@ -301,7 +301,6 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             lambda stmt: tmatch(stmt, ast.FunctionDef(
                 name='__new__', args=None, body=None, decorator_list=[])))
 
-
     def visit_Return(self, node):
         '''Return(expr? value)
         '''
@@ -349,7 +348,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         limitation(node.nl)
         wr = self._sync(node)
         wr('print')
-        self._items(wr, option(node.dest) + node.values, parens=True) 
+        self._items(wr, option(node.dest) + node.values, parens=True)
         self.newline()
 
     def visit_For(self, node):
@@ -851,12 +850,12 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
 
 def tmatch(candidate, pattern):
-    if pattern == None:
+    if pattern is None:
         return True
     if type(pattern) in (type(0), type(''), type(True)):
         return candidate == pattern
-    if type(pattern) == type([]):
-        if type(candidate) != type([]):
+    if isinstance(pattern, type([])):
+        if not isinstance(candidate, type([])):
             return False
         return not [1 for (c, p) in zip(candidate, pattern)
                     if not tmatch(c, p)]
@@ -866,7 +865,7 @@ def tmatch(candidate, pattern):
         return False
     return not [n for n in pattern._fields
         if not tmatch(getattr(candidate, n), getattr(pattern, n))]
-        
+
 
 def limitation(t):
     if not t:
@@ -904,7 +903,6 @@ def mk_find_package(find_module, path_split, sys_path):
 if __name__ == '__main__':
     def _with_caps(main):
         from imp import find_module
-        from os.path import dirname
         from os import path as os_path
         from sys import argv, stdout, path as sys_path
 
