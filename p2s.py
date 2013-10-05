@@ -19,19 +19,20 @@ import tokenize
 log = logging.getLogger(__name__)
 
 
-def main(argv, open, stdout,
+def main(argv, open, stdout, find_package,
          level=logging.INFO):
     logging.basicConfig(level=logging.DEBUG if '--debug' in argv else level)
     [pkg, infn] = (argv[2:4] if ['--package'] == argv[1:2]
                    else (None, argv[1]))
-    convert(pkg, infn, open(infn).read(), stdout)
+    convert(pkg, infn, open(infn).read(), stdout, find_package)
 
 
-def convert(pkg, infn, src, out):
+def convert(pkg, infn, src, out, find_package):
     modname = splitext(basename(infn))[0]
     t = ast.parse(src, infn)
     tl = PyToScala.tokens_per_line(src)
-    p2s = PyToScala(pkg, modname, out, tl)
+    p2s = PyToScala(pkg, modname, out, tl,
+                    find_package=lambda n: find_package(infn, n))
     p2s.visit(t)
 
 
@@ -104,13 +105,17 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     '''
     http://docs.python.org/2/library/ast.html
     '''
-    def __init__(self, pkg, modname, out, token_lines,
+    def __init__(self, pkg, modname, out, token_lines, find_package,
+                 partial_app='pf_', batteries_pfx='py',
                  py2scala='com.madmode.py2scala'):
         LineSyntax.__init__(self, out, token_lines)
         self._pkg = pkg
         self._modname = modname
+        self._find_package = find_package
+        self._partial_app = partial_app
+        self._batteries_pfx = batteries_pfx
         self._py_rt_imports = [
-            '%s.{batteries => py}' % py2scala,
+            '%s.{batteries => %s}' % (py2scala, batteries_pfx),
             '%s.__builtin__._' % py2scala]
 
     def visit_Module(self, node):
@@ -420,35 +425,38 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr(')')
         self.newline()
 
-    def visit_Import(self, node,
-                     # a bit of a KLUDGE...
-                     root='py.'):
+    def visit_Import(self, node):
         """Import(alias* names)"""
         wr = self._sync(node)
         for name in node.names:
             wr('import ')
-            self.visit_alias(name, prefix=root)
+            self.visit_alias(name, pkg=True)
             self.newline()
 
-    def visit_ImportFrom(self, node, root='py.'):
+    def visit_ImportFrom(self, node):
         """ImportFrom(identifier? module, alias* names, int? level)"""
         wr = self._sync(node)
         limitation(node.level == 0)  # what is that, anyway?
         limitation(node.module)
 
-        # skip: from functools import partial as pf_
-        if tmatch(node, ast.ImportFrom(module='functools',
-                                       names=[ast.alias(name='partial',
-                                                        asname='pf_')],
-                                       level=0)):
-            pass
-        else:
-            wr('import %s' % root)
-            wr(node.module)
+        for node in self._skip_special_imports(node):
+            wr('import ')
+            wr(self._adjust_pkg_path(node.module))
             wr('.{')
             self._items(wr, node.names)
             wr('}')
             self.newline()
+
+    def _skip_special_imports(self, node):
+        '''skip: from functools import partial as pf_
+        '''
+        return ([]
+                if tmatch(node, ast.ImportFrom(
+                        module='functools',
+                        names=[ast.alias(name='partial',
+                                         asname=self._partial_app)],
+                        level=0))
+                else [node])
 
     def visit_Global(self, node):
         '''Global(identifier* names)
@@ -761,13 +769,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 wr(', ')
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
 
-    def visit_alias(self, node, prefix=''):
+    def visit_alias(self, node, pkg=False):
+        '''alias = (identifier name, identifier? asname)
+        '''
         wr = self._sync(node)
-        wr(prefix)
-        wr(node.name)
+        wr(self._adjust_pkg_path(node.name) if pkg else node.name)
         if node.asname:
             wr(' as ')
             wr(node.asname)
+
+    def _adjust_pkg_path(self, pkg_path):
+        is_std, is_local, path_parts = self._find_package(pkg_path)
+        limitation(is_std or is_local)
+        return '.'.join(([self._batteries_pfx] if is_std else [])
+                        + path_parts)
 
     def generic_visit(self, node):
         import pdb; pdb.set_trace()
@@ -806,11 +821,37 @@ class DocString(object):
         rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
         return arg_types, rtypes[0] if rtypes else None
 
-if __name__ == '__main__':
-    def _initial_caps():
-        import sys
-        return dict(argv=sys.argv,
-                    stdout=sys.stdout,
-                    open=open)
 
-    main(**_initial_caps())
+def mk_find_package(find_module, path_split, sys_path):
+    _, std_fn, _ = find_module('string')
+    std_base, _ = path_split(std_fn)
+
+    def find_package(mod_file, pkg_name):
+        base, _ = path_split(mod_file)
+        _, pkg_path, _ = find_module(pkg_name, [base] + sys_path[1:])
+        pkg_dir, pkg_fn = path_split(pkg_path)
+        return pkg_dir == std_base, pkg_dir == base, [pkg_name]
+
+    return find_package
+
+
+if __name__ == '__main__':
+    def _with_caps(main):
+        from imp import find_module
+        from os.path import dirname
+        from os import path as os_path
+        from sys import argv, stdout, path as sys_path
+
+        def open_arg(path):
+            if path not in argv:
+                raise IOError('not a CLI arg: %s' % path)
+            return open(path)
+
+        return main(argv=argv[:],
+                    stdout=stdout,
+                    open=open_arg,
+                    find_package=mk_find_package(find_module,
+                                                 os_path.split,
+                                                 sys_path))
+
+    _with_caps(main)
