@@ -15,6 +15,7 @@ import ast
 import logging
 import re
 import tokenize
+from ast import copy_location as loc
 
 log = logging.getLogger(__name__)
 
@@ -142,7 +143,6 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         imports, aux_obj = self._imports()
         for target in imports:
             wr('import %s\n' % target)
-        self.newline()
 
         _, body, _ = self._doc(node)
         wr('object %s ' % self._modname)
@@ -170,6 +170,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         return scala_rt + py_rt + aux_import, aux_obj
 
     def _doc(self, node):
+        self.newline()
         wr = self._sync(node)
         doc = ast.get_docstring(node)
         if doc:
@@ -184,12 +185,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             return wr, node.body[1:], doc
         return wr, node.body, doc
 
-    def _suite(self, body, wr=None, prefix=None):
+    def _suite(self, body):
         with self._block():
-            if prefix:
-                for line in prefix:
-                    wr(line)
-                    self.newline()
             for stmt in body:
                 self.visit(stmt)
 
@@ -212,8 +209,6 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
         '''
-        self.newline()
-
         wr, body, doc = self._doc(node)
 
         arg_types, rtype, foralls = option_fold(doc,
@@ -234,7 +229,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def _fun_parts(self, body, rtype_opt, elide=False):
         '''Find trailing Return and modify/elide based on context.
         '''
-        suite = (body[:-1] + [ast.copy_location(ast.Expr(ret.value), ret)
+        suite = (body[:-1] + [loc(ast.Expr(ret.value), ret)
                               for ret in [body[-1]] if not elide]
                  if (not rtype_opt and
                      len(body) > 0 and
@@ -253,30 +248,18 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_ClassDef(self, node, this='self'):
         '''ClassDef(identifier name, expr* bases, stmt* body,
                     expr* decorator_list)
+
+        .. note: TODO: test setting attributes in __new__.
         '''
-        self.newline()
         wr, body, doc1 = self._doc(node)
         self._decorators(node)
-        wr('case class %s' % node.name)
 
-        # do we have a def __new__(...)?
-        new_def_, body = self._find_new(body)
-
-        # Combine its doc with class's doc for getting types.
-        doc = ''.join(
-            option(doc1)
-            + [s for new_def in new_def_
-               for s in option(ast.get_docstring(new_def))])
-        arg_types, _, foralls = option_fold(doc, DocString.parse_types,
-                                            (None, None, ''))
-        wr(foralls)
-
+        # skip 1st (self) arg in methods, including constructor
+        ctors, body, arg_types, foralls = self._find_constructors(body, doc1)
         self._def_stack.append('ClassDef')
-
-        # use __new__() args as scala class args
-        wr('(')
-        for new_def in new_def_:
-            self.visit_arguments(new_def.args, types=arg_types)
+        wr('class %s%s(' % (node.name, foralls))
+        for fd in ctors:
+            self.visit_arguments(fd.args, types=arg_types)
         wr(')')
 
         if node.bases:
@@ -285,21 +268,42 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                                  and b.id == 'object')]
             if notObject:
                 wr(' extends ')
-                self._items(wr, notObject)
+                self._items(wr, notObject)  # TODO: test multiple bases
         wr(' ')
 
-        for new_def in new_def_:
-            _, new_body = self._fun_parts(new_def.body, None, elide=True)
-            body = body + new_body
+        with self._block():
+            wr('%s =>' % this)
+            self.newline()
 
-        self._suite(body, wr, prefix=['%s =>' % this])
+            for fd in ctors:
+                _, con_body = self._fun_parts(fd.body, None, elide=True)
+                for stmt in con_body:
+                    self.visit(stmt)
+
+            for stmt in body:
+                self.visit(stmt)
+
         self._def_stack.pop()
 
-    def _find_new(self, suite):
-        return partition(
-            suite,
-            lambda stmt: tmatch(stmt, ast.FunctionDef(
-                name='__new__', args=None, body=None, decorator_list=[])))
+    def _find_constructors(self, suite, class_doc):
+        ctor_pats = [
+            ast.FunctionDef(name=name, args=None, body=None,
+                            decorator_list=None)
+            for name in ['__new__', '__init__']]
+
+        def is_ctor(stmt):
+            return [1 for pat in ctor_pats if tmatch(stmt, pat)]
+
+        ctors, other = partition(suite, is_ctor)
+
+        limitation(len(ctors) <= 1)
+
+        # Combine constructor doc with class's doc for getting types.
+        doc = '\n'.join(option(class_doc)
+                        + [s for fd in ctors
+                           for s in option(ast.get_docstring(fd))])
+        arg_types, _, foralls = DocString.parse_types(doc)
+        return ctors, other, arg_types, foralls
 
     def visit_Return(self, node):
         '''Return(expr? value)
@@ -321,11 +325,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''Assign(expr* targets, expr value)
         '''
         wr = self._sync(node)
-        wr('val ')
-        if len(node.targets) > 1:
-            self._items(node.targets, parens=True)
+
+        # Translate self.x = ... to var x = ... .
+        if (['ClassDef'] == self._def_stack[-1:] and
+            len(node.targets) == 1 and
+            tmatch(node.targets[0],
+                   ast.Attribute(value=ast.Name(id='self', ctx=ast.Load()),
+                                 attr=None, ctx=ast.Store()))):
+            wr('var %s' % node.targets[0].attr)
         else:
-            self.visit(node.targets[0])
+            wr('val ')
+            if len(node.targets) > 1:
+                self._items(node.targets, parens=True)
+            else:
+                self.visit(node.targets[0])
 
         wr(' = ')
         self.visit(node.value)
@@ -367,9 +380,12 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr(' <- ')
         self.visit(node.iter)
         wr(') ')
-        self._suite(node.body,
-                    wr=wr, prefix=['%s = true' % elsevar
-                                   for elsevar in elsevar_])
+        with self._block():
+            for elsevar in elsevar_:
+                wr('%s = true' % elsevar)
+                self.newline()
+            for stmt in node.body:
+                self.visit(stmt)
 
         for elsevar in elsevar_:
             wr('if (! %s)' % elsevar)
@@ -521,8 +537,11 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
     def visit_Expr(self, node):
         self._sync(node)
-        self.visit(node.value)
-        self.newline()
+        if tmatch(node.value, ast.Str(s=None)):
+            pass  # Skip docstrings and other inert string exprs.
+        else:
+            self.visit(node.value)
+            self.newline()
 
     def visit_Pass(self, node):
         wr = self._sync(node)
@@ -839,7 +858,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
     def _adjust_pkg_path(self, pkg_path):
         is_std, is_local, path_parts = self._find_package(pkg_path)
-        limitation(is_std or is_local)
+        # limitation(is_std or is_local)
         return '.'.join(([self._batteries_pfx] if is_std else [])
                         + path_parts)
 

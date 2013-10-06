@@ -92,6 +92,9 @@ class WellTyped(ConvertTerminates):
     def test_distant(self, res='distant_types.py'):
         self.check(res, err=True)
 
+    def test_instance(self, res='instance_attr.py'):
+        self.check(res)
+
 
 if __name__ == '__main__':
     unittest.main()

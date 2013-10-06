@@ -24,7 +24,7 @@ object wc {
       }
     }
   
-  case class Mock() {
+  class Mock() {
     self =>
     
     /**
