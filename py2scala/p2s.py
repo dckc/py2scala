@@ -885,8 +885,11 @@ class DocString(object):
 
 
 def mk_find_package(find_module, path_split, sys_path):
-    _, std_fn, _ = find_module('string')
-    std_base, _ = path_split(std_fn)
+    std_bases = [std_base
+                 for m in ['string', 'os']
+                 for (_, std_fn, _) in [find_module(m)]
+                 for (std_base, _) in [path_split(std_fn)]
+                 ]
 
     def find_package(mod_file, pkg_name):
         if pkg_name == 'sys':
@@ -895,7 +898,7 @@ def mk_find_package(find_module, path_split, sys_path):
         base, _ = path_split(mod_file)
         _, pkg_path, _ = find_module(pkg_name, [base] + sys_path[1:])
         pkg_dir, pkg_fn = path_split(pkg_path)
-        return pkg_dir == std_base, pkg_dir == base, [pkg_name]
+        return pkg_dir in std_bases, pkg_dir == base, [pkg_name]
 
     return find_package
 
