@@ -47,6 +47,9 @@ class WellTyped(ConvertTerminates):
     def test_instance(self, res='instance_attr.py'):
         self.check(res)
 
+    def test_raise(self, res='ex_raise.py'):
+        self.check(res)
+
 
 def mk_run_scalac(check_call, target, scala_src, fsc_path='fsc'):
     def run_scalac(fn):

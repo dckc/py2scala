@@ -439,12 +439,16 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_Raise(self, node):
         '''Raise(expr? type, expr? inst, expr? tback)
         '''
-        limitation(not node.inst and not node.tback)
+        limitation(not node.tback)
 
         wr = self._sync(node)
         if node.type:
             wr('throw new ')
             self.visit(node.type)
+            if node.inst:
+                wr('(')
+                self.visit(node.inst)
+                wr(')')
         else:
             wr('throw _ex')  # KLUDGE
         self.newline()

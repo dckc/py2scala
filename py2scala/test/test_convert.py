@@ -40,6 +40,9 @@ class ConvertTerminates(TestWithCaps):
     def test_distant(self, res='distant_types.py'):
         self.convert_res(res)
 
+    def test_raise(self, res='ex_raise.py'):
+        self.convert_res(res)
+
 
 def mk_maven_path(os_path):
     here = os_path.dirname(__file__)
