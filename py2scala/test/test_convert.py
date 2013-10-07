@@ -2,10 +2,9 @@ import pkg_resources as pkg
 import unittest
 
 from .. import p2s
-from test_caps import TestWithCaps
 
 
-class ConvertTerminates(TestWithCaps):
+class ConvertTerminates(unittest.TestCase):
     def setUp(self):
         from imp import find_module
         from os import path as os_path
