@@ -1,0 +1,80 @@
+--- txget.scala	2013-10-07 00:10:14.694068931 -0500
++++ txget_ok.scala	2013-10-07 00:10:05.326069066 -0500
+@@ -33,24 +33,7 @@
+       log.info("OFX from %s: %s", section, ofx)
+       }
+     }
+-  
+-  /**
+-  :type x: Object
+-  */
+-  def _imports_are_not_unused(x: Object) = {
+-    isinstance(x, date)
+-    isinstance(x, datetime)
+-    
+-    class X() extends WebDriver {
+-      self =>
+-      /* pass */
+-      }
+-    
+-    class Y() extends WebElement {
+-      self =>
+-      /* pass */
+-      }
+-    }
++
+   
+   class AcctSite(ua: WebDriver, cal: { def today(): date }, clock: { def now(): datetime }) {
+     self =>
+@@ -90,7 +73,7 @@
+     :type wait_time: Int
+     :type poll_period: Int
+     */
+-    def login(home: String, logged_in: String, wait_time=60, poll_period=3) = {
++    def login(home: String, logged_in: String, wait_time: Int=60, poll_period: Int=3) = {
+       log.info("opening home: %s", home)
+       self.__ua.get(home)
+       log.debug("opened")
+@@ -110,7 +93,7 @@
+     :type which: String
+     :type timeout: Int
+     */
+-    def follow_link(which: String, timeout=10) = {
++    def follow_link(which: String, timeout: Int=10) = {
+       
+       /**
+       :type ua: WebDriver
+@@ -136,7 +119,7 @@
+     */
+     def form_fill(conf: ConfigParser.ConfigParser, section: String) = {
+       val f = self.__ua.find_element_by_xpath(conf.get(section, "form").slice(1, -1))
+-      val submit = None
++      val submit = null: String
+       for ((n, v) <- conf.items(section)) {
+         if (n.startswith("select_")) {
+           val (name, idx) = v.split(" ", 1)
+@@ -207,12 +190,12 @@
+   :type mk_chrome: Options => WebDriver
+   :type path: String
+   */
+-  def make_use_chromium(mk_chrome: Options => WebDriver, path="/usr/lib/chromium-browser/chromium-browser") = {
++  def make_use_chromium(mk_chrome: Options => WebDriver, path: String ="/usr/lib/chromium-browser/chromium-browser") = {
+     
+     def use_chromium() = {
+       val use_chromium = new Options()
+       val use_chromium.binary_location = path
+-      mk_chrome(chrome_options=use_chromium)
++      mk_chrome(use_chromium)
+       }
+     use_chromium _
+     }
+@@ -232,7 +215,8 @@
+           }
+         open(path)
+         }
+-      main(argv=argv.drop(0), open_arg=open_arg, calendar=datetime.date, clock=datetime.datetime, make_driver=make_use_chromium(webdriver.Chrome))
++      main(argv=argv.drop(0), open_arg=open_arg, calendar=datetime.date, clock=datetime.datetime,
++        make_driver=make_use_chromium((o: Options) => new webdriver.Chrome(o)))
+       }
+     _main_with_caps()
+     }
