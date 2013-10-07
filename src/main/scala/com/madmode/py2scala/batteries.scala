@@ -43,13 +43,22 @@ object batteries {
     }
   }
 
-  object logging {
-    object Level extends Enumeration {
-      type Level = Value
-      val DEBUG, INFO, WARN, ERROR = Value
+  object datetime {
+    case class timedelta(days: Int=0, seconds: Int=0, microseconds: Int=0) {
     }
-    import Level._
-    def basicConfig(level: Level): Unit = TODO
+  }
+
+  object logging {
+    val CRITICAL = 50
+    val DEBUG = 10
+    val ERROR = 40
+    val FATAL = 50
+    val INFO = 20
+    val NOTSET = 0
+    val WARN = 30
+    val WARNING = WARN
+
+    def basicConfig(level: Int): Unit = TODO
     def getLogger(which: String): Logger = TODO
     class Logger {
       def debug(msg: String, args: Any*): Unit = TODO
@@ -68,14 +77,14 @@ object batteries {
       import com.madmode.py2scala.{ batteries => py }
       val mtime = Files.getLastModifiedTime(Paths.get(path))
       /* TODO fill in other slots */
-      Map(py.stat.ST_MTIME -> mtime.toMillis())
+      Map(py.stat.ST_MTIME -> mtime.toMillis)
     }
     def popen(cmd: String): b.File = TODO
 
     object path {
       def isdir(path: String): Boolean = TODO
       def isfile(filename: String): Boolean = Files.exists(Paths.get(filename))
-      def join(x: String, y: String): String = Paths.get(x).resolve(Paths.get(y)).toString()
+      def join(x: String, y: String): String = Paths.get(x).resolve(Paths.get(y)).toString
       def splitext(path: String): (String, String) = TODO
       def basename(path: String): String = TODO
     }
@@ -148,7 +157,7 @@ object batteries {
       override def write(s: String) = TODO
       override def flush() = {}
       override def close() {}
-      override def iterator() = TODO
+      override def iterator = TODO
     }
 
   }
