@@ -77,7 +77,7 @@ object __builtin__ {
 
     def startswith(prefix: String) = s.startsWith(prefix)
 
-    def %(fmt: String, items: Any*): String = TODO
+    def %(items: Any*): String = TODO
   }
 
   implicit def test_dict[K, V](d: Dict[K, V]): Boolean = d != null && !d.isEmpty
@@ -183,4 +183,5 @@ object __builtin__ {
 
   class SystemExit extends Exception("SystemExit")
   class TypeError(msg: String="") extends Exception(msg)
+  class ValueError(msg: String="") extends Exception(msg)
 }
