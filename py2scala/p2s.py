@@ -635,6 +635,15 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr('! ')
         self.visit(node.operand)
 
+    def visit_Lambda(self, node):
+        '''Lambda(arguments args, expr body)
+        '''
+        wr = self._sync(node)
+        wr('(')
+        self.visit_arguments(node.args, in_lambda=True)
+        wr(') => ')
+        self.visit(node.body)
+
     def visit_IfExp(self, node):
         '''IfExp(expr test, expr body, expr orelse)
         '''
@@ -849,7 +858,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         self._items(wr, node.elts, parens=True)
 
-    def visit_arguments(self, node, types=None):
+    def visit_arguments(self, node, types=None, in_lambda=False):
         '''(expr* args, identifier? vararg,
             identifier? kwarg, expr* defaults)
 
@@ -858,34 +867,43 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         types = dict(types) if types else {}
 
-        first = 0
-        for ix, expr in enumerate(node.args):
-            # Skip 1st argument inside class def
-            if ix == 0 and ['ClassDef'] == self._def_stack[-1:]:
-                first = 1
-                continue
-
-            if ix > first:
+        def comma(ix):
+            if ix > 0:
                 wr(', ')
+
+        for ix, expr in enumerate(
+            # Skip 1st argument inside class def
+            node.args[1:] if (not in_lambda and
+                              ['ClassDef'] == self._def_stack[-1:])
+            else node.args):
+
+            comma(ix)
 
             self.visit(expr)
             dx = ix - (len(node.args) - len(node.defaults))
+            arg_type = types.get(
+                expr.id,  # declared type, if any
+                [t for (v, t)   # type of default arg
+                 in [(ast.Num, 'Int'),  # TODO: Float
+                     (ast.Str, 'String'),  # TODO: unicode? basestring?
+                     (ast.Name, 'Boolean')]  # TODO: just True/False names
+                 if isinstance(node.defaults[dx], type(v))]
+                if dx >= 0
+                else None)
+
+            if arg_type or not in_lambda:
+                wr(': ' + (arg_type or 'Any'))
+
             if dx >= 0:
                 wr('=')
                 self.visit(node.defaults[dx])
-            else:
-                if isinstance(expr, ast.Name) and expr.id in types:
-                    wr(': ' + types[expr.id])
-                else:
-                    wr(': Any')
+
         if node.vararg:
-            if ix > 0:
-                wr(', ')
+            comma(ix)
             wr('/* TODO vararg using Dynamic? */ %s : Seq[Any]' % node.vararg)
             ix += 1
         if node.kwarg:
-            if ix > 0:
-                wr(', ')
+            comma(ix)
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
 
     def visit_alias(self, node):
