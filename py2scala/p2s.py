@@ -3,9 +3,10 @@
 see also batteries.scala runtime support
 
 ideas:
+ - with_type(x, 'T') => (x: T)
  - distinguish "not implemented" from "not possible/feasible" in limitation()
  - more general handling of x[y:z]
-
+ - option to allow PyObject ~= scala Dynamic, a little like untyped in haxe
 '''
 
 from contextlib import contextmanager
@@ -754,7 +755,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         if node.kwargs:
             if ax + kx > 0:
                 wr(', ')
-            wr('/* TODO kwargs */ ')
+            wr('/* TODO kwargs using Dynamic? */ ')
             self.visit(node.kwargs)
         wr(')')
 
@@ -880,7 +881,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         if node.vararg:
             if ix > 0:
                 wr(', ')
-            wr('/* TODO vararg */ %s : Seq[Any]' % node.vararg)
+            wr('/* TODO vararg using Dynamic? */ %s : Seq[Any]' % node.vararg)
             ix += 1
         if node.kwarg:
             if ix > 0:
