@@ -454,12 +454,15 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
         wr = self._sync(node)
         if node.type:
-            wr('throw new ')
-            self.visit(node.type)
-            if node.inst:
+            if node.inst:  # deprecated form
+                wr('throw new ')
+                self.visit(node.type)
                 wr('(')
                 self.visit(node.inst)
                 wr(')')
+            else:
+                wr('throw ')
+                self.visit(node.type)
         else:
             wr('throw _ex')  # KLUDGE
         self.newline()
@@ -848,6 +851,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_arguments(self, node, types=None):
         '''(expr* args, identifier? vararg,
             identifier? kwarg, expr* defaults)
+
+        TODO: infer types from default string, int args
         '''
         wr = self._sync(node)
         types = dict(types) if types else {}
@@ -930,6 +935,9 @@ def limitation(t):
 class DocString(object):
     @classmethod
     def parse_types(cls, txt):
+        '''
+        TODO: handle multi-line types
+        '''
         arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
         rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
         foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
