@@ -19,6 +19,9 @@ Convert one module::
 Testing
 -------
 
+@@@
+  $ mkdir -p src/test/scala
+
 Use nose__ as usual::
 
   py2scala$ nosetests
