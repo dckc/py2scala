@@ -334,8 +334,19 @@ ConfigParser -- responsible for parsing a list of
   }
 
   object datetime {
-    case class timedelta(days: Int=0, seconds: Int=0, microseconds: Int=0) {
+    case class date(year: Int, month: Int, day: Int) {
+      def strftime(fmt: String): String = TODO
     }
+    object date {
+      def today(): date = TODO
+    }
+    case class datetime() {
+      def +(d: timedelta): datetime = TODO
+    }
+    object datetime {
+      def now(): datetime = TODO
+    }
+    case class timedelta(days: Int=0, seconds: Int=0, microseconds: Int=0)
   }
 
   object logging {
