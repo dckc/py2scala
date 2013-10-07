@@ -1,9 +1,25 @@
+import logging
 import unittest
 
 from test_convert import ConvertTerminates
 
+log = logging.getLogger(__name__)
+
 
 class WellTyped(ConvertTerminates):
+    def setUp(self,
+              scala_version='scala-2.10'):
+        from subprocess import check_call
+
+        logging.basicConfig(level=logging.INFO)
+
+        ConvertTerminates.setUp(self)
+
+        maven_path = self._maven_path
+        target = maven_path('target', scala_version)
+        scala_src = maven_path('src', 'main', 'scala')
+        self._run_scalac = mk_run_scalac(check_call, target, scala_src)
+
     def check(self, res, err=False):
         scala_fn = self.convert_res(res, err)
 
@@ -30,6 +46,17 @@ class WellTyped(ConvertTerminates):
 
     def test_instance(self, res='instance_attr.py'):
         self.check(res)
+
+
+def mk_run_scalac(check_call, target, scala_src, fsc_path='fsc'):
+    def run_scalac(fn):
+        args = [fsc_path,
+                '-d', target,
+                '-sourcepath', scala_src,
+                fn]
+        log.info("run scala compiler: %s", ' '.join(args))
+        check_call(args)
+    return run_scalac
 
 
 if __name__ == '__main__':
