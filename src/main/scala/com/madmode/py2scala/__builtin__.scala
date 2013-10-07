@@ -184,4 +184,5 @@ object __builtin__ {
   class SystemExit extends Exception("SystemExit")
   class TypeError(msg: String="") extends Exception(msg)
   class ValueError(msg: String="") extends Exception(msg)
+  class Error(msg: String="") extends Exception(msg)
 }

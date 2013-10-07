@@ -8,6 +8,296 @@ object batteries {
   import com.madmode.py2scala.{__builtin__ => b }
   import com.madmode.py2scala.__builtin__.TODO
 
+  /**
+  Configuration file parser.
+
+A setup file consists of sections, lead by a "[section]" header,
+and followed by "name: value" entries, with continuations and such in
+the style of RFC 822.
+
+The option values can contain format strings which refer to other values in
+the same section, or values in a special [DEFAULT] section.
+
+For example:
+
+    something: %(dir)s/whatever
+
+would resolve the "%(dir)s" to the value of dir.  All reference
+expansions are done late, on demand.
+
+Intrinsic defaults can be specified by passing them into the
+ConfigParser constructor as a dictionary.
+
+class:
+
+ConfigParser -- responsible for parsing a list of
+                configuration files, and managing the parsed database.
+
+    methods:
+
+    __init__(defaults=None)
+        create the parser and specify a dictionary of intrinsic defaults.  The
+        keys must be strings, the values must be appropriate for %()s string
+        interpolation.  Note that `__name__' is always an intrinsic default;
+        its value is the section's name.
+
+    sections()
+        return all the configuration section names, sans DEFAULT
+
+    has_section(section)
+        return whether the given section exists
+
+    has_option(section, option)
+        return whether the given option exists in the given section
+
+    options(section)
+        return list of configuration options for the named section
+
+    read(filenames)
+        read and parse the list of named configuration files, given by
+        name.  A single filename is also allowed.  Non-existing files
+        are ignored.  Return list of successfully read files.
+
+    readfp(fp, filename=None)
+        read and parse one configuration file, given as a file object.
+        The filename defaults to fp.name; it is only used in error
+        messages (if fp has no `name' attribute, the string `<???>' is used).
+
+    get(section, option, raw=False, vars=None)
+        return a string value for the named option.  All % interpolations are
+        expanded in the return values, based on the defaults passed into the
+        constructor and the DEFAULT section.  Additional substitutions may be
+        provided using the `vars' argument, which must be a dictionary whose
+        contents override any pre-existing defaults.
+
+    getint(section, options)
+        like get(), but convert value to an integer
+
+    getfloat(section, options)
+        like get(), but convert value to a float
+
+    getboolean(section, options)
+        like get(), but convert value to a boolean (currently case
+        insensitively defined as 0, false, no, off for False, and 1, true,
+        yes, on for True).  Returns False or True.
+
+    items(section, raw=False, vars=None)
+        return a list of tuples with (name, value) for each option
+        in the section.
+
+    remove_section(section)
+        remove the given file section and all its options
+
+    remove_option(section, option)
+        remove the given option from the given section
+
+    set(section, option, value)
+        set the given option
+
+    write(fp)
+        write the configuration state in .ini format
+    */
+  object ConfigParser {
+
+    import __builtin__._
+
+    def _default_dict = new Dict[String, String]()
+    val DEFAULTSECT = "DEFAULT"
+    val MAX_INTERPOLATION_DEPTH = 10
+
+    // exception classes
+    /**
+    Base class for ConfigParser exceptions.
+      */
+    class Error(msg: String = "") extends Exception(msg)
+
+    /**
+    Raised when no section matches a requested option.
+      */
+    case class NoSectionError(section: String) extends Error("No section: %r" % section)
+
+    /**
+    Raised when a section is multiply-created.
+      */
+    class DuplicateSectionError(section: String) extends Error("Section %r already exists" % section)
+
+    /**
+    A requested option was not found.
+      */
+    case class NoOptionError(option: String, section: String) extends Error("No option %r in section: %r" %(option, section))
+
+    /**
+    Base class for interpolation-related exceptions.
+      */
+    class InterpolationError(option: String, section: String, msg: String) extends Error(msg)
+
+    /**
+    A string substitution required a setting which was not available.
+      */
+    class InterpolationMissingOptionError(option: String, section: String, rawval: Any, reference: Any)
+      extends InterpolationError(section, option,
+        "Bad value substitution:\n\tsection: [%s]\n\toption : %s\n\tkey    : %s\n\trawval : %s\n"
+          %(section, option, reference, rawval))
+
+    /**
+    Raised when the source text into which substitutions are made
+  does not conform to the required syntax.
+      */
+    //class InterpolationSyntaxError extends InterpolationError
+
+    /**
+    Raised when substitutions are nested too deeply.
+      */
+    //class InterpolationDepthError(option: Any, section: Any, rawval: Any) extends InterpolationError
+
+    /**
+    Raised when a configuration file does not follow legal syntax.
+      */
+    //class ParsingError(filename: Any) extends Error
+
+    /**
+    Raised when a key-value pair is found before any section header.
+      */
+    //class MissingSectionHeaderError(filename: Any, lineno: Any, line: Any) extends ParsingError
+
+    class RawConfigParser(defaults: Dict[String, String] = null,
+                          dict_type: (() => Dict[String, String]) = _default_dict _,
+                          allow_no_value: Boolean = False) {
+
+      /**
+      Return a list of section names, excluding [DEFAULT]
+        */
+      def sections(): IndexedSeq[String] = TODO // mutable?
+
+      /**
+      Create a new section in the configuration.
+
+    Raise DuplicateSectionError if a section by the specified name
+    already exists. Raise ValueError if name is DEFAULT or any of it's
+    case-insensitive variants.
+        */
+      def add_section(section: String) = TODO
+
+      /**
+      Indicate whether the named section is present in the configuration.
+
+    The DEFAULT section is not acknowledged.
+        */
+      def has_section(section: String): Boolean = TODO
+
+      /**
+      Return a list of option names for the given section name.
+        */
+      def options(section: String): IndexedSeq[String] = TODO
+
+      /**
+      Read and parse a filename or a list of filenames.
+
+    Files that cannot be opened are silently ignored; this is
+    designed so that you can specify a list of potential
+    configuration file locations (e.g. current directory, user's
+    home directory, systemwide directory), and all existing
+    configuration files in the list will be read.  A single
+    filename may also be given.
+
+    Return list of successfully read files.
+        */
+      def read(filenames: Iterable[String]) = TODO
+
+      /**
+      Like read() but the argument must be a file-like object.
+
+    The `fp' argument must have a `readline' method.  Optional
+    second argument is the `filename', which if not given, is
+    taken from fp.name.  If fp has no `name' attribute, <???> is
+    used.
+        */
+      def readfp(fp: File, filename: String = null) = TODO
+
+      // hmm... Option[String] somehow?
+      def get(section: String, option: String): String = TODO
+
+      def items(section: String): Dict[String, String] = TODO
+
+      def getint(section: String, option: String): Int = TODO
+
+      def getfloat(section: String, option: String): Float = TODO
+
+      def getboolean(section: String, option: String): Boolean = TODO
+
+      def optionxform(optionstr: String): String = TODO
+
+      /**
+      Check for the existence of a given option in a given section.
+        */
+      def has_option(section: String, option: String): Boolean = TODO
+
+      /**
+      Set an option.
+        */
+      def set(section: String, option: String, value: String = null) = TODO
+
+      /**
+      Write an .ini-format representation of the configuration state.
+        */
+      def write(fp: File) = TODO
+
+      /**
+      Remove an option.
+        */
+      def remove_option(section: String, option: String) = TODO
+
+      /**
+      Remove a file section.
+        */
+      def remove_section(section: String) = TODO
+    }
+
+
+    class ConfigParser() extends RawConfigParser {
+
+      /**
+      Get an option value for a given section.
+
+    If `vars' is provided, it must be a dictionary. The option is looked up
+    in `vars' (if provided), `section', and in `defaults' in that order.
+
+    All % interpolations are expanded in the return values, unless the
+    optional argument `raw` is true. Values for interpolation keys are
+
+
+    The section DEFAULT is special.
+        */
+      def get(section: String, option: String, raw: Boolean = False, vars: Dict[String, String] = null): String = TODO
+
+      // Update with the entry specific variables
+      /**
+      Return a list of tuples with (name, value) for each option
+    in the section.
+
+    All % interpolations are expanded in the return values, based on the
+    defaults passed into the constructor, unless the optional argument
+    `raw' is true.  Additional substitutions may be provided using the
+    `vars' argument, which must be a dictionary whose contents overrides
+    any pre-existing defaults.
+
+    The section DEFAULT is special.
+        */
+      def items(section: String, raw: Boolean = False, vars: Dict[String, String] = null): Dict[String, String] = TODO
+    }
+
+    class SafeConfigParser() extends ConfigParser {
+      /**
+      Set an option.  Extend ConfigParser.set: check for string values.
+        */
+      override def set(section: String, option: String, value: String = null) = TODO
+
+    }
+
+    val __name__ = "ConfigParser"
+  }
+
+
   object ast {
     sealed abstract class AST {
       def lineno: Int
@@ -69,6 +359,9 @@ object batteries {
   object os {
     import java.nio.file.Files
     import java.nio.file.Paths
+
+    import batteries.stat.ST_MTIME
+
     def getenv(n: String): String = TODO
 
     def name: String = TODO
@@ -77,7 +370,7 @@ object batteries {
       import com.madmode.py2scala.{ batteries => py }
       val mtime = Files.getLastModifiedTime(Paths.get(path))
       /* TODO fill in other slots */
-      Map(py.stat.ST_MTIME -> mtime.toMillis)
+      Map(ST_MTIME -> mtime.toMillis)
     }
     def popen(cmd: String): b.File = TODO
 
