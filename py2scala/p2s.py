@@ -3,8 +3,11 @@
 see also batteries.scala runtime support
 
 ideas:
+ - distinguish "not implemented" from "not possible/feasible" in limitation()
  - more general handling of x[y:z]
- - special case for docstrings
+ - API mode that skips function bodies
+   - Maintain .py version of __builtin__ and batteries and
+     derive .scala versions from them.
 
 '''
 
@@ -498,7 +501,12 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         for name in node.names:
             wr('import ')
-            self.visit_alias(name, pkg=True)
+            path = self._adjust_pkg_path(name.name)
+            if name.asname:
+                wr('%s.{ %s => %s }' % ('.'.join(path[:-1]),
+                                        path[-1], name.asname))
+            else:
+                wr('.'.join(path))
             self.newline()
 
     def visit_ImportFrom(self, node):
@@ -509,7 +517,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
         for node in self._skip_special_imports(node):
             wr('import ')
-            wr(self._adjust_pkg_path(node.module))
+            wr('.'.join(self._adjust_pkg_path(node.module)))
             wr('.{')
             self._items(wr, node.names)
             wr('}')
@@ -847,20 +855,20 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 wr(', ')
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
 
-    def visit_alias(self, node, pkg=False):
+    def visit_alias(self, node):
         '''alias = (identifier name, identifier? asname)
         '''
         wr = self._sync(node)
-        wr(self._adjust_pkg_path(node.name) if pkg else node.name)
         if node.asname:
-            wr(' as ')
-            wr(node.asname)
+            wr('%s => %s ' % (node.name, node.asname))
+        else:
+            wr(node.name)
 
     def _adjust_pkg_path(self, pkg_path):
         is_std, is_local, path_parts = self._find_package(pkg_path)
         # limitation(is_std or is_local)
-        return '.'.join(([self._batteries_pfx] if is_std else [])
-                        + path_parts)
+        return (([self._batteries_pfx] if is_std else [])
+                + path_parts)
 
     def generic_visit(self, node):
         import pdb; pdb.set_trace()
@@ -915,9 +923,10 @@ def mk_find_package(find_module, path_split, sys_path):
             return True, False, ['sys']
 
         base, _ = path_split(mod_file)
-        _, pkg_path, _ = find_module(pkg_name, [base] + sys_path[1:])
+        pkg_parts = pkg_name.split('.')
+        _, pkg_path, _ = find_module(pkg_parts[0], [base] + sys_path[1:])
         pkg_dir, pkg_fn = path_split(pkg_path)
-        return pkg_dir in std_bases, pkg_dir == base, [pkg_name]
+        return pkg_dir in std_bases, pkg_dir == base, pkg_parts
 
     return find_package
 
