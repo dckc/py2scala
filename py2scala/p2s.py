@@ -913,7 +913,8 @@ class DocString(object):
 
 def mk_find_package(find_module, path_split, sys_path):
     std_bases = [std_base
-                 for m in ['string', 'os']
+                 # datetime is with the C extensions
+                 for m in ['string', 'os', 'datetime']
                  for (_, std_fn, _) in [find_module(m)]
                  for (std_base, _) in [path_split(std_fn)]
                  ]
