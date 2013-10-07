@@ -1,3 +1,12 @@
+'''
+Instance attributes become var fields in scala.
+Call to class constructor becomes new Dummy() in scala.
+
+Note we can leave return types implicit as long as
+there is at most one return statement and it's at the end.
+'''
+
+
 class Dummy(object):
     pass
 
@@ -24,3 +33,7 @@ class Animal(object):
 
     def get_eats(self):
         return self._eats
+
+
+def main():
+    print Dummy()

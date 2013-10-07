@@ -5,9 +5,6 @@ see also batteries.scala runtime support
 ideas:
  - distinguish "not implemented" from "not possible/feasible" in limitation()
  - more general handling of x[y:z]
- - API mode that skips function bodies
-   - Maintain .py version of __builtin__ and batteries and
-     derive .scala versions from them.
 
 '''
 
@@ -28,15 +25,21 @@ def main(argv, open, stdout, find_package,
     logging.basicConfig(level=logging.DEBUG if '--debug' in argv else level)
     [pkg, infn] = (argv[2:4] if ['--package'] == argv[1:2]
                    else (None, argv[1]))
-    convert(pkg, infn, open(infn).read(), stdout, find_package)
+    api = '--api' in argv
+    convert(infn, open(infn).read(), stdout, find_package,
+            pkg=None,
+            api=api)
 
 
-def convert(pkg, infn, src, out, find_package):
+def convert(infn, src, out, find_package,
+            pkg=None,
+            api=False):
     modname = splitext(basename(infn))[0]
     t = ast.parse(src, infn)
     tl = PyToScala.tokens_per_line(src)
-    p2s = PyToScala(pkg, modname, out, tl,
-                    find_package=lambda n: find_package(infn, n))
+    p2s = PyToScala(modname, out, tl,
+                    find_package=lambda n: find_package(infn, n),
+                    pkg=pkg, api=api)
     p2s.visit(t)
 
 
@@ -120,11 +123,13 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     '''
     http://docs.python.org/2/library/ast.html
     '''
-    def __init__(self, pkg, modname, out, token_lines, find_package,
+    def __init__(self, modname, out, token_lines, find_package,
+                 pkg=None, api=False,
                  partial_app='pf_', batteries_pfx='py',
                  py2scala='com.madmode.py2scala'):
         LineSyntax.__init__(self, out, token_lines)
         self._pkg = pkg
+        self._api = api
         self._modname = modname
         self._find_package = find_package
         self._partial_app = partial_app
@@ -143,17 +148,21 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             wr('package %s\n' % pkg)
             self.newline()
 
-        imports, aux_obj = self._imports()
-        for target in imports:
+        for target in self._imports():
             wr('import %s\n' % target)
 
         _, body, _ = self._doc(node)
         wr('object %s ' % self._modname)
 
-        self._suite(body)
+        with self._block():
+            wr('val __name__ = "%s%s"' % (
+                self._pkg + '.' if self._pkg else '', self._modname))
+            self.newline()
+
+            for stmt in body:
+                self.visit(stmt)
 
         self.newline()
-        wr(aux_obj)
 
     def _imports(self):
         '''Get list of scala and python runtime imports, aux object
@@ -161,16 +170,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''
         scala_rt = ['scala.collection.mutable']
         py_rt = self._py_rt_imports
-        aux_obj = self._modname + '_fileinfo'
-        aux_import = ['%s._' % aux_obj]
 
-        mod_name = (self._pkg + '.' if self._pkg else '') + self._modname
-        aux_obj = '\n'.join(['object %s {' % aux_obj,
-                             '  val __name__ = "%s"',
-                             '  }',
-                             '']) % mod_name
-
-        return scala_rt + py_rt + aux_import, aux_obj
+        return scala_rt + py_rt
 
     def _doc(self, node):
         self.newline()
@@ -211,7 +212,14 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_FunctionDef(self, node):
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
+
+        In API mode:
+          - Skip _xyz functions.
+          - Leave body empty in the rest.
         '''
+        if self._api and node.name.startswith('_'):
+            return
+
         wr, body, doc = self._doc(node)
 
         arg_types, rtype, foralls = option_fold(doc,
@@ -225,9 +233,10 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         rtypedecl, suite = self._fun_parts(body, rtype)
         wr(')%s = ' % rtypedecl)
 
-        self._def_stack.append('FunctionDef')
-        self._suite(suite)
-        self._def_stack.pop()
+        if not self._api:
+            self._def_stack.append('FunctionDef')
+            self._suite(suite)
+            self._def_stack.pop()
 
     def _fun_parts(self, body, rtype_opt, elide=False):
         '''Find trailing Return and modify/elide based on context.
@@ -326,6 +335,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
     def visit_Assign(self, node):
         '''Assign(expr* targets, expr value)
+
+        TODO: skip _xyz in API mode
         '''
         wr = self._sync(node)
 
@@ -723,6 +734,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             wr(' _')
             return
 
+        if self._is_class_ref(node.func):
+            wr('new ')
         self.visit(node.func)
         wr('(')
         ax = len(node.args)
@@ -741,6 +754,16 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             wr('/* TODO kwargs */ ')
             self.visit(node.kwargs)
         wr(')')
+
+    def _is_class_ref(self, expr):
+        '''KLUDGE: distinguish f() from new F() by capitalization.
+        '''
+        names = [getName(expr)
+                 for (cls, getName) in
+                 [(ast.Name, lambda n: n.id),
+                  (ast.Attribute, lambda n: n.attr)]
+                 if isinstance(expr, cls)]
+        return len([name for name in names if name[0].isupper()]) > 0
 
     def visit_Num(self, node):
         wr = self._sync(node)

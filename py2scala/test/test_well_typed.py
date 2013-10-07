@@ -35,6 +35,9 @@ class WellTyped(ConvertTerminates):
     def test_import_os(self, res='import_os.py'):
         self.check(res)
 
+    def test_funval(self, res='funval.py'):
+        self.check(res)
+
     def test_wordcount(self, res='wc.py'):
         self.check(res)
 

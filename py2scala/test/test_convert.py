@@ -25,10 +25,16 @@ class ConvertTerminates(TestWithCaps):
         with self._save_scala_fp(scala_fn, err) as out:
             fn = pkg.resource_filename(__name__, res)
             src = pkg.resource_string(__name__, res)
-            p2s.convert(None, fn, src, out, self._find_package)
+            p2s.convert(fn, src, out, self._find_package)
         return out.name
 
     def test_import_os(self, res='import_os.py'):
+        self.convert_res(res)
+
+    def test_instance(self, res='instance_attr.py'):
+        self.convert_res(res)
+
+    def test_funval(self, res='funval.py'):
         self.convert_res(res)
 
     def test_wordcount(self, res='wc.py'):
@@ -56,7 +62,7 @@ def mk_maven_path(os_path):
 
 def mk_save_scala_fp(open, maven_path):
     def scala_save_fp(fn, err=False):
-        src = maven_path('src', 'main',
+        src = maven_path('src', 'test',
                          'scala-err' if err else 'scala',
                          fn)
         return open(src, 'w')
