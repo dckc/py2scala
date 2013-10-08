@@ -18,8 +18,30 @@ def adder(x):
 
 
 def multiplyer(x=1):
-    ''':type x: Int'''
+    '''
+    :type x: Int
+    :rtype: Int => Int
+    '''
     return lambda y: x * y
+
+
+def bool_default(x=True):
+    # TODO: not not x
+    return not x
+
+
+DEFAULT = 1
+
+
+def name_default(x=DEFAULT):
+    ''':type x: Int'''
+    return x + 1
+
+
+def circle_area(r, pi=3.14159):
+    ''':type r: Double'''
+    # TODO: r ** 2
+    return pi * (r * r)
 
 
 def square():

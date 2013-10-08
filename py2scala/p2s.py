@@ -637,12 +637,28 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
     def visit_Lambda(self, node):
         '''Lambda(arguments args, expr body)
+
+        Use `{ def apply([[args]]) = [[body]] }`
+        to handle defaults. Otherwise, use `([[args]]) => { [[body]] }`.
+
+        .. note:: If only some args have defaults, others will get type Any
+                  and we don't have a convention for overriding that.
         '''
         wr = self._sync(node)
-        wr('(')
-        self.visit_arguments(node.args, in_lambda=True)
-        wr(') => ')
+        self._def_stack.append('lambda')
+
+        if node.args.defaults:
+            wr('new { def apply(')
+            self.visit_arguments(node.args)
+            wr(') = ')
+        else:
+            wr('(')
+            self.visit_arguments(node.args)
+            wr(') => { ')
+
         self.visit(node.body)
+        wr(' }')
+        self._def_stack.pop()
 
     def visit_IfExp(self, node):
         '''IfExp(expr test, expr body, expr orelse)
@@ -858,11 +874,10 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         self._items(wr, node.elts, parens=True)
 
-    def visit_arguments(self, node, types=None, in_lambda=False):
+    def visit_arguments(self, node, types=None):
         '''(expr* args, identifier? vararg,
             identifier? kwarg, expr* defaults)
 
-        TODO: infer types from default string, int args
         '''
         wr = self._sync(node)
         types = dict(types) if types else {}
@@ -871,32 +886,23 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             if ix > 0:
                 wr(', ')
 
-        for ix, expr in enumerate(
-            # Skip 1st argument inside class def
-            node.args[1:] if (not in_lambda and
-                              ['ClassDef'] == self._def_stack[-1:])
-            else node.args):
+        # Skip 1st argument inside class def
+        args = (node.args[1:] if ['ClassDef'] == self._def_stack[-1:]
+                else node.args)
 
+        default_ix = (len(node.args) - len(node.defaults))
+        for ix, expr in enumerate(args):
             comma(ix)
-
             self.visit(expr)
-            dx = ix - (len(node.args) - len(node.defaults))
-            arg_type = types.get(
-                expr.id,  # declared type, if any
-                [t for (v, t)   # type of default arg
-                 in [(ast.Num, 'Int'),  # TODO: Float
-                     (ast.Str, 'String'),  # TODO: unicode? basestring?
-                     (ast.Name, 'Boolean')]  # TODO: just True/False names
-                 if isinstance(node.defaults[dx], type(v))]
-                if dx >= 0
-                else None)
+            default = (node.defaults[ix - default_ix]
+                       if ix >= default_ix else None)
+            arg_type = self._arg_type(expr, default, types)
+            if arg_type:
+                wr(': ' + arg_type)
 
-            if arg_type or not in_lambda:
-                wr(': ' + (arg_type or 'Any'))
-
-            if dx >= 0:
+            if default:
                 wr('=')
-                self.visit(node.defaults[dx])
+                self.visit(default)
 
         if node.vararg:
             comma(ix)
@@ -905,6 +911,26 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         if node.kwarg:
             comma(ix)
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
+
+    def _arg_type(self, arg, default, types):
+        fallback = None if self._def_stack[-1:] == ['lambda'] else 'Any'
+        return ((types.get(arg.id) if isinstance(arg, ast.Name) else None)
+                or
+                (self._literal_type(default) if default else None)
+                or
+                fallback)
+
+    def _literal_type(self, expr):
+        types1 = [t for (pat, t)
+                 in [(ast.Num(n=None), 'Num'),
+                     (ast.Str(s=None), 'String'),
+                     (ast.Name(id='True', ctx=None), 'Boolean'),
+                     (ast.Name(id='False', ctx=None), 'Boolean')]
+                 if tmatch(expr, pat)]
+        types2 = [('Double' if isinstance(expr.n, type(1.0)) else 'Int')
+                  if t == 'Num' else t
+                  for t in types1]
+        return types2[0] if types2 else None
 
     def visit_alias(self, node):
         '''alias = (identifier name, identifier? asname)
