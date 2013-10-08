@@ -20,10 +20,7 @@ def main(argv, stdout, open_arg):
 
 
 class Mock(object):
-    def with_caps(self, f):
-        '''
-        :type f: (IndexedSeq[String], File, String => Iterable[String]) => Unit
-        '''
+    def with_caps(self):
         argv = ['prog', 'f1']
 
         def open_arg(x):
@@ -34,14 +31,11 @@ class Mock(object):
 
         out = StringIO.StringIO()
 
-        return f(argv[:], out, pf_(open_arg)), out
+        return main(argv[:], out, pf_(open_arg)), out
 
 
 if __name__ == '__main__':
-    def _with_caps(main):
-        '''
-        :type main: (IndexedSeq[String], File, String => Iterable[String]) => Unit
-        '''
+    def _with_caps():
         from sys import argv, stdout
 
         def open_arg(arg):
@@ -53,4 +47,4 @@ if __name__ == '__main__':
 
         return main(argv[:], stdout, open_arg)
 
-    _with_caps(pf_(main))
+    _with_caps()
