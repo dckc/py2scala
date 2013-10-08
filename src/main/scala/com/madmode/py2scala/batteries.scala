@@ -368,8 +368,9 @@ ConfigParser -- responsible for parsing a list of
   }
 
   object os {
-    import java.nio.file.Files
-    import java.nio.file.Paths
+    //TODO
+    //import java.nio.file.Files
+    //import java.nio.file.Paths
 
     import batteries.stat.ST_MTIME
 
@@ -377,18 +378,18 @@ ConfigParser -- responsible for parsing a list of
 
     def name: String = TODO
 
-    def stat(path: String): Map[Int, Long] = {
+    def stat(path: String): Map[Int, Long] = TODO /*{
       import com.madmode.py2scala.{ batteries => py }
       val mtime = Files.getLastModifiedTime(Paths.get(path))
       /* TODO fill in other slots */
       Map(ST_MTIME -> mtime.toMillis)
-    }
+    }*/
     def popen(cmd: String): b.File = TODO
 
     object path {
       def isdir(path: String): Boolean = TODO
-      def isfile(filename: String): Boolean = Files.exists(Paths.get(filename))
-      def join(x: String, y: String): String = Paths.get(x).resolve(Paths.get(y)).toString
+      def isfile(filename: String): Boolean = TODO // Files.exists(Paths.get(filename))
+      def join(x: String, y: String): String = TODO // Paths.get(x).resolve(Paths.get(y)).toString
       def splitext(path: String): (String, String) = TODO
       def basename(path: String): String = TODO
     }
