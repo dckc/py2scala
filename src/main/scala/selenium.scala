@@ -50,7 +50,7 @@ object selenium {
         case class Options(var binary_location: String = null)
       }
       object webdriver {
-        class WebDriver(opts: options.Options) extends remote.webdriver.WebDriver {
+        class WebDriver(chrome_options: options.Options) extends remote.webdriver.WebDriver {
           def get(addr: String) = TODO
 
           def find_element_by_xpath(xp: String): WebElement = TODO
@@ -59,6 +59,6 @@ object selenium {
         }
       }
     }
-    class Chrome(opts: chrome.options.Options) extends chrome.webdriver.WebDriver(opts)
+    class Chrome(chrome_options: chrome.options.Options) extends chrome.webdriver.WebDriver(chrome_options)
   }
 }
