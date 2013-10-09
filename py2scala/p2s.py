@@ -3,7 +3,6 @@
 see also batteries.scala runtime support
 
 ideas:
- - with_type(x, 'T') => (x: T)
  - distinguish "not implemented" from "not possible/feasible" in limitation()
  - more general handling of x[y:z]
  - option to allow PyObject ~= scala Dynamic, a little like untyped in haxe
@@ -17,6 +16,8 @@ import logging
 import re
 import tokenize
 from ast import copy_location as loc
+
+from fp import option_iter, option_fold, partition
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def convert(infn, src, out, find_package,
     t = ast.parse(src, infn)
     tl = PyToScala.tokens_per_line(src)
     p2s = PyToScala(modname, out, tl,
-                    find_package=lambda n: find_package(infn, n),
+                    find_package=lambda n, lvl=0: find_package(infn, n, lvl),
                     pkg=pkg, api=api)
     p2s.visit(t)
 
@@ -98,28 +99,6 @@ class LineSyntax(object):
         wr(' ' * self._col)
 
 
-def option(x):
-    '''Facilitate well-typed iteration with None.
-
-    TODO: move this to an fp module.
-    '''
-    return [] if x is None else [x]
-
-
-def option_fold(opt_a, f, b):
-    return b if opt_a is None else f(opt_a)
-
-
-def option_orelse(opt_a, a):
-    return a if opt_a is None else opt_a
-
-
-def partition(l, pred):
-    which = [(pred(item), item) for item in l]
-    return ([item for (test, item) in which if test],
-            [item for (test, item) in which if not test])
-
-
 class PyToScala(ast.NodeVisitor, LineSyntax):
     '''
     http://docs.python.org/2/library/ast.html
@@ -145,7 +124,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''
         wr = self._out.write
 
-        for pkg in option(self._pkg):
+        for pkg in option_iter(self._pkg):
             wr('package %s\n' % pkg)
             self.newline()
 
@@ -312,9 +291,9 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         limitation(len(ctors) <= 1)
 
         # Combine constructor doc with class's doc for getting types.
-        doc = '\n'.join(option(class_doc)
+        doc = '\n'.join(option_iter(class_doc)
                         + [s for fd in ctors
-                           for s in option(ast.get_docstring(fd))])
+                           for s in option_iter(ast.get_docstring(fd))])
         arg_types, _, foralls = DocString.parse_types(doc)
         return ctors, other, arg_types, foralls
 
@@ -376,7 +355,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         limitation(node.nl)
         wr = self._sync(node)
         wr('print')
-        self._items(wr, option(node.dest) + node.values, parens=True)
+        self._items(wr, option_iter(node.dest) + node.values, parens=True)
         self.newline()
 
     def visit_For(self, node):
@@ -531,19 +510,21 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_ImportFrom(self, node):
         """ImportFrom(identifier? module, alias* names, int? level)"""
         wr = self._sync(node)
-        limitation(node.level == 0)  # what is that, anyway?
         limitation(node.module)
 
         for node in self._skip_special_imports(node):
             wr('import ')
-            wr('.'.join(self._adjust_pkg_path(node.module)))
-            wr('.{')
+            wr('.'.join(self._adjust_pkg_path(node.module, node.level)))
+            wr('.')
+            wr('{')
             self._items(wr, node.names)
             wr('}')
             self.newline()
 
     def _skip_special_imports(self, node):
-        '''skip: from functools import partial as pf_
+        '''skip: from functools import partial as pf_ (KLUDGE)
+
+        TODO: skip from ..fp import typed
         '''
         return ([]
                 if tmatch(node, ast.ImportFrom(
@@ -756,11 +737,21 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
 
         # partially applied function KLUDGE
-        if tmatch(node, ast.Call(func=ast.Name(id='pf_', ctx=None),
+        if tmatch(node, ast.Call(func=ast.Name(id=self._partial_app, ctx=None),
                                  args=[None], keywords=[], starargs=None,
                                  kwargs=None)):
             self.visit(node.args[0])
             wr(' _')
+            return
+
+        # type ascription KLUDGE
+        if tmatch(node, ast.Call(func=ast.Name(id='typed', ctx=None),
+                                 args=[None, ast.Str(s=None)],
+                                 keywords=[], starargs=None,
+                                 kwargs=None)):
+            wr('(')
+            self.visit(node.args[0])
+            wr(': ' + node.args[1].s + ')')
             return
 
         if self._is_class_ref(node.func):
@@ -941,8 +932,8 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         else:
             wr(node.name)
 
-    def _adjust_pkg_path(self, pkg_path):
-        is_std, is_local, path_parts = self._find_package(pkg_path)
+    def _adjust_pkg_path(self, pkg_path, level=0):
+        is_std, is_local, path_parts = self._find_package(pkg_path, level)
         # limitation(is_std or is_local)
         return (([self._batteries_pfx] if is_std else [])
                 + path_parts)
@@ -999,11 +990,14 @@ def mk_find_package(find_module, path_split, sys_path):
                  for (std_base, _) in [path_split(std_fn)]
                  ]
 
-    def find_package(mod_file, pkg_name):
+    def find_package(mod_file, pkg_name, level=0):
         if pkg_name == 'sys':
             return True, False, ['sys']
 
         base, _ = path_split(mod_file)
+        while level > 1:
+            base, _ = path_split(base)
+            level -= 1
         pkg_parts = pkg_name.split('.')
         _, pkg_path, _ = find_module(pkg_parts[0], [base] + sys_path[1:])
         pkg_dir, pkg_fn = path_split(pkg_path)
