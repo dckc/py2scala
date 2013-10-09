@@ -1,4 +1,4 @@
-import _root_.selenium.webdriver.remote.webelement.WebElement
+
 
 /**
  * Created by connolly on 10/6/13.
@@ -44,6 +44,8 @@ object selenium {
     }
 
     object chrome {
+      import remote.webelement.WebElement
+
       object options {
         case class Options(var binary_location: String = null)
       }
