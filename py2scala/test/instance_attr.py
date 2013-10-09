@@ -6,6 +6,8 @@ Note we can leave return types implicit as long as
 there is at most one return statement and it's at the end.
 '''
 
+from ..fp import classOf
+
 
 class Dummy(object):
     pass
@@ -37,3 +39,4 @@ class Animal(object):
 
 def main():
     print Dummy()
+    print classOf(Animal)

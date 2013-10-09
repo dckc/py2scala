@@ -3,6 +3,12 @@ def typed(x, t):
     return x
 
 
+def classOf(c):
+    '''translates to classOf[c], since classes are types, not values.
+    '''
+    return c
+
+
 def option_iter(x):
     '''Facilitate well-typed iteration with None.
     '''

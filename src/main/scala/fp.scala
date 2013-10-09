@@ -5,4 +5,6 @@
  */
 object fp {
   def typed[T](x: T, t: String) = x
+  // suppress python import of classOf?
+  def classOf[T](c: Class) = c
 }

@@ -17,7 +17,7 @@ import re
 import tokenize
 from ast import copy_location as loc
 
-from fp import option_iter, option_fold, partition
+from .fp import option_iter, option_fold, partition
 
 log = logging.getLogger(__name__)
 
@@ -710,6 +710,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
                 if op.__class__ == ast.NotIn:
                     wr('! ')
                 self.visit(expr)
+                # TODO: consider __contains__ and implicit mapping to PySeq
                 wr('.contains(')
                 self.visit(node.left)
                 wr(')')
@@ -752,6 +753,16 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             wr('(')
             self.visit(node.args[0])
             wr(': ' + node.args[1].s + ')')
+            return
+
+        # class value KLUDGE
+        if tmatch(node, ast.Call(func=ast.Name(id='classOf', ctx=None),
+                                 args=[None, ast.Str(s=None)],
+                                 keywords=[], starargs=None,
+                                 kwargs=None)):
+            wr('classOf[')
+            self.visit(node.args[0])
+            wr(']')
             return
 
         if self._is_class_ref(node.func):
@@ -881,7 +892,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         args = (node.args[1:] if ['ClassDef'] == self._def_stack[-1:]
                 else node.args)
 
-        default_ix = (len(node.args) - len(node.defaults))
+        default_ix = (len(args) - len(node.defaults))
         for ix, expr in enumerate(args):
             comma(ix)
             self.visit(expr)
