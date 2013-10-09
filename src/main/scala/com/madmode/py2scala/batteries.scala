@@ -340,13 +340,16 @@ ConfigParser -- responsible for parsing a list of
     object date {
       def today(): date = TODO
     }
-    case class datetime() {
+    case class datetime(year: Int, month: Int, day: Int,
+                        hour: Int = 0, minute: Int = 0, second: Int = 0, microsecond: Int = 0,
+                        tzinfo: Option[tzinfo] = None) {
       def +(d: timedelta): datetime = TODO
     }
     object datetime {
       def now(): datetime = TODO
     }
     case class timedelta(days: Int=0, seconds: Int=0, microseconds: Int=0)
+    abstract class tzinfo
   }
 
   object logging {
