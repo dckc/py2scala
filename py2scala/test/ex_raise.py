@@ -7,3 +7,19 @@ class CP(object):
 
 def raises():
     raise ValueError("oops!")
+
+
+def try_hard():
+    x = CP()
+    try:
+        x.add_section('abc')
+    except:
+        print "lose"
+
+
+def try_it():
+    x = CP()
+    try:
+        x.add_section('abc')
+    finally:
+        print "lose"

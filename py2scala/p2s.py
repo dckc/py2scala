@@ -1,11 +1,16 @@
 '''p2s -- convert python lexical syntax to scala
 
+Use python ast__ module to traverse a python module and convert to scala.
+
 see also batteries.scala runtime support
 
 ideas:
  - distinguish "not implemented" from "not possible/feasible" in limitation()
  - more general handling of x[y:z]
  - option to allow PyObject ~= scala Dynamic, a little like untyped in haxe
+
+__ http://docs.python.org/2/library/ast.html
+
 '''
 
 from contextlib import contextmanager
@@ -99,24 +104,92 @@ class LineSyntax(object):
         wr(' ' * self._col)
 
 
-class PyToScala(ast.NodeVisitor, LineSyntax):
+class ModuleAttributes(LineSyntax):
+    '''Predefined module attributes, per `python datamodel`__.
+
+    __ http://docs.python.org/2/reference/datamodel.html
     '''
-    http://docs.python.org/2/library/ast.html
+    def mod_attrs(self, wr, pkg, modname):
+        wr('val __name__ = "%s%s"' % (
+            pkg + '.' if pkg else '', modname))
+        self.newline()
+
+
+class PyRunTime(object):
+    scala_rt = ['scala.collection.mutable']
+    list_maker = 'mutable.IndexedSeq'
+
+    def __init__(self, find_package, batteries_pfx, py2scala):
+        self._find_package = find_package
+        self._batteries_pfx = batteries_pfx
+        self._py_rt_imports = [
+            '%s.{batteries => %s}' % (py2scala, batteries_pfx),
+            '%s.__builtin__._' % py2scala]
+
+    def adjust_pkg_path(self, pkg_path, level=0):
+        is_std, is_local, path_parts = self._find_package(pkg_path, level)
+        # limitation(is_std or is_local)
+        return (([self._batteries_pfx] if is_std else [])
+                + path_parts)
+
+    def imports(self):
+        '''Get list of scala and python runtime imports.
+        '''
+        return self.scala_rt + self._py_rt_imports
+
+
+class APIFilter(object):
+    '''Optionally filter out implementation details, leaving only the API.
+
+    In API mode:
+       - Skip _xyz functions.
+       - Leave body empty in the rest.
     '''
+    # TODO: investigate whether we can do this in a generic
+    # way in NodeVisitor.visit.
+    # Or consider using: for do_impl in self.filter_fundef():
+    def __init__(self, api):
+        self._api = api
+
+    def filter_fundef(self, node):
+        return self._api and node.name.startswith('_')
+
+    def filter_funbody(self):
+        return self._api
+
+
+class TypeDecls(object):
+    @classmethod
+    def parse_types(cls, txt):
+        '''
+        TODO: handle multi-line types
+        '''
+        arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
+        rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
+        foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
+        return (arg_types,
+                rtypes[0] if rtypes else None,
+                '[' + foralls[0] + ']' if foralls else '')
+
+    def fun_parts(self, body):
+        return ((body[:-1], body[-1]) if (len(body) > 0 and
+                                        isinstance(body[-1], ast.Return) and
+                                        body[-1].value)
+                else (body, []))
+
+
+class PyToScala(ast.NodeVisitor,
+                TypeDecls, APIFilter, PyRunTime, ModuleAttributes, LineSyntax):
     def __init__(self, modname, out, token_lines, find_package,
                  pkg=None, api=False,
                  partial_app='pf_', batteries_pfx='py',
                  py2scala='com.madmode.py2scala'):
         LineSyntax.__init__(self, out, token_lines)
+        PyRunTime.__init__(self, find_package, batteries_pfx, py2scala)
+        APIFilter.__init__(self, api)
         self._pkg = pkg
-        self._api = api
         self._modname = modname
-        self._find_package = find_package
         self._partial_app = partial_app
-        self._batteries_pfx = batteries_pfx
-        self._py_rt_imports = [
-            '%s.{batteries => %s}' % (py2scala, batteries_pfx),
-            '%s.__builtin__._' % py2scala]
         self._def_stack = []
 
     def visit_Module(self, node):
@@ -128,30 +201,19 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             wr('package %s\n' % pkg)
             self.newline()
 
-        for target in self._imports():
+        for target in self.imports():
             wr('import %s\n' % target)
 
         _, body, _ = self._doc(node)
         wr('object %s ' % self._modname)
 
         with self._block():
-            wr('val __name__ = "%s%s"' % (
-                self._pkg + '.' if self._pkg else '', self._modname))
-            self.newline()
+            self.mod_attrs(wr, self._pkg, self._modname)
 
             for stmt in body:
                 self.visit(stmt)
 
         self.newline()
-
-    def _imports(self):
-        '''Get list of scala and python runtime imports, aux object
-        for __file__ support.
-        '''
-        scala_rt = ['scala.collection.mutable']
-        py_rt = self._py_rt_imports
-
-        return scala_rt + py_rt
 
     def _doc(self, node):
         self.newline()
@@ -192,43 +254,31 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
     def visit_FunctionDef(self, node):
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
-
-        In API mode:
-          - Skip _xyz functions.
-          - Leave body empty in the rest.
         '''
-        if self._api and node.name.startswith('_'):
+        if self.filter_fundef(node):
             return
 
         wr, body, doc = self._doc(node)
 
         arg_types, rtype, foralls = option_fold(doc,
-                                                DocString.parse_types,
+                                                self.parse_types,
                                                 (None, None, ''))
 
         self._decorators(node)
         wr('def %s%s(' % (node.name, foralls))
         self.visit_arguments(node.args, types=arg_types)
 
-        rtypedecl, suite = self._fun_parts(body, rtype)
+        suite1, ret = self.fun_parts(body)
+        suite = (suite1 + [loc(ast.Expr(ret.value), ret)]
+                 if ret and rtype
+                 else suite1)
+        rtypedecl = ': ' + rtype if rtype else ''
         wr(')%s = ' % rtypedecl)
 
-        if not self._api:
+        if not self.filter_funbody():
             self._def_stack.append('FunctionDef')
             self._suite(suite)
             self._def_stack.pop()
-
-    def _fun_parts(self, body, rtype_opt, elide=False):
-        '''Find trailing Return and modify/elide based on context.
-        '''
-        suite = (body[:-1] + [loc(ast.Expr(ret.value), ret)
-                              for ret in [body[-1]] if not elide]
-                 if (not rtype_opt and
-                     len(body) > 0 and
-                     isinstance(body[-1], ast.Return) and
-                     body[-1].value)
-                 else body)
-        return option_fold(rtype_opt, lambda rtype: ': ' + rtype, ''), suite
 
     def _decorators(self, node):
         wr = self._sync(node)
@@ -268,7 +318,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
             self.newline()
 
             for fd in ctors:
-                _, con_body = self._fun_parts(fd.body, None, elide=True)
+                con_body, _ = self.fun_parts(fd.body)
                 for stmt in con_body:
                     self.visit(stmt)
 
@@ -294,7 +344,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         doc = '\n'.join(option_iter(class_doc)
                         + [s for fd in ctors
                            for s in option_iter(ast.get_docstring(fd))])
-        arg_types, _, foralls = DocString.parse_types(doc)
+        arg_types, _, foralls = self.parse_types(doc)
         return ctors, other, arg_types, foralls
 
     def visit_Return(self, node):
@@ -478,11 +528,9 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         '''
         wr = self._sync(node)
         wr('try ')
-        with self._block():
-            self._suite(node.body)
+        self._suite(node.body)
         wr(' finally ')
-        with self._block():
-            self._suite(node.finalbody)
+        self._suite(node.finalbody)
 
     def visit_Assert(self, node):
         '''Assert(expr test, expr? msg)
@@ -499,7 +547,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         wr = self._sync(node)
         for name in node.names:
             wr('import ')
-            path = self._adjust_pkg_path(name.name)
+            path = self.adjust_pkg_path(name.name)
             if name.asname:
                 wr('%s.{ %s => %s }' % ('.'.join(path[:-1]),
                                         path[-1], name.asname))
@@ -514,7 +562,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
         for node in self._skip_special_imports(node):
             wr('import ')
-            wr('.'.join(self._adjust_pkg_path(node.module, node.level)))
+            wr('.'.join(self.adjust_pkg_path(node.module, node.level)))
             wr('.')
             wr('{')
             self._items(wr, node.names)
@@ -867,7 +915,7 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
 
     def visit_List(self, node):
         wr = self._sync(node)
-        wr('mutable.IndexedSeq')
+        wr(self.list_maker)
         self._items(wr, node.elts, parens=True)
 
     def visit_Tuple(self, node):
@@ -943,12 +991,6 @@ class PyToScala(ast.NodeVisitor, LineSyntax):
         else:
             wr(node.name)
 
-    def _adjust_pkg_path(self, pkg_path, level=0):
-        is_std, is_local, path_parts = self._find_package(pkg_path, level)
-        # limitation(is_std or is_local)
-        return (([self._batteries_pfx] if is_std else [])
-                + path_parts)
-
     def generic_visit(self, node):
         import pdb; pdb.set_trace()
         raise NotImplementedError('need visitor for: %s %s' %
@@ -977,20 +1019,6 @@ def limitation(t):
     if not t:
         import pdb; pdb.set_trace()
         raise NotImplementedError
-
-
-class DocString(object):
-    @classmethod
-    def parse_types(cls, txt):
-        '''
-        TODO: handle multi-line types
-        '''
-        arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
-        rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
-        foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
-        return (arg_types,
-                rtypes[0] if rtypes else None,
-                '[' + foralls[0] + ']' if foralls else '')
 
 
 def mk_find_package(find_module, path_split, sys_path):
