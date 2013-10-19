@@ -138,6 +138,10 @@ class PyRunTime(object):
         return self.scala_rt + self._py_rt_imports
 
 
+class ImplementationDetail(Exception):
+    pass
+
+
 class APIFilter(object):
     '''Optionally filter out implementation details, leaving only the API.
 
@@ -151,14 +155,19 @@ class APIFilter(object):
     def __init__(self, api):
         self._api = api
 
-    def filter_fundef(self, node):
-        return self._api and node.name.startswith('_')
+    def check_fun_name(self, name):
+        if self._api and name.startswith('_'):
+            raise ImplementationDetail
 
     def filter_funbody(self):
-        return self._api
+        if self._api:
+            raise ImplementationDetail
 
 
 class TypeDecls(object):
+    def __init__(self):
+        self._def_stack = []
+
     @classmethod
     def parse_types(cls, txt):
         '''
@@ -171,15 +180,247 @@ class TypeDecls(object):
                 rtypes[0] if rtypes else None,
                 '[' + foralls[0] + ']' if foralls else '')
 
-    def fun_parts(self, body):
+    def fun_sig(self, node):
+        wr, body, doc = self._doc(node)
+
+        arg_types, rtype, foralls = option_fold(doc,
+                                                self.parse_types,
+                                                (None, None, ''))
+
+        wr('def %s%s(' % (node.name, foralls))
+        self.visit_arguments(node.args, types=arg_types)
+        rtypedecl = ': ' + rtype if rtype else ''
+        wr(')%s = ' % rtypedecl)
+        return rtype, body
+
+    def add_arg_type(self, wr, expr, default, types):
+        arg_type = self._arg_type(expr, default, types)
+        if arg_type:
+            wr(': ' + arg_type)
+
+    def _arg_type(self, arg, default, types):
+        fallback = None if self._def_stack[-1:] == ['lambda'] else 'Any'
+        return ((types.get(arg.id) if isinstance(arg, ast.Name) else None)
+                or
+                (self._literal_type(default) if default else None)
+                or
+                fallback)
+
+    def _literal_type(self, expr):
+        types1 = [t for (pat, t)
+                 in [(ast.Num(n=None), 'Num'),
+                     (ast.Str(s=None), 'String'),
+                     (ast.Name(id='True', ctx=None), 'Boolean'),
+                     (ast.Name(id='False', ctx=None), 'Boolean')]
+                 if tmatch(expr, pat)]
+        types2 = [('Double' if isinstance(expr.n, type(1.0)) else 'Int')
+                  if t == 'Num' else t
+                  for t in types1]
+        return types2[0] if types2 else None
+
+    def fun_body(self, body, rtype):
+        try:
+            self.filter_funbody()
+        except ImplementationDetail:
+            pass
+        else:
+            suite1, ret = self.split_ret(body)
+            suite = (suite1 + [loc(ast.Expr(ret.value), ret)]
+                     if ret and not rtype
+                     else body)
+
+            self._def_stack.append('FunctionDef')
+            self._suite(suite)
+            self._def_stack.pop()
+
+    def split_ret(self, body):
         return ((body[:-1], body[-1]) if (len(body) > 0 and
-                                        isinstance(body[-1], ast.Return) and
-                                        body[-1].value)
-                else (body, []))
+                                          isinstance(body[-1], ast.Return) and
+                                          body[-1].value)
+                else (body, None))
+
+    def lambda_expr(self, wr, node):
+        self._def_stack.append('lambda')
+
+        if node.args.defaults:
+            wr('new { def apply(')
+            self.visit_arguments(node.args)
+            wr(') = ')
+        else:
+            wr('(')
+            self.visit_arguments(node.args)
+            wr(') => { ')
+
+        self.visit(node.body)
+        wr(' }')
+        self._def_stack.pop()
+
+    def typed_expr(self, wr, node_opt,
+                   typed_id='typed'):
+        '''type ascription
+
+        TODO: work out details of importing typed
+
+        :return: [unmatched node] or []
+        '''
+        for node in node_opt:
+            if tmatch(node, ast.Call(func=ast.Name(id=typed_id, ctx=None),
+                                     args=[None, ast.Str(s=None)],
+                                     keywords=[], starargs=None,
+                                     kwargs=None)):
+                wr('(')
+                self.visit(node.args[0])
+                wr(': ' + node.args[1].s + ')')
+                return []
+        return node_opt
+
+
+class ClassStructure(TypeDecls):
+    def class_sig(self, node):
+        wr, body, doc1 = self._doc(node)
+
+        # skip 1st (self) arg in methods, including constructor
+        ctors, body, arg_types, foralls = self._find_constructors(body, doc1)
+        self._def_stack.append('ClassDef')
+        wr('class %s%s(' % (node.name, foralls))
+        for fd in ctors:
+            self.visit_arguments(fd.args, types=arg_types)
+        wr(')')
+
+        if node.bases:
+            notObject = [b for b in node.bases
+                         if not (isinstance(b, ast.Name)
+                                 and b.id == 'object')]
+            if notObject:
+                wr(' extends ')
+                self._items(wr, notObject)  # TODO: test multiple bases
+        wr(' ')
+        return wr, ctors, body
+
+    def class_body(self, wr, ctors, body,
+                   this='self'):
+        with self._block():
+            wr('%s =>' % this)
+            self.newline()
+
+            for fd in ctors:
+                con_body, _ = self.split_ret(fd.body)
+                for stmt in con_body:
+                    self.visit(stmt)
+
+            for stmt in body:
+                self.visit(stmt)
+
+        self._def_stack.pop()
+
+    def _find_constructors(self, suite, class_doc):
+        ctor_pats = [
+            ast.FunctionDef(name=name, args=None, body=None,
+                            decorator_list=None)
+            for name in ['__new__', '__init__']]
+
+        def is_ctor(stmt):
+            return [1 for pat in ctor_pats if tmatch(stmt, pat)]
+
+        ctors, other = partition(suite, is_ctor)
+
+        limitation(len(ctors) <= 1)
+
+        # Combine constructor doc with class's doc for getting types.
+        doc = '\n'.join(option_iter(class_doc)
+                        + [s for fd in ctors
+                           for s in option_iter(ast.get_docstring(fd))])
+        arg_types, _, foralls = self.parse_types(doc)
+        return ctors, other, arg_types, foralls
+
+    def assign_field(self, targets):
+        '''Translate self.x = ... to var x = ... .
+        '''
+        if (['ClassDef'] == self._def_stack[-1:] and
+            len(targets) == 1 and
+            tmatch(targets[0],
+                   ast.Attribute(value=ast.Name(id='self', ctx=ast.Load()),
+                                 attr=None, ctx=ast.Store()))):
+            return [targets[0].attr]
+        else:
+            return []
+
+
+class ReRaise(object):
+    def ex_wildcard(self, wr):
+        wr('_ex')  # KLUDGE
+
+    def reraise(self, wr):
+        wr('throw _ex')  # KLUDGE
+
+
+class Reify(object):
+    '''Scala syntax for partially applied functions, class values.
+
+    partially applied function KLUDGE
+    class value KLUDGE
+    '''
+    def __init__(self, partial_app):
+        self._partial_app = partial_app
+
+    def reify(self, wr, node_opt):
+        return self._reify_class(wr, self._reify_func(wr, node_opt))
+
+    def _reify_func(self, wr, node_opt):
+        for node in node_opt:
+            if tmatch(node,
+                      ast.Call(func=ast.Name(id=self._partial_app, ctx=None),
+                               args=[None], keywords=[], starargs=None,
+                               kwargs=None)):
+                self.visit(node.args[0])
+                wr(' _')
+                return []
+        return node_opt
+
+    def _reify_class(self, wr, node_opt,
+                     classof_id='classOf'):
+        for node in node_opt:
+            if tmatch(node, ast.Call(func=ast.Name(id=classof_id, ctx=None),
+                                     args=[None, ast.Str(s=None)],
+                                     keywords=[], starargs=None,
+                                     kwargs=None)):
+                wr('classOf[')
+                self.visit(node.args[0])
+                wr(']')
+                return []
+        return node_opt
+
+    def skip_special_imports(self, node):
+        '''skip: from functools import partial as pf_ (KLUDGE)
+
+        TODO: skip from ..fp import typed
+        '''
+        return ([]
+                if tmatch(node, ast.ImportFrom(
+                        module='functools',
+                        names=[ast.alias(name='partial',
+                                         asname=self._partial_app)],
+                        level=0))
+                else [node])
+
+    def adjust_class_call(self, wr, func):
+        if self._is_class_ref(func):
+            wr('new ')
+
+    def _is_class_ref(self, expr):
+        '''KLUDGE: distinguish f() from new F() by capitalization.
+        '''
+        names = [getName(expr)
+                 for (cls, getName) in
+                 [(ast.Name, lambda n: n.id),
+                  (ast.Attribute, lambda n: n.attr)]
+                 if isinstance(expr, cls)]
+        return len([name for name in names if name[0].isupper()]) > 0
 
 
 class PyToScala(ast.NodeVisitor,
-                TypeDecls, APIFilter, PyRunTime, ModuleAttributes, LineSyntax):
+                Reify, ClassStructure, TypeDecls, ReRaise, APIFilter,
+                PyRunTime, ModuleAttributes, LineSyntax):
     def __init__(self, modname, out, token_lines, find_package,
                  pkg=None, api=False,
                  partial_app='pf_', batteries_pfx='py',
@@ -187,10 +428,10 @@ class PyToScala(ast.NodeVisitor,
         LineSyntax.__init__(self, out, token_lines)
         PyRunTime.__init__(self, find_package, batteries_pfx, py2scala)
         APIFilter.__init__(self, api)
+        TypeDecls.__init__(self)
+        Reify.__init__(self, partial_app)
         self._pkg = pkg
         self._modname = modname
-        self._partial_app = partial_app
-        self._def_stack = []
 
     def visit_Module(self, node):
         '''Module(stmt* body)
@@ -255,30 +496,14 @@ class PyToScala(ast.NodeVisitor,
         '''FunctionDef(identifier name, arguments args,
                             stmt* body, expr* decorator_list)
         '''
-        if self.filter_fundef(node):
-            return
-
-        wr, body, doc = self._doc(node)
-
-        arg_types, rtype, foralls = option_fold(doc,
-                                                self.parse_types,
-                                                (None, None, ''))
-
-        self._decorators(node)
-        wr('def %s%s(' % (node.name, foralls))
-        self.visit_arguments(node.args, types=arg_types)
-
-        suite1, ret = self.fun_parts(body)
-        suite = (suite1 + [loc(ast.Expr(ret.value), ret)]
-                 if ret and rtype
-                 else suite1)
-        rtypedecl = ': ' + rtype if rtype else ''
-        wr(')%s = ' % rtypedecl)
-
-        if not self.filter_funbody():
-            self._def_stack.append('FunctionDef')
-            self._suite(suite)
-            self._def_stack.pop()
+        try:
+            self.check_fun_name(node.name)
+        except ImplementationDetail:
+            pass
+        else:
+            self._decorators(node)
+            rtype, body = self.fun_sig(node)
+            self.fun_body(body, rtype)
 
     def _decorators(self, node):
         wr = self._sync(node)
@@ -287,65 +512,15 @@ class PyToScala(ast.NodeVisitor,
             self.visit(expr)
             self.newline()
 
-    def visit_ClassDef(self, node, this='self'):
+    def visit_ClassDef(self, node):
         '''ClassDef(identifier name, expr* bases, stmt* body,
                     expr* decorator_list)
 
         .. note: TODO: test setting attributes in __new__.
         '''
-        wr, body, doc1 = self._doc(node)
         self._decorators(node)
-
-        # skip 1st (self) arg in methods, including constructor
-        ctors, body, arg_types, foralls = self._find_constructors(body, doc1)
-        self._def_stack.append('ClassDef')
-        wr('class %s%s(' % (node.name, foralls))
-        for fd in ctors:
-            self.visit_arguments(fd.args, types=arg_types)
-        wr(')')
-
-        if node.bases:
-            notObject = [b for b in node.bases
-                         if not (isinstance(b, ast.Name)
-                                 and b.id == 'object')]
-            if notObject:
-                wr(' extends ')
-                self._items(wr, notObject)  # TODO: test multiple bases
-        wr(' ')
-
-        with self._block():
-            wr('%s =>' % this)
-            self.newline()
-
-            for fd in ctors:
-                con_body, _ = self.fun_parts(fd.body)
-                for stmt in con_body:
-                    self.visit(stmt)
-
-            for stmt in body:
-                self.visit(stmt)
-
-        self._def_stack.pop()
-
-    def _find_constructors(self, suite, class_doc):
-        ctor_pats = [
-            ast.FunctionDef(name=name, args=None, body=None,
-                            decorator_list=None)
-            for name in ['__new__', '__init__']]
-
-        def is_ctor(stmt):
-            return [1 for pat in ctor_pats if tmatch(stmt, pat)]
-
-        ctors, other = partition(suite, is_ctor)
-
-        limitation(len(ctors) <= 1)
-
-        # Combine constructor doc with class's doc for getting types.
-        doc = '\n'.join(option_iter(class_doc)
-                        + [s for fd in ctors
-                           for s in option_iter(ast.get_docstring(fd))])
-        arg_types, _, foralls = self.parse_types(doc)
-        return ctors, other, arg_types, foralls
+        wr, ctors, body = self.class_sig(node)
+        self.class_body(wr, ctors, body)
 
     def visit_Return(self, node):
         '''Return(expr? value)
@@ -360,6 +535,7 @@ class PyToScala(ast.NodeVisitor,
     def visit_Delete(self, node):
         '''Delete(expr* targets)
         '''
+        limitation(False)
         for expr in node.targets:
             self.visit(expr)
 
@@ -370,13 +546,10 @@ class PyToScala(ast.NodeVisitor,
         '''
         wr = self._sync(node)
 
-        # Translate self.x = ... to var x = ... .
-        if (['ClassDef'] == self._def_stack[-1:] and
-            len(node.targets) == 1 and
-            tmatch(node.targets[0],
-                   ast.Attribute(value=ast.Name(id='self', ctx=ast.Load()),
-                                 attr=None, ctx=ast.Store()))):
-            wr('var %s' % node.targets[0].attr)
+        fields = self.assign_field(node.targets)
+        if fields:
+            for var in fields:
+                wr('var %s' % var)
         else:
             wr('val ')
             if len(node.targets) > 1:
@@ -410,6 +583,8 @@ class PyToScala(ast.NodeVisitor,
 
     def visit_For(self, node):
         '''For(expr target, expr iter, stmt* body, stmt* orelse)
+
+        Use local boolean to implement orelse.
         '''
         wr = self._sync(node)
         elsevar_ = ['any_iter%s' % id(s)
@@ -473,7 +648,7 @@ class PyToScala(ast.NodeVisitor,
             if node.optional_vars:
                 self.visit(node.optional_vars)
             else:
-                wr('_')
+                wr('_it')
             wr(' => ')
             self._suite(node.body)
 
@@ -494,7 +669,7 @@ class PyToScala(ast.NodeVisitor,
                 wr('throw ')
                 self.visit(node.type)
         else:
-            wr('throw _ex')  # KLUDGE
+            self.reraise()
         self.newline()
 
     def visit_TryExcept(self, node):
@@ -513,7 +688,7 @@ class PyToScala(ast.NodeVisitor,
                 if excepthandler.name:
                     self.visit(excepthandler.name)
                 else:
-                    wr('_ex')  # KLUDGE
+                    self.ex_wildcard(wr)
                 if excepthandler.type:
                     wr(': ')
                     self.visit(excepthandler.type)
@@ -560,7 +735,7 @@ class PyToScala(ast.NodeVisitor,
         wr = self._sync(node)
         limitation(node.module)
 
-        for node in self._skip_special_imports(node):
+        for node in self.skip_special_imports(node):
             wr('import ')
             wr('.'.join(self.adjust_pkg_path(node.module, node.level)))
             wr('.')
@@ -569,22 +744,10 @@ class PyToScala(ast.NodeVisitor,
             wr('}')
             self.newline()
 
-    def _skip_special_imports(self, node):
-        '''skip: from functools import partial as pf_ (KLUDGE)
-
-        TODO: skip from ..fp import typed
-        '''
-        return ([]
-                if tmatch(node, ast.ImportFrom(
-                        module='functools',
-                        names=[ast.alias(name='partial',
-                                         asname=self._partial_app)],
-                        level=0))
-                else [node])
-
     def visit_Global(self, node):
         '''Global(identifier* names)
         '''
+        limitation(False)
         wr = self._sync(node)
         wr('/* global ')
         wr(', '.join(node.names))
@@ -674,20 +837,7 @@ class PyToScala(ast.NodeVisitor,
                   and we don't have a convention for overriding that.
         '''
         wr = self._sync(node)
-        self._def_stack.append('lambda')
-
-        if node.args.defaults:
-            wr('new { def apply(')
-            self.visit_arguments(node.args)
-            wr(') = ')
-        else:
-            wr('(')
-            self.visit_arguments(node.args)
-            wr(') => { ')
-
-        self.visit(node.body)
-        wr(' }')
-        self._def_stack.pop()
+        self.lambda_expr(wr, node)
 
     def visit_IfExp(self, node):
         '''IfExp(expr test, expr body, expr orelse)
@@ -785,64 +935,26 @@ class PyToScala(ast.NodeVisitor,
         limitation(not node.starargs)
         wr = self._sync(node)
 
-        # partially applied function KLUDGE
-        if tmatch(node, ast.Call(func=ast.Name(id=self._partial_app, ctx=None),
-                                 args=[None], keywords=[], starargs=None,
-                                 kwargs=None)):
-            self.visit(node.args[0])
-            wr(' _')
-            return
-
-        # type ascription KLUDGE
-        if tmatch(node, ast.Call(func=ast.Name(id='typed', ctx=None),
-                                 args=[None, ast.Str(s=None)],
-                                 keywords=[], starargs=None,
-                                 kwargs=None)):
+        for node in self.reify(wr, self.typed_expr(wr, [node])):
+            self.adjust_class_call(wr, node.func)
+            self.visit(node.func)
             wr('(')
-            self.visit(node.args[0])
-            wr(': ' + node.args[1].s + ')')
-            return
-
-        # class value KLUDGE
-        if tmatch(node, ast.Call(func=ast.Name(id='classOf', ctx=None),
-                                 args=[None, ast.Str(s=None)],
-                                 keywords=[], starargs=None,
-                                 kwargs=None)):
-            wr('classOf[')
-            self.visit(node.args[0])
-            wr(']')
-            return
-
-        if self._is_class_ref(node.func):
-            wr('new ')
-        self.visit(node.func)
-        wr('(')
-        ax = len(node.args)
-        self._items(wr, node.args)
-        kx = 0
-        if node.keywords:
-            for kx, keyword in enumerate(node.keywords):
+            ax = len(node.args)
+            self._items(wr, node.args)
+            kx = 0
+            if node.keywords:
+                for kx, keyword in enumerate(node.keywords):
+                    if ax + kx > 0:
+                        wr(', ')
+                    wr(keyword.arg)
+                    wr('=')
+                    self.visit(keyword.value)
+            if node.kwargs:
                 if ax + kx > 0:
                     wr(', ')
-                wr(keyword.arg)
-                wr('=')
-                self.visit(keyword.value)
-        if node.kwargs:
-            if ax + kx > 0:
-                wr(', ')
-            wr('/* TODO kwargs using Dynamic? */ ')
-            self.visit(node.kwargs)
-        wr(')')
-
-    def _is_class_ref(self, expr):
-        '''KLUDGE: distinguish f() from new F() by capitalization.
-        '''
-        names = [getName(expr)
-                 for (cls, getName) in
-                 [(ast.Name, lambda n: n.id),
-                  (ast.Attribute, lambda n: n.attr)]
-                 if isinstance(expr, cls)]
-        return len([name for name in names if name[0].isupper()]) > 0
+                wr('/* TODO kwargs using Dynamic? */ ')
+                self.visit(node.kwargs)
+            wr(')')
 
     def visit_Num(self, node):
         wr = self._sync(node)
@@ -946,9 +1058,7 @@ class PyToScala(ast.NodeVisitor,
             self.visit(expr)
             default = (node.defaults[ix - default_ix]
                        if ix >= default_ix else None)
-            arg_type = self._arg_type(expr, default, types)
-            if arg_type:
-                wr(': ' + arg_type)
+            self.add_arg_type(wr, expr, default, types)
 
             if default:
                 wr('=')
@@ -961,26 +1071,6 @@ class PyToScala(ast.NodeVisitor,
         if node.kwarg:
             comma(ix)
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
-
-    def _arg_type(self, arg, default, types):
-        fallback = None if self._def_stack[-1:] == ['lambda'] else 'Any'
-        return ((types.get(arg.id) if isinstance(arg, ast.Name) else None)
-                or
-                (self._literal_type(default) if default else None)
-                or
-                fallback)
-
-    def _literal_type(self, expr):
-        types1 = [t for (pat, t)
-                 in [(ast.Num(n=None), 'Num'),
-                     (ast.Str(s=None), 'String'),
-                     (ast.Name(id='True', ctx=None), 'Boolean'),
-                     (ast.Name(id='False', ctx=None), 'Boolean')]
-                 if tmatch(expr, pat)]
-        types2 = [('Double' if isinstance(expr.n, type(1.0)) else 'Int')
-                  if t == 'Num' else t
-                  for t in types1]
-        return types2[0] if types2 else None
 
     def visit_alias(self, node):
         '''alias = (identifier name, identifier? asname)
