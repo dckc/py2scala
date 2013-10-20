@@ -24,7 +24,7 @@ Testing
 
 Use nose__ as usual::
 
-  py2scala$ nosetests
+  py2scala$ nosetests --nologcapture
   ..
   ----------------------------------------------------------------------
   Ran 2 tests in 0.014s

@@ -4,49 +4,36 @@ import unittest
 from .. import p2s
 
 
-class ConvertTerminates(unittest.TestCase):
-    def setUp(self):
-        from imp import find_module
-        from os import path as os_path
-        from sys import path as sys_path
+def main(argv, exit,
+         find_package, save_scala_fp,
+         manifest_ok_fn='manifest_ok.txt',
+         manifest_err_fn='manifest_err.txt'):
 
-        self._find_package = p2s.mk_find_package(find_module,
-                                                 os_path.split,
-                                                 sys_path)
+    class TestFunArgs(unittest.TestCase):
+        def __init__(self, f, args):
+            unittest.TestCase.__init__(self)
+            self._f = f
+            self._args = args
 
-        maven_path = mk_maven_path(os_path)
-        self._maven_path = maven_path
+        def __str__(self):
+            return '%s(%s)' % (self.__class__.__name__, self._args)
 
-        self._save_scala_fp = mk_save_scala_fp(open, maven_path)
+        def runTest(self):
+            self._f(*self._args)
 
-    def convert_res(self, res, err=False):
-        scala_fn = res.split('.')[0] + '.scala'
-        with self._save_scala_fp(scala_fn, err) as out:
-            fn = pkg.resource_filename(__name__, res)
-            src = pkg.resource_string(__name__, res)
-            p2s.convert(fn, src, out, self._find_package)
-        return out.name
+    suite = unittest.TestSuite(
+        [TestFunArgs(f_args[0], f_args[1:]) for f_args in
+         test_convert_each(
+             with_caps=lambda f: f(find_package, save_scala_fp))])
+    runner = unittest.TextTestRunner(verbosity=2 if '-v' in argv else 1)
+    result = runner.run(suite)
+    exit(result.wasSuccessful())
 
-    def test_import_os(self, res='import_os.py'):
-        self.convert_res(res)
 
-    def test_instance(self, res='instance_attr.py'):
-        self.convert_res(res)
-
-    def test_funval(self, res='funval.py'):
-        self.convert_res(res)
-
-    def test_wordcount(self, res='wc.py'):
-        self.convert_res(res)
-
-    def test_for_else(self, res='for_else.py'):
-        self.convert_res(res)
-
-    def test_distant(self, res='distant_types.py'):
-        self.convert_res(res)
-
-    def test_raise(self, res='ex_raise.py'):
-        self.convert_res(res)
+def read_manifest(fn):
+    return [item.strip() for item in
+            pkg.resource_stream(__name__, fn)
+            if item]
 
 
 def mk_maven_path(os_path):
@@ -68,5 +55,53 @@ def mk_save_scala_fp(open, maven_path):
 
     return scala_save_fp
 
+
+def _with_find_save(f):
+    '''Resolve conflict between least-authority design and test discovery.
+    KLUDGE.
+    '''
+    from imp import find_module
+    from os import path as os_path
+    from sys import path as sys_path
+
+    maven_path = mk_maven_path(os_path)
+    return f(find_package=p2s.mk_find_package(find_module,
+                                              os_path.split, sys_path),
+             save_scala_fp=mk_save_scala_fp(open, maven_path))
+
+
+def test_convert_each(with_caps=_with_find_save,
+                      manifest_ok_fn='manifest_ok.txt',
+                      manifest_err_fn='manifest_err.txt'):
+    '''Nosetest style test generator.
+    '''
+    find_package, save_scala_fp = with_caps(
+        lambda find_package, save_scala_fp: (find_package, save_scala_fp))
+
+    def runTest(res, err):
+        scala_fn = res.split('.')[0] + '.scala'
+        with save_scala_fp(scala_fn, err) as out:
+            fn = pkg.resource_filename(__name__, res)
+            src = pkg.resource_string(__name__, res)
+            p2s.convert(fn, src, out, find_package)
+        return out.name
+
+    ok_filenames = read_manifest(manifest_ok_fn)
+    err_filenames = read_manifest(manifest_err_fn)
+    cases = ([(fn, False) for fn in ok_filenames] +
+             [(fn, True) for fn in err_filenames])
+
+    for res, err in cases:
+        yield runTest, res, err
+
+
 if __name__ == '__main__':
-    unittest.main()
+    def _with_caps(main):
+        from sys import argv, exit
+
+        def f(find_package, save_scala_fp):
+            main(argv, exit, find_package, save_scala_fp)
+
+        _with_find_save(f)
+
+    _with_caps(main)

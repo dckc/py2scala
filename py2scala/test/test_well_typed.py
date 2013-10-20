@@ -1,57 +1,56 @@
 import logging
 import unittest
 
-from test_convert import ConvertTerminates
+from .. import p2s
+
+import test_convert
 
 log = logging.getLogger(__name__)
 
 
-class WellTyped(ConvertTerminates):
-    def setUp(self,
+def _with_run(f,
               scala_version='scala-2.10'):
-        from subprocess import check_call
+    from imp import find_module
+    from os import path as os_path
+    from subprocess import check_call
+    from sys import path as sys_path
 
-        logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.INFO)
 
-        ConvertTerminates.setUp(self)
+    maven_path = test_convert.mk_maven_path(os_path)
+    target = maven_path('target', scala_version)
+    scala_src = maven_path('src', 'main', 'scala')
 
-        maven_path = self._maven_path
-        target = maven_path('target', scala_version)
-        scala_src = maven_path('src', 'main', 'scala')
-        self._run_scalac = mk_run_scalac(check_call, target, scala_src)
+    return f(run_scalac=mk_run_scalac(check_call, target, scala_src),
+             find_package=p2s.mk_find_package(find_module,
+                                              os_path.split, sys_path),
+             save_scala_fp=test_convert.mk_save_scala_fp(open, maven_path))
 
-    def check(self, res, err=False):
-        scala_fn = self.convert_res(res, err)
+
+def test_well_typed(with_run=_with_run):
+    run_scalac, find, save = with_run(
+        lambda run_scalac, find_package, save_scala_fp: (
+            run_scalac, find_package, save_scala_fp))
+
+    def with_caps(f):
+        return f(find_package=find, save_scala_fp=save)
+
+    def runTest(runConvert, res, err=False):
+        scala_fn = runConvert(res, err)
 
         try:
-            self._run_scalac(scala_fn)
+            run_scalac(scala_fn)
         except:
             actual_err = True
         else:
             actual_err = False
 
-        self.assertEqual(err, actual_err)
+        assert err == actual_err
 
-    def test_import_os(self, res='import_os.py'):
-        self.check(res)
-
-    def test_funval(self, res='funval.py'):
-        self.check(res)
-
-    def test_wordcount(self, res='wc.py'):
-        self.check(res)
-
-    def test_for_else(self, res='for_else.py'):
-        self.check(res)
-
-    def test_distant(self, res='distant_types.py'):
-        self.check(res, err=True)
-
-    def test_instance(self, res='instance_attr.py'):
-        self.check(res)
-
-    def test_raise(self, res='ex_raise.py'):
-        self.check(res)
+    for f_args in test_convert.test_convert_each(
+            with_caps=with_caps):
+        runConvert, res, err = f_args
+        yield runTest, runConvert, res, err
 
 
 def mk_run_scalac(check_call, target, scala_src, fsc_path='fsc'):

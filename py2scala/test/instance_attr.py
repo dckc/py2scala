@@ -39,4 +39,4 @@ class Animal(object):
 
 def main():
     print Dummy()
-    print classOf(Animal)
+    # TODO: print classOf(Dummy)
