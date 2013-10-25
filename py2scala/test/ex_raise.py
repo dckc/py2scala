@@ -13,7 +13,7 @@ def try_hard():
     x = CP()
     try:
         x.add_section('abc')
-    except:
+    except TypeError:
         print "lose"
 
 
