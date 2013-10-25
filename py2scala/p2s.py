@@ -346,6 +346,43 @@ class ClassStructure(TypeDecls):
             return []
 
 
+class Assignment(object):
+    def assign_targets(self, wr, node):
+        targets = node.targets
+        field1 = self.assign_field(targets)
+        if field1:
+            for field in field1:
+                wr('var %s' % field)
+            return node.value
+
+        names = ([targets[0]] if (len(targets) == 1 and
+                                  isinstance(targets[0], ast.Name))
+                 else targets[0].elts if (
+                         len(targets) == 1 and
+                         isinstance(targets[0], ast.Tuple) and
+                         not [not_name for not_name in targets[0].elts
+                              if not isinstance(not_name, ast.Name)])
+                 else [])
+
+        if (len(names) > 0 and
+            # if the first is 'var'...
+            tmatch(names[0],
+                   ast.Name(id='var', ctx=ast.Store()))):
+            limitation(isinstance(node.value, ast.Tuple))
+            limitation(len(node.value.elts) > 1)
+            wr('var ')
+            self._items(wr, names[1:], parens=len(names) > 2)
+            return loc(ast.Tuple(elts=node.value.elts[1:]), node.value)
+
+        if (len(names) > 0):
+            wr('val ')
+            self._items(wr, names, parens=len(names) > 1)
+            return node.value
+
+        self._items(wr, targets, parens=len(targets) > 1)
+        return node.value
+
+
 class ReRaise(object):
     def ex_wildcard(self, wr):
         wr('_ex')  # KLUDGE
@@ -419,8 +456,9 @@ class Reify(object):
 
 
 class PyToScala(ast.NodeVisitor,
-                Reify, ClassStructure, TypeDecls, ReRaise, APIFilter,
-                PyRunTime, ModuleAttributes, LineSyntax):
+                Reify, Assignment, ClassStructure, TypeDecls, ReRaise,
+                APIFilter, PyRunTime,
+                ModuleAttributes, LineSyntax):
     def __init__(self, modname, out, token_lines, find_package,
                  pkg=None, api=False,
                  partial_app='pf_', batteries_pfx='py',
@@ -545,20 +583,9 @@ class PyToScala(ast.NodeVisitor,
         TODO: skip _xyz in API mode
         '''
         wr = self._sync(node)
-
-        fields = self.assign_field(node.targets)
-        if fields:
-            for var in fields:
-                wr('var %s' % var)
-        else:
-            wr('val ')
-            if len(node.targets) > 1:
-                self._items(node.targets, parens=True)
-            else:
-                self.visit(node.targets[0])
-
+        x = self.assign_targets(wr, node)
         wr(' = ')
-        self.visit(node.value)
+        self.visit(x)
         self.newline()
 
     def visit_AugAssign(self, node):

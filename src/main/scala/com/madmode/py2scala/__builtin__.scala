@@ -18,7 +18,8 @@ object __builtin__ {
   }
 
   object Dict {
-    def apply[K, V]() = Map[K, V]()
+    def apply[K, V]() = mutable.Map[K, V]()
+    def apply[K, V](elems: (K, V)*) = mutable.Map(elems:_*)
   }
 
   class Instance(o: Object) {

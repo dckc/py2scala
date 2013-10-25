@@ -6,3 +6,4 @@ import_os.py
 instance_attr.py
 str.py
 wc.py
+assign.py
