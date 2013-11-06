@@ -22,7 +22,7 @@ import re
 import tokenize
 from ast import copy_location as loc
 
-from .fp import option_iter, option_fold, partition
+from fp import option_iter, option_fold, partition
 
 log = logging.getLogger(__name__)
 
