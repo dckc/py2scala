@@ -412,11 +412,11 @@ ConfigParser -- responsible for parsing a list of
     }
 
     class RegexObject(regex: String) extends matching.Regex(regex) {
-      def match_(s: String): Match = {
+      def match_(s: String): Match = TODO /* {
         val m = this.pattern matcher s
         runMatcher(m)
         new JavaMatch(m)
-      }
+      }*/
       def match_(s: String, offset: Int): Match = match_(s.drop(offset))
       
       def search(s: String): Match = {
