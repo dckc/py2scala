@@ -402,7 +402,31 @@ class Reify(object):
         self._partial_app = partial_app
 
     def reify(self, wr, node_opt):
-        return self._reify_class(wr, self._reify_func(wr, node_opt))
+        return self._reify_kwargs(
+            wr, self._reify_class(
+                wr, self._reify_func(wr, node_opt)))
+
+    def _reify_kwargs(self, wr, node_opt,
+                      dict_id='dict'):
+        '''translate dict(x=1, y=2) to Dict(x -> 1, y -> 2)
+
+        TODO: translate dict(d, x=y) as d ++ Dict(x -> y)
+        '''
+        for node in node_opt:
+            if tmatch(node,
+                      ast.Call(func=ast.Name(id=dict_id, ctx=None),
+                               args=[], keywords=None, starargs=None,
+                               kwargs=None)):
+                wr('Dict(')
+                for ix, kw in enumerate(node.keywords):
+                    if ix > 0:
+                        wr(', ')
+                    wr(kw.arg)
+                    wr(' -> ')
+                    self.visit(kw.value)
+                wr(')')
+                return []
+        return node_opt
 
     def _reify_func(self, wr, node_opt):
         for node in node_opt:
@@ -1160,8 +1184,8 @@ def mk_find_package(find_module, path_split, sys_path):
                  ]
 
     def find_package(mod_file, pkg_name, level=0):
-        if pkg_name == 'sys':
-            return True, False, ['sys']
+        if pkg_name in ['sys', 'pkg_resources']:
+            return True, False, [pkg_name]
 
         base, _ = path_split(mod_file)
         while level > 1:

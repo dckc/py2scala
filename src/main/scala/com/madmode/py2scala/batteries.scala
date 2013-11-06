@@ -403,6 +403,10 @@ ConfigParser -- responsible for parsing a list of
     def dump(x: Any, f: b.File): Unit = TODO
   }
 
+  object pkg_resources {
+    def resource_filename(ctx: String, res: String): String = TODO
+  }
+
   object re {
     import scala.util.matching
     import java.util.regex.Matcher
