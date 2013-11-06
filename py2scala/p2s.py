@@ -200,7 +200,8 @@ class TypeDecls(object):
 
     def _arg_type(self, arg, default, types):
         fallback = None if self._def_stack[-1:] == ['lambda'] else 'Any'
-        return ((types.get(arg.id) if isinstance(arg, ast.Name) else None)
+        return ((types.get(arg.id) if isinstance(arg, ast.Name) else
+                 types.get(arg) if isinstance(arg, type('')) else None)
                 or
                 (self._literal_type(default) if default else None)
                 or
@@ -959,7 +960,6 @@ class PyToScala(ast.NodeVisitor,
                 expr? starargs, expr? kwargs)
            keyword = (identifier arg, expr value)'''
 
-        limitation(not node.starargs)
         wr = self._sync(node)
 
         for node in self.reify(wr, self.typed_expr(wr, [node])):
@@ -976,6 +976,14 @@ class PyToScala(ast.NodeVisitor,
                     wr(keyword.arg)
                     wr('=')
                     self.visit(keyword.value)
+
+            if node.starargs:
+                if ax + kx > 0:
+                    wr(', ')
+                self.visit(node.starargs)
+                wr(' : _*')
+                ax += 1
+
             if node.kwargs:
                 if ax + kx > 0:
                     wr(', ')
@@ -1070,6 +1078,7 @@ class PyToScala(ast.NodeVisitor,
         '''
         wr = self._sync(node)
         types = dict(types) if types else {}
+        ix = 0
 
         def comma(ix):
             if ix > 0:
@@ -1093,8 +1102,12 @@ class PyToScala(ast.NodeVisitor,
 
         if node.vararg:
             comma(ix)
-            wr('/* TODO vararg using Dynamic? */ %s : Seq[Any]' % node.vararg)
+            wr(node.vararg)
+            wr(': ')
+            wr(self._arg_type(node.vararg, None, types))
+            wr('*')
             ix += 1
+
         if node.kwarg:
             comma(ix)
             wr('/* TODO kwarg */ ' + node.kwarg + ': Dict[String, Any]')
