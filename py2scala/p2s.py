@@ -421,7 +421,7 @@ class Reify(object):
                 for ix, kw in enumerate(node.keywords):
                     if ix > 0:
                         wr(', ')
-                    wr(kw.arg)
+                    wr('"%s"' % kw.arg)
                     wr(' -> ')
                     self.visit(kw.value)
                 wr(')')
