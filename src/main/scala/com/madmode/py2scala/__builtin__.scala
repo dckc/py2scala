@@ -17,6 +17,7 @@ object __builtin__ {
 
     def get(k: K, default: V) = this.getOrElse(k, default)
     def keys(): Iterable[String] = TODO
+    def items(): Iterable[(K, V)] = TODO
   }
 
   object Dict {
@@ -69,6 +70,8 @@ object __builtin__ {
     def isalpha(): Boolean = s.forall(_.isalpha())
 
     def isdigit(): Boolean = s.forall(_.isdigit())
+
+    def index(needle: String): Int
 
     def join(parts: Iterable[String]): String = TODO
 
