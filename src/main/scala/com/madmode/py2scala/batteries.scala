@@ -490,11 +490,30 @@ ConfigParser -- responsible for parsing a list of
     import TokenType._
   }
 
+  object urllib {
+    class addinfourl extends b.File {
+      // def getinfo(): ...
+    }
+  }
   object warnings {
     class UserWarning extends Exception
     def warn[T <: Exception](
         message: String,
         category: Class[T]=classOf[UserWarning] /*,
         stacklevel:Int=1 */) = TODO
+  }
+  
+  object xml {
+    object etree {
+      object ElementTree {
+        class Element {
+          def text: String = TODO
+          def attrib: b.Dict[String, String] = TODO
+          def findall(expr: String): Seq[Element]
+        }
+
+        def fromstring(s: String): Element = TODO
+      }
+    }
   }
 }
