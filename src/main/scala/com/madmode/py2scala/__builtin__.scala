@@ -18,6 +18,7 @@ object __builtin__ {
     def get(k: K, default: V) = this.getOrElse(k, default)
     def keys(): Iterable[String] = TODO
     def items(): Iterable[(K, V)] = TODO
+    def pop(k: K): String = TODO
   }
 
   object Dict {
@@ -172,6 +173,8 @@ object __builtin__ {
 
   val True = true
   val False = false
+
+  def str(x: Any) = x.toString()
 
   def range(lo: Int, hi: Int) = lo to hi
 

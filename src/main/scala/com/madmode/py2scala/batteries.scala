@@ -352,6 +352,10 @@ ConfigParser -- responsible for parsing a list of
     abstract class tzinfo
   }
 
+  object json {
+    
+  }
+
   object logging {
     val CRITICAL = 50
     val DEBUG = 10
@@ -367,6 +371,7 @@ ConfigParser -- responsible for parsing a list of
     class Logger {
       def debug(msg: String, args: Any*): Unit = TODO
       def info(msg: String, args: Any*): Unit = TODO
+      def warn(msg: String, args: Any*): Unit = TODO
     }
   }
 
@@ -494,7 +499,22 @@ ConfigParser -- responsible for parsing a list of
     class addinfourl extends b.File {
       // def getinfo(): ...
     }
+    def unquote(string: String): String = TODO
   }
+  
+  object urlparse {
+    /**
+     * Parse a query string given as a string argument (data of type application/x-www-form-urlencoded).
+     * Data are returned as a list of name, value pairs.
+     */
+    def parse_qsl(qs: String,
+        keep_blank_values: Boolean=false, strict_parsing: Boolean=false): IndexedSeq[(String, String)] = TODO
+  }
+  
+  object uuid {
+    class UUID
+  }
+
   object warnings {
     class UserWarning extends Exception
     def warn[T <: Exception](
@@ -503,6 +523,18 @@ ConfigParser -- responsible for parsing a list of
         stacklevel:Int=1 */) = TODO
   }
   
+  object wsgiref {
+    type Application = {  // KLUDGE: this type isn't actually named
+      def __call__(
+            env: b.Dict[String, String],
+            start_response: (String, Seq[(String, String)]) => Unit): Iterable[String]
+    }
+    object handlers {
+      class CGIHandler {
+        def run(app: Application): Unit = TODO
+      }
+    }
+  }
   object xml {
     object etree {
       object ElementTree {
