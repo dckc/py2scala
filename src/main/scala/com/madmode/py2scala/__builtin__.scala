@@ -9,17 +9,19 @@ import scala.collection.{mutable, Iterable}
 object __builtin__ {
 
   /* types */
-  class Dict[K, V] extends mutable.HashMap[K, V] {
+  /* scala compiler suggested +V. hmm */
+  class Dict[K, +V] extends mutable.HashMap[K, V] {
     def update(x: Dict[K, V]): Unit = {
       this ++= x
     }
 
     def get(k: K, default: V) = this.getOrElse(k, default)
+    def keys(): Iterable[String] = TODO
   }
 
   object Dict {
-    def apply[K, V]() = mutable.Map[K, V]()
-    def apply[K, V](elems: (K, V)*) = mutable.Map(elems:_*)
+    def apply[K, V]() = new Dict[K, V]()
+    def apply[K, V](elems: (K, V)*): Dict[K, V] = TODO // mutable.Map(elems:_*)
   }
 
   class Instance(o: Object) {
@@ -67,6 +69,8 @@ object __builtin__ {
     def isalpha(): Boolean = s.forall(_.isalpha())
 
     def isdigit(): Boolean = s.forall(_.isdigit())
+
+    def join(parts: Iterable[String]): String = TODO
 
     def strip(): String = s.trim()
 
@@ -186,4 +190,5 @@ object __builtin__ {
   class TypeError(msg: String="") extends Exception(msg)
   class ValueError(msg: String="") extends Exception(msg)
   class Error(msg: String="") extends Exception(msg)
+  class DeprecationWarning(msg: String="") extends Exception(msg)
 }

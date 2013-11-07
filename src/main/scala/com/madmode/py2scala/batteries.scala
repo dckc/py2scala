@@ -405,6 +405,7 @@ ConfigParser -- responsible for parsing a list of
 
   object pkg_resources {
     def resource_filename(ctx: String, res: String): String = TODO
+    def resource_string(ctx: String, res: String): String = TODO
   }
 
   object re {
@@ -489,4 +490,11 @@ ConfigParser -- responsible for parsing a list of
     import TokenType._
   }
 
+  object warnings {
+    class UserWarning extends Exception
+    def warn[T <: Exception](
+        message: String,
+        category: Class[T]=classOf[UserWarning] /*,
+        stacklevel:Int=1 */) = TODO
+  }
 }
