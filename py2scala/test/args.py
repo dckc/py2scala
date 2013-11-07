@@ -12,3 +12,4 @@ def g(*args):
 
 def kw_dict():
     dict(x=1, y=2)
+    dict(dict(x=1, y=2), x=3)

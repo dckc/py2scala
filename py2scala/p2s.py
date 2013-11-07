@@ -410,13 +410,17 @@ class Reify(object):
                       dict_id='dict'):
         '''translate dict(x=1, y=2) to Dict(x -> 1, y -> 2)
 
-        TODO: translate dict(d, x=y) as d ++ Dict(x -> y)
+        and dict(a, x=y) as a ++ Dict(x -> y)
         '''
         for node in node_opt:
             if tmatch(node,
                       ast.Call(func=ast.Name(id=dict_id, ctx=None),
-                               args=[], keywords=None, starargs=None,
+                               args=None, keywords=None, starargs=None,
                                kwargs=None)):
+                limitation(len(node.args) <= 1)
+                if node.args:
+                    self.visit(node.args[0])
+                    wr(' ++ ')
                 wr('Dict(')
                 for ix, kw in enumerate(node.keywords):
                     if ix > 0:
