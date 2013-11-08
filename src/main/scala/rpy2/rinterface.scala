@@ -4,12 +4,16 @@ object rinterface {
   import com.madmode.py2scala.__builtin__.TODO
 
   def set_writeconsole(w: Sexp => Unit) = TODO
-  def rternalize(f: Any): Sexp = TODO
-  
-  class Sexp {
-    def apply(args: Sexp*): Sexp = TODO
-  }
+
+  class Sexp
+
   class SexpVector extends Sexp with Seq[Sexp]
+
+  class SexpClosure extends Sexp {
+    def apply(args: Sexp*): Sexp = TODO
+  }  
+
+  def rternalize(f: Any): SexpClosure = TODO
 }
 
 /**
@@ -20,10 +24,9 @@ object robjects {
 
   import rinterface.Sexp
 
-  class IntVector(xs: IndexedSeq[Int]) extends Sexp with Seq[Int]
-  class StrVector(xs: IndexedSeq[String]) extends Sexp with Seq[String]
-  class ListVector(items: Dict[String, Sexp]) extends Sexp {
-    def items(): Dict[String, Sexp] = TODO
+  class IntVector(xs: Seq[Int]) extends Sexp with Seq[Int]
+  class StrVector(xs: Seq[String]) extends Sexp with Seq[String]
+  class ListVector(items: Dict[String, Sexp]) extends Sexp  with Iterable[Sexp] {
     def iteritems(): Dict[String, Sexp] = TODO
   }
   
@@ -40,9 +43,8 @@ object robjects {
   }
   
   object functions {
-    class Function extends Sexp {
-      def rcall(args: Sexp*): Sexp = TODO
-      def apply(args: Sexp*): Sexp = rcall(args : _*)
+    class Function extends rinterface.SexpClosure {
+      def rcall(args: Sexp*) = apply(args : _*)
     }
   }
 
