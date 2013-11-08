@@ -114,7 +114,7 @@ object __builtin__ {
     b.readLine()
   }
 
-  def open(path: String, mode: String = "r") = new FRFile(
+  def open(path: String, mode: String = "r"): File = new FRFile(
     new io.BufferedReader(new io.FileReader(new io.File(path))))
 
   def print(target: File, items: Any*) = target.write(items.mkString("", " ", "\n"))
