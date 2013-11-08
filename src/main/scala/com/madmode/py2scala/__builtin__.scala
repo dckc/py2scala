@@ -10,13 +10,12 @@ object __builtin__ {
 
   /* types */
   /* scala compiler suggested +V. hmm */
-  class Dict[K, +V] extends mutable.HashMap[K, V] {
+  class Dict[K, V] extends mutable.HashMap[K, V] {
     def update(x: Dict[K, V]): Unit = {
       this ++= x
     }
 
     def get(k: K, default: V) = this.getOrElse(k, default)
-    def keys(): Iterable[String] = TODO
     def items(): Iterable[(K, V)] = TODO
     def pop(k: K): String = TODO
   }
@@ -24,6 +23,7 @@ object __builtin__ {
   object Dict {
     def apply[K, V]() = new Dict[K, V]()
     def apply[K, V](elems: (K, V)*): Dict[K, V] = TODO // mutable.Map(elems:_*)
+    def apply[K, V](elems: Iterable[(K, V)]): Dict[K, V] = TODO
   }
 
   class Instance(o: Object) {
@@ -32,6 +32,7 @@ object __builtin__ {
 
   trait File extends Iterable[String] {
     def read(): String
+    def read(n: Int): String
 
     def readline(): String
 
@@ -72,7 +73,7 @@ object __builtin__ {
 
     def isdigit(): Boolean = s.forall(_.isdigit())
 
-    def index(needle: String): Int
+    def index(needle: String): Int = TODO
 
     def join(parts: Iterable[String]): String = TODO
 
@@ -85,6 +86,8 @@ object __builtin__ {
     def find(needle: Char) = s.indexOf(needle)
 
     def startswith(prefix: String) = s.startsWith(prefix)
+    def endswith(suffix: String) = s.endsWith(suffix)
+
 
     def %(items: Any*): String = TODO
   }
@@ -126,6 +129,7 @@ object __builtin__ {
     def close() = fp.close()
 
     def read(): String = TODO
+    def read(n: Int): String = TODO
 
     def readline(): String = fp.readLine()
 
@@ -194,7 +198,9 @@ object __builtin__ {
 
   class SystemExit extends Exception("SystemExit")
   class TypeError(msg: String="") extends Exception(msg)
+  class KeyError(msg: String="") extends Exception(msg)
   class ValueError(msg: String="") extends Exception(msg)
+  class IndexError(msg: String="") extends Exception(msg)
   class Error(msg: String="") extends Exception(msg)
   class DeprecationWarning(msg: String="") extends Exception(msg)
 }

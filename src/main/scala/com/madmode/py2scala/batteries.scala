@@ -353,7 +353,7 @@ ConfigParser -- responsible for parsing a list of
   }
 
   object json {
-    
+    def dumps(x: Any): String = TODO
   }
 
   object logging {
@@ -372,6 +372,8 @@ ConfigParser -- responsible for parsing a list of
       def debug(msg: String, args: Any*): Unit = TODO
       def info(msg: String, args: Any*): Unit = TODO
       def warn(msg: String, args: Any*): Unit = TODO
+      // cheat a little... args should be Any*
+      def critical(msg: String, exc_info: (Any, Any, Any)=null): Unit = TODO
     }
   }
 
@@ -470,6 +472,7 @@ ConfigParser -- responsible for parsing a list of
   object StringIO {
     case class StringIO(contents: String = "") extends b.File {
       override def read() = contents
+      override def read(n: Int) = contents
       override def readline() = TODO
       override def readlines() = TODO
       override def write(s: String) = TODO
@@ -483,6 +486,7 @@ ConfigParser -- responsible for parsing a list of
   object sys {
     def argv: Vector[String] = TODO
     def stdout: b.File = TODO
+    def exc_info(): (Any, Any, Any) = TODO
   }
   object tokenize {
     type Token = (Int, String, (Int, Int), (Int, Int), String)
@@ -496,7 +500,7 @@ ConfigParser -- responsible for parsing a list of
   }
 
   object urllib {
-    class addinfourl extends b.File {
+    abstract class addinfourl extends b.File {
       // def getinfo(): ...
     }
     def unquote(string: String): String = TODO
@@ -538,7 +542,7 @@ ConfigParser -- responsible for parsing a list of
   object xml {
     object etree {
       object ElementTree {
-        class Element {
+        abstract class Element extends Iterable[Element] {
           def text: String = TODO
           def attrib: b.Dict[String, String] = TODO
           def findall(expr: String): Seq[Element]
