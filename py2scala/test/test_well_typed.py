@@ -19,7 +19,7 @@ def _with_run(f,
     logging.basicConfig(level=logging.INFO)
 
     maven_path = test_convert.mk_maven_path(os_path, mkdir)
-    target = maven_path('target', scala_version)
+    target = maven_path('target', scala_version, '.')
     scala_src = maven_path('src', 'main', 'scala')
 
     return f(run_scalac=mk_run_scalac(check_call, target, scala_src),
