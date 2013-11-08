@@ -9,6 +9,7 @@ object rinterface {
   class Sexp {
     def apply(args: Sexp*): Sexp = TODO
   }
+  class SexpVector extends Sexp with Seq[Sexp]
 }
 
 /**
@@ -22,6 +23,7 @@ object robjects {
   class IntVector(xs: IndexedSeq[Int]) extends Sexp with Seq[Int]
   class StrVector(xs: IndexedSeq[String]) extends Sexp with Seq[String]
   class ListVector(items: Dict[String, Sexp]) extends Sexp {
+    def items(): Dict[String, Sexp] = TODO
     def iteritems(): Dict[String, Sexp] = TODO
   }
   
@@ -46,7 +48,9 @@ object robjects {
 
   // simulate dynamic typing a little
   object _dynamic {
+    implicit def as_vec[T](x: Sexp): rinterface.SexpVector = TODO
     implicit def as_ints(x: Sexp): IntVector = TODO
     implicit def as_strs(x: Sexp): StrVector = TODO
+    implicit def as_items(x: Sexp): ListVector = TODO
   }
 }
