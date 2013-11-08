@@ -1048,7 +1048,7 @@ class PyToScala(ast.NodeVisitor,
         wr = self._sync(node)
         self.visit(node.value)
         wr('.')
-        wr(node.attr)
+        wr(fix_kw(node.attr))
 
     def visit_Subscript(self, node):
         '''Subscript(expr value, slice slice, expr_context ctx)
@@ -1091,7 +1091,7 @@ class PyToScala(ast.NodeVisitor,
     def visit_Name(self, node):
         # hmm... ctx
         wr = self._sync(node)
-        wr(node.id)
+        wr(fix_kw(node.id))
 
     def visit_List(self, node):
         wr = self._sync(node)
@@ -1158,6 +1158,10 @@ class PyToScala(ast.NodeVisitor,
         import pdb; pdb.set_trace()
         raise NotImplementedError('need visitor for: %s %s' %
                                   (node.__class__.__name__, node))
+
+
+def fix_kw(n):
+    return n + ('_' if n in ('match',) else '')
 
 
 def tmatch(candidate, pattern):
