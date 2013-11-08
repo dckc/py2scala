@@ -170,10 +170,37 @@ class TypeDecls(object):
 
     @classmethod
     def parse_types(cls, txt):
+        '''Parse a mixure of Spinx typing conventions and scala syntax.
+
+        Parameter types are written in scala syntax::
+
+          >>> TypeDecls.parse_types(':type x: String')
+          ([('x', 'String')], None, '')
+
+        Return types likewise::
+
+          >>> TypeDecls.parse_types(':rtype: Int')
+          ([], 'Int', '')
+
+        One-word types can be included in `:param:` markup::
+
+          >>> TypeDecls.parse_types(':param String x: abc')
+          ([('x', 'String')], None, '')
+
+        We extend the Sphinx conventions with type parameters::
+
+          >>> TypeDecls.parse_types("""
+          ...   :forall: T, U
+          ...   :type x: Dict[T, U]""")
+          ([('x', 'Dict[T, U]')], None, '[T, U]')
+
+        .. note: TODO: handle multi-line types
+
         '''
-        TODO: handle multi-line types
-        '''
-        arg_types = re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE)
+        arg_types = (
+            re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE) +
+            [(n, t) for (t, n) in
+             re.findall(':param\s+(\w+)\s+(\w+):', txt, re.MULTILINE)])
         rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
         foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
         return (arg_types,
