@@ -199,6 +199,9 @@ class TypeDecls(object):
             wr(': ' + arg_type)
 
     def _arg_type(self, arg, default, types):
+        '''
+        .. note: TODO: log a warning when falling back to Any
+        '''
         fallback = None if self._def_stack[-1:] == ['lambda'] else 'Any'
         return ((types.get(arg.id) if isinstance(arg, ast.Name) else
                  types.get(arg) if isinstance(arg, type('')) else None)
