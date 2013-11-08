@@ -19,9 +19,11 @@ object robjects {
 
   import rinterface.Sexp
 
-  class IntVector(xs: IndexedSeq[Int]) extends Sexp
-  class StrVector(xs: IndexedSeq[String]) extends Sexp
-  class ListVector(items: Dict[String, Sexp]) extends Sexp
+  class IntVector(xs: IndexedSeq[Int]) extends Sexp with Seq[Int]
+  class StrVector(xs: IndexedSeq[String]) extends Sexp with Seq[String]
+  class ListVector(items: Dict[String, Sexp]) extends Sexp {
+    def iteritems(): Dict[String, Sexp] = TODO
+  }
   
   class R extends Dict[String, (Sexp*) => Sexp] with Function1[String, Sexp]{
     override def apply(expr: String): Sexp
@@ -36,9 +38,15 @@ object robjects {
   }
   
   object functions {
-    class Function {
+    class Function extends Sexp {
       def rcall(args: Sexp*): Sexp = TODO
       def apply(args: Sexp*): Sexp = rcall(args : _*)
     }
+  }
+
+  // simulate dynamic typing a little
+  object _dynamic {
+    implicit def as_ints(x: Sexp): IntVector = TODO
+    implicit def as_strs(x: Sexp): StrVector = TODO
   }
 }
