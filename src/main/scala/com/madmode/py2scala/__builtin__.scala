@@ -180,6 +180,11 @@ object __builtin__ {
 
   def str(x: Any) = x.toString()
 
+  def dict[K, V](xs: Iterable[(K, V)]): Dict[K, V] = TODO
+  def dict[K, V](xs: (K, V)*): Dict[K, V] = TODO
+
+  def list[T](xs: T*): mutable.IndexedSeq[T] = TODO
+
   def range(lo: Int, hi: Int) = lo to hi
 
   def sum(xs: Iterable[Int]) = xs.reduce(_ + _)
@@ -187,8 +192,6 @@ object __builtin__ {
   def int(s: String) = s.toInt
 
   def len[T](s: Seq[T]) = s.length
-
-  def mod(fmt: String, v: Any*): String = TODO // s % v ; really batteries.operator.mod
 
   def isinstance[T](o: Object, c: java.lang.Class[T]) = c.isInstance(o)
 

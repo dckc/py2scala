@@ -116,8 +116,8 @@ class ModuleAttributes(LineSyntax):
 
 
 class PyRunTime(object):
-    scala_rt = ['scala.collection.mutable']
-    list_maker = 'mutable.IndexedSeq'
+    scala_rt = []
+    list_maker = 'list'
 
     def __init__(self, find_package, batteries_pfx, py2scala):
         self._find_package = find_package
@@ -413,25 +413,27 @@ class Reify(object):
                       dict_id='dict'):
         '''translate dict(x=1, y=2) to Dict(x -> 1, y -> 2)
 
-        and dict(a, x=y) as a ++ Dict(x -> y)
+        and dict(a, x=y) as Dict(a) ++ Dict(x -> y)
         '''
         for node in node_opt:
-            if tmatch(node,
-                      ast.Call(func=ast.Name(id=dict_id, ctx=None),
-                               args=None, keywords=None, starargs=None,
-                               kwargs=None)):
+            if (tmatch(node,
+                       ast.Call(func=ast.Name(id=dict_id, ctx=None),
+                                args=None, keywords=None, starargs=None,
+                                kwargs=None))
+                and node.keywords):
                 limitation(len(node.args) <= 1)
                 if node.args:
+                    wr('(dict(')
                     self.visit(node.args[0])
-                    wr(' ++ ')
-                wr('Dict(')
+                    wr(') ++ ')
+                wr('dict(')
                 for ix, kw in enumerate(node.keywords):
                     if ix > 0:
                         wr(', ')
                     wr('"%s"' % kw.arg)
                     wr(' -> ')
                     self.visit(kw.value)
-                wr(')')
+                wr('))' if node.args else ')')
                 return []
         return node_opt
 

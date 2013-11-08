@@ -11,10 +11,10 @@ def g(*args):
 
 
 def kw_dict():
-    return [dict(x=1, y=2)]
-    # TODO: dict(dict(x=1, y=2), x=3),
-    #       dict([('x', 1), ('y', 2)]),
-    #       dict([('x', 1), ('y', 2)], z=3)]
+    return [dict(x=1, y=2),
+            dict(dict(x=1, y=2), x=3),
+            dict([('x', 1), ('y', 2)]),
+            dict([('x', 1), ('y', 2)], z=3)]
 
 
 print kw_dict()
