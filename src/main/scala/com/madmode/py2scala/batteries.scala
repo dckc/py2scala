@@ -352,6 +352,10 @@ ConfigParser -- responsible for parsing a list of
     abstract class tzinfo
   }
 
+  object getpass {
+    def getuser(): String = TODO
+  }
+
   object json {
     def dumps(x: Any): String = TODO
   }
@@ -375,6 +379,9 @@ ConfigParser -- responsible for parsing a list of
       // cheat a little... args should be Any*
       def critical(msg: String, exc_info: (Any, Any, Any)=null): Unit = TODO
     }
+    object config {
+      def fileConfig(n: String) = TODO
+    }
   }
 
   object os {
@@ -385,8 +392,12 @@ ConfigParser -- responsible for parsing a list of
     import batteries.stat.ST_MTIME
 
     def getenv(n: String): String = TODO
+    def environ: b.Dict[String, String] = TODO
 
     def name: String = TODO
+
+    def listdir(path: String): IndexedSeq[String] = TODO
+    def mkdir(path: String) = TODO
 
     def stat(path: String): Map[Int, Long] = TODO /*{
       import com.madmode.py2scala.{ batteries => py }
@@ -399,9 +410,11 @@ ConfigParser -- responsible for parsing a list of
     object path {
       def isdir(path: String): Boolean = TODO
       def isfile(filename: String): Boolean = TODO // Files.exists(Paths.get(filename))
-      def join(x: String, y: String): String = TODO // Paths.get(x).resolve(Paths.get(y)).toString
+      def join(segments: String*): String = TODO
+      // Paths.get(x).resolve(Paths.get(y)).toString
       def splitext(path: String): (String, String) = TODO
       def basename(path: String): String = TODO
+      def exists(path: String): Boolean = TODO
     }
   }
 
@@ -422,6 +435,7 @@ ConfigParser -- responsible for parsing a list of
     def compile(s: String): RegexObject = {
       new RegexObject(s)
     }
+    def match_(pattern: String, repl: String): Match = TODO
 
     class RegexObject(regex: String) extends matching.Regex(regex) {
       def match_(s: String): Match = TODO /* {
@@ -517,6 +531,7 @@ ConfigParser -- responsible for parsing a list of
   
   object uuid {
     class UUID
+    def uuid4(): UUID = TODO
   }
 
   object warnings {
