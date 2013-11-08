@@ -167,7 +167,7 @@ ConfigParser -- responsible for parsing a list of
       /**
       Return a list of section names, excluding [DEFAULT]
         */
-      def sections(): IndexedSeq[String] = TODO // mutable?
+      def sections(): Seq[String] = TODO // mutable?
 
       /**
       Create a new section in the configuration.
@@ -188,7 +188,7 @@ ConfigParser -- responsible for parsing a list of
       /**
       Return a list of option names for the given section name.
         */
-      def options(section: String): IndexedSeq[String] = TODO
+      def options(section: String): Seq[String] = TODO
 
       /**
       Read and parse a filename or a list of filenames.
@@ -396,7 +396,7 @@ ConfigParser -- responsible for parsing a list of
 
     def name: String = TODO
 
-    def listdir(path: String): IndexedSeq[String] = TODO
+    def listdir(path: String): Seq[String] = TODO
     def mkdir(path: String) = TODO
 
     def stat(path: String): Map[Int, Long] = TODO /*{
@@ -526,7 +526,7 @@ ConfigParser -- responsible for parsing a list of
      * Data are returned as a list of name, value pairs.
      */
     def parse_qsl(qs: String,
-        keep_blank_values: Boolean=false, strict_parsing: Boolean=false): IndexedSeq[(String, String)] = TODO
+        keep_blank_values: Boolean=false, strict_parsing: Boolean=false): Seq[(String, String)] = TODO
   }
   
   object uuid {
