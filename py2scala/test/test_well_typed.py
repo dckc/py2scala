@@ -12,12 +12,13 @@ def _with_run(f,
               scala_version='scala-2.10'):
     from imp import find_module
     from os import path as os_path
+    from os import mkdir
     from subprocess import check_call
     from sys import path as sys_path
 
     logging.basicConfig(level=logging.INFO)
 
-    maven_path = test_convert.mk_maven_path(os_path)
+    maven_path = test_convert.mk_maven_path(os_path, mkdir)
     target = maven_path('target', scala_version)
     scala_src = maven_path('src', 'main', 'scala')
 

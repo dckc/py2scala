@@ -36,12 +36,17 @@ def read_manifest(fn):
             if item]
 
 
-def mk_maven_path(os_path):
+def mk_maven_path(os_path, mkdir):
     here = os_path.dirname(__file__)
 
     def maven_path(*segments):
-        there = os_path.join(here, '..', '..', *segments)
-        return os_path.relpath(os_path.normpath(there))
+        there = os_path.join(here, '..', '..')
+        there = os_path.relpath(os_path.normpath(there))
+        for segment in segments[:-1]:
+            there = os_path.join(there, segment)
+            if not os_path.exists(there):
+                mkdir(there)
+        return os_path.join(there, segments[-1])
 
     return maven_path
 
@@ -62,9 +67,10 @@ def _with_find_save(f):
     '''
     from imp import find_module
     from os import path as os_path
+    from os import mkdir
     from sys import path as sys_path
 
-    maven_path = mk_maven_path(os_path)
+    maven_path = mk_maven_path(os_path, mkdir)
     return f(find_package=p2s.mk_find_package(find_module,
                                               os_path.split, sys_path),
              save_scala_fp=mk_save_scala_fp(open, maven_path))
