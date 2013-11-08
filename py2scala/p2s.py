@@ -117,7 +117,7 @@ class ModuleAttributes(LineSyntax):
 
 class PyRunTime(object):
     scala_rt = []
-    list_maker = 'list'
+    list_maker = '`[...]`'
 
     def __init__(self, find_package, batteries_pfx, py2scala):
         self._find_package = find_package
@@ -438,9 +438,11 @@ class Reify(object):
 
     def _reify_kwargs(self, wr, node_opt,
                       dict_id='dict'):
-        '''translate dict(x=1, y=2) to Dict(x -> 1, y -> 2)
+        '''translate dict(x=1, y=2) to dict(x -> 1, y -> 2)
 
-        and dict(a, x=y) as Dict(a) ++ Dict(x -> y)
+        and dict(a, x=y) as dict(a, x -> y)
+
+        ..todo: consider applying this to any call, not just dict
         '''
         for node in node_opt:
             if (tmatch(node,
@@ -449,18 +451,17 @@ class Reify(object):
                                 kwargs=None))
                 and node.keywords):
                 limitation(len(node.args) <= 1)
-                if node.args:
-                    wr('(dict(')
-                    self.visit(node.args[0])
-                    wr(') ++ ')
                 wr('dict(')
+                if node.args:
+                    self.visit(node.args[0])
+                    wr(', ')
                 for ix, kw in enumerate(node.keywords):
                     if ix > 0:
                         wr(', ')
                     wr('"%s"' % kw.arg)
                     wr(' -> ')
                     self.visit(kw.value)
-                wr('))' if node.args else ')')
+                wr(')')
                 return []
         return node_opt
 
@@ -956,7 +957,7 @@ class PyToScala(ast.NodeVisitor,
         comprehension = (expr target, expr iter, expr* ifs)
         '''
         wr = self._sync(node)
-        wr('for (')
+        wr('(for (')
         first = True
         for gen in node.generators:
             if not first:
@@ -973,6 +974,7 @@ class PyToScala(ast.NodeVisitor,
 
         wr(') yield ')
         self.visit(node.elt)
+        wr(')')
 
     def visit_Yield(self, node):
         '''Yield(expr? value)

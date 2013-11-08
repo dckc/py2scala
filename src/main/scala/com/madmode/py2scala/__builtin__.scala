@@ -17,6 +17,7 @@ object __builtin__ {
 
     def get(k: K, default: V) = this.getOrElse(k, default)
     def items(): Iterable[(K, V)] = TODO
+    override def keys(): Seq[K] = TODO
     def pop(k: K): String = TODO
   }
 
@@ -182,8 +183,11 @@ object __builtin__ {
 
   def dict[K, V](xs: Iterable[(K, V)]): Dict[K, V] = TODO
   def dict[K, V](xs: (K, V)*): Dict[K, V] = TODO
+  def dict[K, V](items: Iterable[(K, V)], xs: (K, V)*): Dict[K, V] = TODO
 
-  def list[T](xs: T*): mutable.IndexedSeq[T] = TODO
+  def list[T](xs: Iterable[T]): mutable.IndexedSeq[T] = TODO
+  // can't collide with any python identifier. still a KLUDGE?
+  def `[...]`[T](xs: T*): mutable.IndexedSeq[T] = TODO
 
   def range(lo: Int, hi: Int) = lo to hi
 
