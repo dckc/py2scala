@@ -186,6 +186,8 @@ class TypeDecls(object):
 
           >>> TypeDecls.parse_types(':param String x: abc')
           ([('x', 'String')], None, '')
+          >>> TypeDecls.parse_types(':param Seq[String] xs: abc')
+          ([('xs', 'Seq[String]')], None, '')
 
         We extend the Sphinx conventions with type parameters::
 
@@ -200,7 +202,7 @@ class TypeDecls(object):
         arg_types = (
             re.findall(':type\s+(\w+):\s+(.*)', txt, re.MULTILINE) +
             [(n, t) for (t, n) in
-             re.findall(':param\s+(\w+)\s+(\w+):', txt, re.MULTILINE)])
+             re.findall(':param\s+(\S+)\s+(\w+):', txt, re.MULTILINE)])
         rtypes = re.findall(':rtype:\s+(.*)', txt, re.MULTILINE)
         foralls = re.findall(':forall:\s+(.*)', txt, re.MULTILINE)
         return (arg_types,
