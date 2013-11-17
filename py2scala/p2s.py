@@ -637,9 +637,17 @@ class PyToScala(ast.NodeVisitor,
     def visit_Delete(self, node):
         '''Delete(expr* targets)
         '''
-        limitation(False)
-        for expr in node.targets:
-            self.visit(expr)
+        limitation(tmatch(node.targets,
+                          [ast.Subscript(value=None,
+                                         slice=ast.Index(value=None),
+                                         ctx=ast.Del())]))
+        wr = self._sync(node)
+        target = node.targets[0]
+        self.visit(target.value)
+        wr('.__delitem__(')
+        self.visit(target.slice.value)
+        wr(')')
+        self.newline()
 
     def visit_Assign(self, node):
         '''Assign(expr* targets, expr value)
@@ -666,10 +674,12 @@ class PyToScala(ast.NodeVisitor,
     def visit_Print(self, node):
         '''Print(expr? dest, expr* values, bool nl)
         '''
-        limitation(node.nl)
         wr = self._sync(node)
-        wr('print')
-        self._items(wr, option_iter(node.dest) + node.values, parens=True)
+        wr('print(')
+        self._items(wr, option_iter(node.dest) + node.values)
+        if node.nl:
+            wr(r', "\n"')
+        wr(')')
         self.newline()
 
     def visit_For(self, node):

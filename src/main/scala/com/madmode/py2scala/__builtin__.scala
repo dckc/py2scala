@@ -117,8 +117,8 @@ object __builtin__ {
   def open(path: String, mode: String = "r"): File = new FRFile(
     new io.BufferedReader(new io.FileReader(new io.File(path))))
 
-  def print(target: File, items: Any*) = target.write(items.mkString("", " ", "\n"))
-  def print(items: Any*) = println(items.mkString(" "))
+  def print(target: File, items: Any*) = target.write(items.mkString("", " "))
+  def print(items: Any*) = System.out.print(items.mkString(" "))
 
   implicit def as_py_file(fp: io.BufferedReader): File = new FRFile(fp)
 
