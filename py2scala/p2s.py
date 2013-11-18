@@ -1071,7 +1071,7 @@ class PyToScala(ast.NodeVisitor,
 
     def visit_Str(self, node):
         wr = self._sync(node)
-        wr('"' + node.s.encode("string_escape") + '"')
+        wr('"' + node.s.encode("string_escape").replace('"', '\\"') + '"')
 
     def visit_Attribute(self, node):
         '''Attribute(expr value, identifier attr, expr_context ctx)
