@@ -1071,17 +1071,7 @@ class PyToScala(ast.NodeVisitor,
 
     def visit_Str(self, node):
         wr = self._sync(node)
-        s = node.s
-        #@@limitation('\\u' not in s)
-
-        if '\\' in s or '"' in s and not s.endswith('"'):
-            wr('"""' + s + '"""')
-        else:
-            for o, n in (('\\', r'\\'),
-                         ('\n', r'\n'), ('\t', r'\t'),
-                         ('"', r'\"')):
-                s = s.replace(o, n)
-            wr('"' + s + '"')
+        wr('"' + node.s.encode("string_escape") + '"')
 
     def visit_Attribute(self, node):
         '''Attribute(expr value, identifier attr, expr_context ctx)
